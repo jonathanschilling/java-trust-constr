@@ -4,6 +4,8 @@ import org.netlib.util.intW;
 
 import com.github.fommil.netlib.LAPACK;
 
+import de.labathome.LinAlg;
+
 /**
  * Solve the Equality-Constrained Quadratic Programming Problem:
  *
@@ -192,7 +194,7 @@ public class QuadraticProgrammingSubproblem {
 	public static IntersectionResult sphereIntersections(double[] z, double[] d, double trustRadius, boolean entireLine) {
 
 		// special case when d == 0
-		if (norm(d) == 0.0) {
+		if (LinAlg.norm(d) == 0.0) {
 			return new IntersectionResult(0.0, 0.0, false);
 		}
 
@@ -209,9 +211,9 @@ public class QuadraticProgrammingSubproblem {
 			return new IntersectionResult(tA, tB, true);
 		}
 
-		double a = dot(d, d);
-		double b = 2.0 * dot(z, d);
-		double c = dot(z, z) - trustRadius * trustRadius;
+		double a = LinAlg.dot(d, d);
+		double b = 2.0 * LinAlg.dot(z, d);
+		double c = LinAlg.dot(z, z) - trustRadius * trustRadius;
 		double discriminant = b * b - 4 * a * c;
 		if (discriminant < 0.0) {
 			// line does not hit the ball (?)
@@ -298,7 +300,7 @@ public class QuadraticProgrammingSubproblem {
 	public static IntersectionResult boxIntersections(double[] zIn, double[] dIn, double[] lbIn, double[] ubIn, boolean entireLine) {
 
 		// special case when d == 0
-		if (norm(dIn) == 0.0) {
+		if (LinAlg.norm(dIn) == 0.0) {
 			return new IntersectionResult(0.0, 0.0, false);
 		}
 
@@ -395,8 +397,9 @@ public class QuadraticProgrammingSubproblem {
 	 *                   {@code x(t) = z + t*d} ({@code t} can assume any value) and the constraints.
 	 *                   When {@code false}, the function returns the intersection between the segment
 	 *                   {@code x(t) = z + t*d}, {@code 0 <= t <= 1} and the constraints.
-	 * @return [3] The line/segment {@code x(t) = z + t*d} is inside the rectangular box and
-	 *             inside the ball for for {@code ta <= t <= tb}.
+	 * @return [3] The  first element is the combined intersection result.
+	 *             The second element is the intersection result from {@code sphereIntersections}.
+	 *             The  third element is the intersection result from {@code boxIntersections}.
 	 */
 	public static IntersectionResult[] boxSphereIntersectionsWithExtraInfo(double[] z, double[] d, double[] lb, double[] ub, double trustRadius, boolean entireLine) {
 
@@ -414,20 +417,128 @@ public class QuadraticProgrammingSubproblem {
 		};
 	}
 
+	/**
+	 * Approximately  minimize {@code 1/2*|| A x + b ||^2} inside trust-region.
+	 *
+	 * Approximately solve the problem of minimizing {@code 1/2*|| A x + b ||^2}
+	 * subject to {@code ||x|| < Delta} and {@code lb <= x <= ub} using a modification
+	 * of the classical dogleg approach.
+	 *
+	 * Based on implementations described in pp. 885-886 from [1].
+	 *
+	 * [1] Byrd, Richard H., Mary E. Hribar, and Jorge Nocedal.
+	 *     "An interior point algorithm for large-scale nonlinear
+	 *     programming." SIAM Journal on Optimization 9.4 (1999): 877-900.
+	 *
+	 * @param A [m][n] Matrix {@code A} in the minimization problem.
+	 *                 It should have dimensions {@code (m, n)} such that {@code m < n}.
+	 * @param Y [n][m] LinearOperator that apply the projection matrix
+	 *                 {@code Q = A.T inv(A A.T)} to the vector. The obtained vector
+	 *                 {@code y = Q x} being the minimum norm solution of {@code A y = x}.
+	 * @param b [m] Vector {@code b}in the minimization problem.
+	 * @param trustRadius Trust radius to be considered. Delimits a sphere boundary to the problem.
+	 * @param lb [n] Lower bounds to each one of the components of {@code x}.
+	 *               It is expected that {@code lb <= 0}, otherwise the algorithm
+	 *               may fail. If {@code lb[i] = Double.NEGATIVE_INFINITY}, the lower
+	 *               bound for the i-th component is just ignored.
+	 * @param ub [n] Upper bounds to each one of the components of {@code x}.
+	 *               It is expected that {@code ub >= 0}, otherwise the algorithm
+	 *               may fail. If {@code ub[i] = Double.POSITIVE_INFINITY}, the upper bound for the i-th
+	 *               component is just ignored.
+	 * @return [n] Solution to the problem.
+	 */
+	public static double[] modifiedDogleg(double[][] A, double[][] Y, double[] b, double trustRadius, double[] lb, double[] ub) {
 
-	public static double norm(double[] v) {
-		double n = 0.0;
-		for (int i=0; i<v.length; ++i) {
-			n += v[i] * v[i];
+		// Compute minimum norm minimizer of 1/2*|| A x + b ||^2.
+		double[] newtonPoint = LinAlg.dot(A, b, -1.0);
+
+		if (insideBoxBoundaries(newtonPoint, lb, ub) && LinAlg.norm(newtonPoint) <= trustRadius) {
+			return newtonPoint;
 		}
-		return Math.sqrt(n);
+
+		// Compute gradient vector {@code g = A.T b}
+		double[] g = LinAlg.dot(A, true, b);
+
+		// Compute Cauchy point:
+		// {@code cauchy_point = g.T g / (g.T A.T A g)}
+		double[] A_g = LinAlg.dot(A, g);
+		double cauchyScale = -LinAlg.dot(g, g) / LinAlg.dot(A_g, A_g);
+		double[] cauchyPoint = LinAlg.mulElem(g, cauchyScale);
+
+		// Origin
+		double[] origin = new double[cauchyPoint.length];
+
+		// Check the segment between cauchy_point and newton_point for a possible solution.
+		double[] z = cauchyPoint;
+		double[] p = LinAlg.subtract(newtonPoint, cauchyPoint);
+		IntersectionResult r1 = boxSphereIntersections(z, p, lb, ub, trustRadius);
+		double alpha = r1.tB();
+
+		final double[] x1;
+		if (!r1.intersect()) {
+			// Check the segment between the origin and cauchy_point for a possible solution.
+			z = origin;
+			p = cauchyPoint;
+			IntersectionResult r2 = boxSphereIntersections(z, p, lb, ub, trustRadius);
+			alpha = r2.tB();
+		}
+		x1 = LinAlg.add(z, LinAlg.mulElem(p, alpha));
+
+		// Check the segment between origin and newton_point for a possible solution.
+		z = origin;
+		p = newtonPoint;
+		IntersectionResult r3 = boxSphereIntersections(z, p, lb, ub, trustRadius);
+		alpha = r3.tB();
+		double[] x2 = LinAlg.add(z, LinAlg.mulElem(p, alpha));
+
+		// Return the best solution among x1 and x2.
+		double norm1 = LinAlg.norm(LinAlg.add(LinAlg.dot(A, x1), b));
+		double norm2 = LinAlg.norm(LinAlg.add(LinAlg.dot(A, x2), b));
+		if (norm1 < norm2) {
+			return x1;
+		} else {
+			return x2;
+		}
 	}
 
-	public static double dot(double[] a, double[] b) {
-		double d = 0.0;
-		for (int i=0; i<a.length; ++i) {
-			d += a[i] * b[i];
+
+
+
+
+
+
+
+
+	/**
+	 * Return clipped value of x.
+	 * @param x  [n] position vector to force into bounds
+	 * @param lb [n] lower bounds
+	 * @param ub [n] upper bounds
+	 * @return coerced copy of x such that lb <= x <= ub for all entries
+	 */
+	public static double[] reinforceBoxBoundaries(double[] x, double[] lb, double[] ub) {
+		double[] clippedX = x.clone();
+		for (int i=0; i<x.length; ++i) {
+			double temp = Math.max(x[i], lb[i]);
+			clippedX[i] = Math.min(temp, ub[i]);
 		}
-		return d;
+		return clippedX;
+	}
+
+	/**
+	 * Check if lb <= x <= ub.
+	 *
+	 * @param x  [n] position to test
+	 * @param lb [n] lower bounds
+	 * @param ub [n] upper bounds
+	 * @return true of lb <= x <= ub for all entries, false otherwise
+	 */
+	public static boolean insideBoxBoundaries(double[] x, double[] lb, double[] ub) {
+		for (int i=0; i<x.length; ++i) {
+			if (x[i] < lb[i] || x[i] > ub[i]) {
+				return false;
+			}
+		}
+		return true;
 	}
 }

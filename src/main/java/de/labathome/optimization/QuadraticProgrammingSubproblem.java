@@ -22,9 +22,9 @@ import com.github.fommil.netlib.LAPACK;
  * @see Nocedal/Wright, Numerical Optimization (2006), chapter 16.1
  * @see https://antonior92.github.io/posts/2017/05/projected-CG/
  */
-public class EQPProblem {
+public class QuadraticProgrammingSubproblem {
 
-	private static final LAPACK lapack = LAPACK.getInstance();
+	private static LAPACK lapack;
 
 	/** number of parameters of the problem */
 	protected int n;
@@ -60,7 +60,7 @@ public class EQPProblem {
 	 * @param A [m][n] Jacobian matrix of the EQP problem
 	 * @param b [m] Right-hand side of the constraint equation * (-1)
 	 */
-	public EQPProblem(int n, int m, double[][] H, double[] c, double[][] A, double[] b) {
+	public QuadraticProgrammingSubproblem(int n, int m, double[][] H, double[] c, double[][] A, double[] b) {
 		this.n = n;
 		this.m = m;
 		this.H = H;
@@ -92,6 +92,9 @@ public class EQPProblem {
 
 	/** solve by direct factorization of the KKT matrix (16.5) */
 	public void directFactorization() {
+		if (lapack == null) {
+			lapack = LAPACK.getInstance();
+		}
 
 		// 1. build explicit KKT matrix:
 		// [ G A^T ]
@@ -252,6 +255,116 @@ public class EQPProblem {
 
 		return new IntersectionResult(tA, tB, intersect);
 	}
+
+	/**
+	 * Find the intersection between segment (or line) and box constraints.
+	 *
+	 * Find the intersection between the segment (or line) defined by the
+	 * parametric  equation {@code x(t) = z + t*d} and the rectangular box
+	 * {@code lb <= x <= ub}.
+	 *
+	 * @param zIn [n] initial point
+	 * @param dIn [n] direction
+	 * @param lbIn [n] lower bounds to each one of the components of {@code x},
+	 *               used to delimit the rectangular box
+	 * @param ubIn [n] upper bounds to each one of the components of {@code x},
+	 *               used to delimit the rectangular box
+	 * @return
+	 */
+	public static IntersectionResult boxIntersections(double[] z, double[] d, double[] lb, double[] ub) {
+		boolean entireLine = false;
+		return boxIntersections(z, d, lb, ub, entireLine);
+	}
+
+	/**
+	 * Find the intersection between segment (or line) and box constraints.
+	 *
+	 * Find the intersection between the segment (or line) defined by the
+	 * parametric  equation {@code x(t) = z + t*d} and the rectangular box
+	 * {@code lb <= x <= ub}.
+	 *
+	 * @param zIn [n] initial point
+	 * @param dIn [n] direction
+	 * @param lbIn [n] lower bounds to each one of the components of {@code x},
+	 *               used to delimit the rectangular box
+	 * @param ubIn [n] upper bounds to each one of the components of {@code x},
+	 *               used to delimit the rectangular box
+	 * @param entireLine When {@code true}, the function returns the intersection between the line
+	 *                   {@code x(t) = z + t*d} ({@code t} can assume any value) and the rectangular box.
+	 *                   When {@code false}, the function returns the intersection between the segment
+	 *                   {@code x(t) = z + t*d}, {@code 0 <= t <= 1}, and the rectangular box.
+	 * @return
+	 */
+	public static IntersectionResult boxIntersections(double[] zIn, double[] dIn, double[] lbIn, double[] ubIn, boolean entireLine) {
+
+		// special case when d == 0
+		if (norm(dIn) == 0.0) {
+			return new IntersectionResult(0.0, 0.0, false);
+		}
+
+		final int nIn = zIn.length;
+
+		int n = 0;
+		for (int i=0; i<nIn; ++i) {
+			if (dIn[i] == 0.0) {
+				// If the boundaries are not satisfied for some coordinate
+				// for which "d" is zero, there is no box-line intersection.
+				if (zIn[i] < lbIn[i] || zIn[i] > ubIn[i]) {
+					return new IntersectionResult(0.0, 0.0, false);
+				}
+			} else {
+				n++;
+			}
+		}
+
+		// remove values for which d is zero
+		double[] z = new double[n];
+		double[] d = new double[n];
+		double[] lb = new double[n];
+		double[] ub = new double[n];
+		int idx = 0;
+		for (int i=0; i<nIn; ++i) {
+			if (dIn[i] != 0.0) {
+				z[idx] = zIn[i];
+				d[idx] = dIn[i];
+				lb[idx] = lbIn[i];
+				ub[idx] = ubIn[i];
+				idx++;
+			}
+		}
+
+		// Find a series of intervals (t_lb[i], t_ub[i]).
+		// Get the intersection of all those intervals.
+		double tA = Double.NEGATIVE_INFINITY;
+		double tB = Double.POSITIVE_INFINITY;
+		for (int i=0; i<n; ++i) {
+			double t_lb = (lb[i] - z[i]) / d[i];
+			double t_ub = (ub[i] - z[i]) / d[i];
+			double minT = Math.min(t_lb, t_ub);
+			double maxT = Math.max(t_lb, t_ub);
+			tA = Math.max(tA, minT);
+			tB = Math.min(tB, maxT);
+		}
+
+		// check if intersection is feasible
+		final boolean intersect = (tA <= tB);
+
+		// Checks to see if intersection happens within vectors length.
+		if (!entireLine) {
+			if (tB < 0.0 || tA > 1.0) {
+				return new IntersectionResult(0.0, 0.0, false);
+			} else {
+				// Restrict intersection interval between 0 and 1.
+				tA = Math.max(0.0, tA);
+				tB = Math.min(1.0, tB);
+			}
+		}
+
+		return new IntersectionResult(tA, tB, intersect);
+	}
+
+
+
 
 	public static double norm(double[] v) {
 		double n = 0.0;

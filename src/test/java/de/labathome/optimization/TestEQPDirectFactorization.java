@@ -29,7 +29,7 @@ class TestEQPDirectFactorization {
 		final double[] c = { -8.0, -3.0, -3.0 };
 		final double[] b = { -3.0, 0.0 }; // This is actually -b.
 
-		EQPProblem eqp = new EQPProblem(n, m, H, c, A, b);
+		QuadraticProgrammingSubproblem eqp = new QuadraticProgrammingSubproblem(n, m, H, c, A, b);
 		eqp.directFactorization();
 
 		final double[] x = eqp.getX();

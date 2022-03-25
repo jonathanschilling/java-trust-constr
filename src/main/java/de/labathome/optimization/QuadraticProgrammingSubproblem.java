@@ -450,7 +450,7 @@ public class QuadraticProgrammingSubproblem {
 	public static double[] modifiedDogleg(double[][] A, double[][] Y, double[] b, double trustRadius, double[] lb, double[] ub) {
 
 		// Compute minimum norm minimizer of 1/2*|| A x + b ||^2.
-		double[] newtonPoint = LinAlg.dot(A, b, -1.0);
+		double[] newtonPoint = LinAlg.dot(Y, b, -1.0);
 
 		if (insideBoxBoundaries(newtonPoint, lb, ub) && LinAlg.norm(newtonPoint) <= trustRadius) {
 			return newtonPoint;

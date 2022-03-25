@@ -16,4 +16,23 @@ public interface LinearOperator {
 	 */
 	public double[] apply(double[] x);
 
+	public default double[][] mat() {
+
+		// TODO: fix this...
+
+		int n = this.n();
+		int m = this.m();
+		double[][] A = new double[m][n];
+		for (int i=0; i<n; ++i) {
+			double[] e_i = new double[m];
+			e_i[i] = 1.0;
+			double[] e_i_result = this.apply(e_i);
+			for (int j=0; j<m; ++j) {
+				A[j][i] = e_i_result[j];
+			}
+		}
+
+		return A;
+	}
+
 }

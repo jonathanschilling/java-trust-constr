@@ -9,18 +9,18 @@ import com.github.fommil.netlib.LAPACK;
  *
  * <pre>
  * min wrt. x: q(x) = 1/2 x^T G x + x^T c
- * s.t.        Ax = b
- * </pre>
+ * s.t.         A x = b
  *
  * where
  * G is the symmetric (n x n) Hessian matrix,
  * c and x are vectors in R^n and
  * A is the (m x n) Jacobian of constraints (with m <= n).
- * n : number of parameters
- * m : number of constraints
+ * n = number of parameters
+ * m = number of constraints
+ * </pre>
  *
- * See Nocedal & Wright, Numerical Optimization (2006), chapter 16.1
- * See also: https://antonior92.github.io/posts/2017/05/projected-CG/
+ * @see Nocedal/Wright, Numerical Optimization (2006), chapter 16.1
+ * @see https://antonior92.github.io/posts/2017/05/projected-CG/
  */
 public class EQPProblem {
 
@@ -72,6 +72,24 @@ public class EQPProblem {
 		lambda = new double[m];
 	}
 
+	/**
+	 * Get the solution vector.
+	 *
+	 * @return [n] values of parameters
+	 */
+	public double[] getX() {
+		return x;
+	}
+
+	/**
+	 * Get the vector of Lagrange multipliers for the constraints.
+	 *
+	 * @return [m] values of Lagrange multipliers
+	 */
+	public double[] getLambda() {
+		return lambda;
+	}
+
 	/** solve by direct factorization of the KKT matrix (16.5) */
 	public void directFactorization() {
 
@@ -109,6 +127,9 @@ public class EQPProblem {
 			rhs[n+j] = -b[j]; // TODO: change to b --> also in API!
 		}
 
+		// TODO: Use a symmetric indefinite factorization
+		//       to solve the system twice as fast (because of the symmetry).
+
 		// 3. obtain LU factorization of KKT matrix using LAPACK's dgetrf
 		final int[] ipiv = new int[n+m];
 		intW info = new intW(0);
@@ -125,30 +146,126 @@ public class EQPProblem {
 		}
 
 		// 5. copy solution back into appropriate vectors
-		for (int i=0; i<n; ++i) {
+		for (int i = 0; i < n; ++i) {
 			x[i] = rhs[i];
 		}
-		for (int j=0; j<m; ++j) {
-			lambda[j] = -rhs[n+j];
+		for (int j = 0; j < m; ++j) {
+			lambda[j] = -rhs[n + j];
 		}
 	}
 
 	/**
-	 * Get the solution vector.
+	 * Find the intersection between segment (or line) and spherical constraints.
 	 *
-	 * @return [n] values of parameters
+	 * Find the intersection between the segment (or line) defined by the parametric
+	 * equation {@code x(t) = z + t*d} and the ball {@code ||x|| <= trust_radius}.
+	 *
+	 * @param z           [n] initial point
+	 * @param d           [n] direction
+	 * @param trustRadius ball radius
+	 * @return
 	 */
-	public double[] getX() {
-		return x;
+	public static IntersectionResult sphereIntersections(double[] z, double[] d, double trustRadius) {
+		boolean entireLine = false;
+		return sphereIntersections(z, d, trustRadius, entireLine);
 	}
 
 	/**
-	 * Get the vector of Lagrange multipliers for the constraints.
+	 * Find the intersection between segment (or line) and spherical constraints.
 	 *
-	 * @return [m] values of Lagrange multipliers
+	 * Find the intersection between the segment (or line) defined by the parametric
+	 * equation {@code x(t) = z + t*d} and the ball {@code ||x|| <= trust_radius}.
+	 *
+	 * @param z           [n] initial point
+	 * @param d           [n] direction
+	 * @param trustRadius ball radius
+	 * @param entireLine  When {@code true}, the function returns the intersection
+	 *                    between the line {@code x(t) = z + t*d} ({@code t} can
+	 *                    assume any value) and the ball {@code ||x|| <= trust_radius}.
+	 *                    When {@code false}, the function returns the intersection
+	 *                    between the segment {@code x(t) = z + t*d}, {@code 0 <= t <= 1},
+	 *                    and the ball.
 	 */
-	public double[] getLambda() {
-		return lambda;
+	public static IntersectionResult sphereIntersections(double[] z, double[] d, double trustRadius, boolean entireLine) {
+
+		// special case when d == 0
+		if (norm(d) == 0.0) {
+			return new IntersectionResult(0.0, 0.0, false);
+		}
+
+		// check for infinite trust radius
+		if (Double.isInfinite(trustRadius)) {
+			final double tA, tB;
+			if (entireLine) {
+				tA = Double.NEGATIVE_INFINITY;
+				tB = Double.POSITIVE_INFINITY;
+			} else {
+				tA = 0.0;
+				tB = 1.0;
+			}
+			return new IntersectionResult(tA, tB, true);
+		}
+
+		double a = dot(d, d);
+		double b = 2.0 * dot(z, d);
+		double c = dot(z, z) - trustRadius * trustRadius;
+		double discriminant = b * b - 4 * a * c;
+		if (discriminant < 0.0) {
+			// line does not hit the ball (?)
+			return new IntersectionResult(0.0, 0.0, false);
+		}
+
+		double sqrtDiscriminant = Math.sqrt(discriminant);
+
+		// The following calculation is mathematically equivalent to:
+	    // ta = (-b - sqrt_discriminant) / (2*a)
+	    // tb = (-b + sqrt_discriminant) / (2*a)
+	    // but produce smaller round off errors.
+	    // Look at Matrix Computation p.97 for a better justification.
+		double aux = b + Math.copySign(sqrtDiscriminant, b);
+		double tA = -aux / (2.0 * a);
+		double tB = -2.0 * c / aux;
+
+		// ta, tb = sorted([ta, tb])
+		if (tB < tA) {
+			double temp = tB;
+			tB = tA;
+			tA = temp;
+		}
+
+		final boolean intersect;
+		if (entireLine) {
+			intersect = true;
+		} else {
+			// Checks to see if intersection happens within vectors length.
+			if (tB < 0.0 || tA > 1.0) {
+				intersect = false;
+				tA = 0.0;
+				tB = 0.0;
+			} else {
+				intersect = true;
+				// Restrict intersection interval between 0 and 1.
+				tA = Math.max(0.0, tA);
+				tB = Math.min(1.0, tB);
+			}
+		}
+
+		return new IntersectionResult(tA, tB, intersect);
 	}
 
+	public static double norm(double[] v) {
+		double n = 0.0;
+		for (int i=0; i<v.length; ++i) {
+			n += v[i] * v[i];
+		}
+		return Math.sqrt(n);
+	}
+
+	public static double dot(double[] a, double[] b) {
+		double d = 0.0;
+		for (int i=0; i<a.length; ++i) {
+			d += a[i] * b[i];
+		}
+		return d;
+	}
 }

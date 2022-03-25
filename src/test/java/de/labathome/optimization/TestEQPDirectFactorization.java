@@ -4,13 +4,13 @@ import org.junit.jupiter.api.Test;
 
 import minerva.tests.junit.MinervaAssertions;
 
-class TestEQP {
+class TestEQPDirectFactorization {
 
 	/**
-	 * Example 16.2 in Nocedal & Wright, "Numerical Optimization" (2006), p. 452
+	 * Example 16.2 in Nocedal/Wright, "Numerical Optimization" (2006), p. 452
 	 */
 	@Test
-	void testDirectFactorization() {
+	void testNocedalExample() {
 
 		final int n = 3;
 		final int m = 2;

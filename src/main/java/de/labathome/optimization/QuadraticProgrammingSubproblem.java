@@ -363,7 +363,56 @@ public class QuadraticProgrammingSubproblem {
 		return new IntersectionResult(tA, tB, intersect);
 	}
 
+	public static IntersectionResult boxSphereIntersections(double[] z, double[] d, double[] lb, double[] ub, double trustRadius) {
+		boolean entireLine = false;
+		return boxSphereIntersections(z, d, lb, ub, trustRadius, entireLine);
+	}
 
+	public static IntersectionResult boxSphereIntersections(double[] z, double[] d, double[] lb, double[] ub, double trustRadius, boolean entireLine) {
+		return boxSphereIntersectionsWithExtraInfo(z, d, lb, ub, trustRadius, entireLine)[0];
+	}
+
+	public static IntersectionResult[] boxSphereIntersectionsWithExtraInfo(double[] z, double[] d, double[] lb, double[] ub, double trustRadius) {
+		boolean entireLine = false;
+		return boxSphereIntersectionsWithExtraInfo(z, d, lb, ub, trustRadius, entireLine);
+	}
+
+	/**
+	 * Find the intersection between segment (or line) and box/sphere constraints.
+	 *
+	 * Find the intersection between the segment (or line) defined by the
+	 * parametric  equation {@code x(t) = z + t*d}, the rectangular box
+	 * {@code lb <= x <= ub} and the ball {@code ||x|| <= trust_radius}.
+	 *
+	 * @param z [n] initial point
+	 * @param d [n] direction
+	 * @param lb [n] lower bounds to each one of the components of {@code x},
+	 *               used to delimit the rectangular box
+	 * @param ub [n] upper bounds to each one of the components of {@code x},
+	 *               used to delimit the rectangular box
+	 * @param trustRadius ball radius
+	 * @param entireLine When {@code true}, the function returns the intersection between the line
+	 *                   {@code x(t) = z + t*d} ({@code t} can assume any value) and the constraints.
+	 *                   When {@code false}, the function returns the intersection between the segment
+	 *                   {@code x(t) = z + t*d}, {@code 0 <= t <= 1} and the constraints.
+	 * @return [3] The line/segment {@code x(t) = z + t*d} is inside the rectangular box and
+	 *             inside the ball for for {@code ta <= t <= tb}.
+	 */
+	public static IntersectionResult[] boxSphereIntersectionsWithExtraInfo(double[] z, double[] d, double[] lb, double[] ub, double trustRadius, boolean entireLine) {
+
+		IntersectionResult rS = sphereIntersections(z, d, trustRadius, entireLine);
+		IntersectionResult rB = boxIntersections(z, d, lb, ub, entireLine);
+
+		double tA = Math.max(rS.tA(), rB.tA());
+		double tB = Math.min(rS.tB(), rB.tB());
+		boolean intersect = rS.intersect() && rB.intersect() && (tA <= tB);
+
+		return new IntersectionResult[] {
+				new IntersectionResult(tA, tB, intersect),
+				rS,
+				rB
+		};
+	}
 
 
 	public static double norm(double[] v) {

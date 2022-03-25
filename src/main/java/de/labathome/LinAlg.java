@@ -4,6 +4,22 @@ package de.labathome;
 public class LinAlg {
 
 	/**
+	 * Compute the Frobenius norm for a given matrix.
+	 *
+	 * @param A [n][m] matrix
+	 * @return Frobenius norm of A: sqrt{sum_ij{A_ij^2}}
+	 */
+	public static double frob(double[][] A) {
+		double f = 0.0;
+		for (int i=0; i<A.length; ++i) {
+			for (int j=0; j<A[0].length; ++j) {
+				f += A[i][j] * A[i][j];
+			}
+		}
+		return Math.sqrt(f);
+	}
+
+	/**
 	 * element-wise sum of two vectors
 	 * @param a [n] a vector
 	 * @param b [n] another vector

@@ -1,0 +1,43 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>de.labathome</groupId>
+		<artifactId>de-labathome-parent</artifactId>
+		<version>1.0.1</version>
+	</parent>
+
+	<artifactId>java-trust-constr</artifactId>
+	<version>1.0.0</version>
+	<packaging>jar</packaging>
+
+	<name>java-trust-constr</name>
+	<description>scipy.optimize.minimize(method='trust-constr') in Java</description>
+
+	<url>${jonathanschilling.git.url}${project.name}</url>
+	<scm>
+		<connection>${jonathanschilling.git.root}${project.name}.git</connection>
+		<developerConnection>${jonathanschilling.git.root}${project.name}.git</developerConnection>
+		<url>${jonathanschilling.git.url}${project.name}/tree/master</url>
+	</scm>
+	<issueManagement>
+		<url>${jonathanschilling.git.url}${project.name}/issues</url>
+		<system>GitLab Issues</system>
+	</issueManagement>
+
+	<dependencies>
+		<dependency>
+			<groupId>javaOneLineUtils</groupId>
+			<artifactId>JavaOneLineUtils</artifactId>
+			<version>1.4.80</version>
+		</dependency>
+		<dependency>
+			<groupId>com.github.fommil.netlib</groupId>
+			<artifactId>all</artifactId>
+			<version>1.1.2</version>
+			<type>pom</type>
+		</dependency>
+	</dependencies>
+</project>

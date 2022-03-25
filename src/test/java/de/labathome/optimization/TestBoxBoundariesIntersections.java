@@ -207,13 +207,71 @@ public class TestBoxBoundariesIntersections {
 		Assertions.assertTrue(r7.intersect());
 	}
 
+	@Test
 	void test3dBoxConstraints() {
+		final double tolerance = 1.0e-15;
 
+		// Simple case
+		IntersectionResult r1 = QuadraticProgrammingSubproblem.boxIntersections(
+				new double[] {1.0, 1.0, 0.0},
+				new double[] {0.0, 0.0, 1.0},
+				new double[] {1.0, 1.0, 1.0},
+				new double[] {3.0, 3.0, 3.0});
+		MinervaAssertions.assertRelAbsEquals(1.0, r1.tA(), tolerance);
+		MinervaAssertions.assertRelAbsEquals(1.0, r1.tB(), tolerance);
+		Assertions.assertTrue(r1.intersect());
 
+		// Negative direction
+		IntersectionResult r2 = QuadraticProgrammingSubproblem.boxIntersections(
+				new double[] {1.0, 1.0,  0.0},
+				new double[] {0.0, 0.0, -1.0},
+				new double[] {1.0, 1.0, 1.0},
+				new double[] {3.0, 3.0, 3.0});
+		Assertions.assertFalse(r2.intersect());
+
+		// Interior point
+		IntersectionResult r3 = QuadraticProgrammingSubproblem.boxIntersections(
+				new double[] {2.0,  2.0, 2.0},
+				new double[] {0.0, -1.0, 1.0},
+				new double[] {1.0, 1.0, 1.0},
+				new double[] {3.0, 3.0, 3.0});
+		MinervaAssertions.assertRelAbsEquals(0.0, r3.tA(), tolerance);
+		MinervaAssertions.assertRelAbsEquals(1.0, r3.tB(), tolerance);
+		Assertions.assertTrue(r3.intersect());
 	}
 
+	@Test
 	void test3dBoxConstraintsEntireLine() {
+		final double tolerance = 1.0e-15;
 
+		// Simple case
+		IntersectionResult r1 = QuadraticProgrammingSubproblem.boxIntersections(
+				new double[] {1.0, 1.0, 0.0},
+				new double[] {0.0, 0.0, 1.0},
+				new double[] {1.0, 1.0, 1.0},
+				new double[] {3.0, 3.0, 3.0}, true);
+		MinervaAssertions.assertRelAbsEquals(1.0, r1.tA(), tolerance);
+		MinervaAssertions.assertRelAbsEquals(3.0, r1.tB(), tolerance);
+		Assertions.assertTrue(r1.intersect());
 
+		// Negative direction
+		IntersectionResult r2 = QuadraticProgrammingSubproblem.boxIntersections(
+				new double[] {1.0, 1.0,  0.0},
+				new double[] {0.0, 0.0, -1.0},
+				new double[] {1.0, 1.0, 1.0},
+				new double[] {3.0, 3.0, 3.0}, true);
+		MinervaAssertions.assertRelAbsEquals(-3.0, r2.tA(), tolerance);
+		MinervaAssertions.assertRelAbsEquals(-1.0, r2.tB(), tolerance);
+		Assertions.assertTrue(r2.intersect());
+
+		// Interior point
+		IntersectionResult r3 = QuadraticProgrammingSubproblem.boxIntersections(
+				new double[] {2.0,  2.0, 2.0},
+				new double[] {0.0, -1.0, 1.0},
+				new double[] {1.0, 1.0, 1.0},
+				new double[] {3.0, 3.0, 3.0}, true);
+		MinervaAssertions.assertRelAbsEquals(-1.0, r3.tA(), tolerance);
+		MinervaAssertions.assertRelAbsEquals( 1.0, r3.tB(), tolerance);
+		Assertions.assertTrue(r3.intersect());
 	}
 }

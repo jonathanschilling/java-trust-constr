@@ -2,10 +2,6 @@ package de.labathome.optimization;
 
 import org.junit.jupiter.api.Test;
 import org.ujmp.core.Matrix;
-import org.ujmp.core.doublematrix.DenseDoubleMatrix;
-import org.ujmp.core.doublematrix.DenseDoubleMatrix2D;
-import org.ujmp.core.doublematrix.DoubleMatrix2D;
-import org.ujmp.core.doublematrix.factory.DenseDoubleMatrix2DFactory;
 
 import minerva.tests.junit.MinervaAssertions;
 
@@ -47,11 +43,8 @@ class TestEQPDirectFactorization {
 		QuadraticProgrammingSubproblem eqp = new QuadraticProgrammingSubproblem(n, m, H, c, A, b);
 		eqp.directFactorization();
 
-		DenseDoubleMatrix2D xMat = eqp.getX();
-		DenseDoubleMatrix2D lambdaMat = eqp.getLambda();
-
-		final double[] x = xMat.transpose().toDoubleArray()[0];
-		final double[] lambda = lambdaMat.transpose().toDoubleArray()[0];
+		final double[] x = eqp.getX().transpose().toDoubleArray()[0];
+		final double[] lambda = eqp.getLambda().transpose().toDoubleArray()[0];
 
 		final double[] expectedX = { 2.0, -1.0, 1.0 };
 		final double[] expectedLambda = { 3.0, -2.0 };

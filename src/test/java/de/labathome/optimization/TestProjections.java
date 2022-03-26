@@ -49,8 +49,7 @@ class TestProjections {
 
 				// Test if x is in the null_space
 				Matrix x = Z.apply(z);
-				Matrix residual = A.mtimes(x);
-				double[] r = LinAlg.col(residual);
+				double[] r = LinAlg.col(A.mtimes(x));
 				MinervaAssertions.assertArrayRelAbsEquals(new double[r.length], r, tolerance);
 
 				// Test orthogonality
@@ -149,7 +148,43 @@ class TestProjections {
 
 	@Test
 	void testNullspaceAndLeastSquaresDense() {
+		final double tolerance = 1.0e-10;
 
+		Matrix A = Matrix.Factory.linkToArray(new double[][] {
+				{1, 2, 3, 4, 0, 5, 0, 7},
+				{0, 8, 7, 0, 1, 5, 9, 0},
+				{1, 0, 0, 0, 0, 1, 2, 3}
+		});
+
+		double[][] testPoints = {
+				{1, 2, 3, 4, 5, 6, 7, 8},
+                {1, 10, 3, 0, 1, 6, 7, 8},
+                {1.12, 10, 0, 0, 100000, 6, 0.7, 8}
+		};
+
+		for (ProjectionMethod method: DENSE_METHODS) {
+			LinearOperator[] op = Projections.projections(A, method);
+			LinearOperator Z = op[0]; // nullspace
+			LinearOperator LS = op[1]; // least-squares
+
+			for (double[] testPoint: testPoints) {
+				Matrix z = Matrix.Factory.linkToArray(testPoint);
+
+				// Test if x is in the null_space
+				Matrix x = Z.apply(z);
+				double[] r = LinAlg.col(A.mtimes(x));
+				MinervaAssertions.assertArrayRelAbsEquals(new double[r.length], r, tolerance);
+
+				// Test orthogonality
+				MinervaAssertions.assertRelAbsEquals(0.0, Projections.orthogonality(A, x), tolerance);
+
+				// Test if x is the least square solution
+				x = LS.apply(z);
+				QRMatrix qrA = new QRMatrix(A.transpose());
+				Matrix x2 = qrA.solve(z);
+				MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(x2), LinAlg.col(x), tolerance);
+			}
+		}
 	}
 
 	@Test

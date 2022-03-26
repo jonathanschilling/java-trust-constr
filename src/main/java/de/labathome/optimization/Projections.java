@@ -450,7 +450,7 @@ public class Projections {
 		SVDMatrix svd = new SVDMatrix(A);
 		Matrix U = svd.getU();
 		Matrix Vt = svd.getV().transpose();
-		Matrix invS = svd.getreciprocalS();
+		Matrix invS = svd.getreciprocalS().transpose();
 
 		// TODO: Remove dimensions related with very small singular values
 

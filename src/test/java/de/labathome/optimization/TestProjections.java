@@ -7,7 +7,6 @@ import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.QR.QRMatrix;
 import org.ujmp.core.util.MathUtil;
-import org.ujmp.core.util.matrices.RandomSeedMatrix;
 
 import de.labathome.LinAlg;
 import de.labathome.LinearOperator;
@@ -283,7 +282,37 @@ class TestProjections {
 
 	@Test
 	void testIterativeRefinementsDense() {
+		Matrix A = Matrix.Factory.linkToArray(new double[][] {
+				{1, 2, 3, 4, 0, 5, 0, 7},
+				{0, 8, 7, 0, 1, 5, 9, 0},
+				{1, 0, 0, 0, 0, 1, 2, 3}
+		});
 
+		double[][] testPoints = {
+				{1, 2, 3, 4, 5, 6, 7, 8},
+	            {1, 10, 3, 0, 1, 6, 7, 8},
+	            //{1.12, 10, 0, 0, 100000, 6, 0.7, 8},
+	            {1, 0, 0, 0, 0, 1, 2, 3+1e-10}
+		};
+
+		final double orthTol = 1.0e-18;
+		final int maxRefine = 10;
+
+		for (ProjectionMethod method: DENSE_METHODS) {
+			LinearOperator[] op = Projections.projections(A, method, orthTol, maxRefine);
+			LinearOperator Z = op[0]; // nullspace
+
+			for (double[] testPoint: testPoints) {
+				Matrix z = Matrix.Factory.linkToArray(testPoint);
+
+				// Test if x is in the null_space
+				Matrix x = Z.apply(z);
+				MinervaAssertions.assertArrayRelAbsEquals(new double[(int) A.getRowCount()], LinAlg.col(A.mtimes(x)), 2.5e-14);
+
+				// Test orthogonality
+				MinervaAssertions.assertRelAbsEquals(0.0, Projections.orthogonality(A, x), 5.0e-16);
+			}
+		}
 	}
 
 	@Test

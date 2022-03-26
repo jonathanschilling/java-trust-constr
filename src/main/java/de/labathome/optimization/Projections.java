@@ -166,6 +166,7 @@ public class Projections {
 	 */
 	private static LinearOperator[] normalEquationProjections(Matrix A, double orthTol, int maxRefine, double tolerance) {
 
+		// TODO: this can be done more elegantly for sure...
 		final CholMatrix cholAAt = new CholMatrix(A.mtimes(A.transpose()));
 
 		/** z = x - A.T inv(A A.T) A x */

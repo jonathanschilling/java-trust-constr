@@ -509,10 +509,6 @@ public class QuadraticProgrammingSubproblem {
 
 
 
-
-
-
-
 	/**
 	 * Return clipped value of x.
 	 * @param x  [n] position vector to force into bounds

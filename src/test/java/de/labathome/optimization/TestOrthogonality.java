@@ -2,7 +2,6 @@ package de.labathome.optimization;
 
 import org.junit.jupiter.api.Test;
 import org.ujmp.core.Matrix;
-import org.ujmp.core.doublematrix.SparseDoubleMatrix2D;
 
 import de.labathome.LinAlg;
 import minerva.tests.junit.MinervaAssertions;

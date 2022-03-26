@@ -2,7 +2,6 @@ package de.labathome.optimization;
 
 import org.junit.jupiter.api.Test;
 import org.ujmp.core.Matrix;
-import org.ujmp.core.SparseMatrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.QR.QRMatrix;
 
 import de.labathome.LinAlg;
@@ -23,7 +22,7 @@ class TestProjections {
 
 	@Test
 	void testNullspaceAndLeastSquaresSparse() {
-		final double tolerance = 1.0e-15;
+		final double tolerance = 1.0e-10;
 
 		Matrix A = Matrix.Factory.linkToArray(new double[][] {
 				{1, 2, 3, 4, 0, 5, 0, 7},
@@ -45,7 +44,7 @@ class TestProjections {
 			LinearOperator LS = op[1]; // least-squares
 
 			for (double[] testPoint: testPoints) {
-				Matrix z = Matrix.Factory.linkToArray(testPoint).transpose();
+				Matrix z = Matrix.Factory.linkToArray(testPoint);
 
 				// Test if x is in the null_space
 				Matrix x = Z.apply(z);

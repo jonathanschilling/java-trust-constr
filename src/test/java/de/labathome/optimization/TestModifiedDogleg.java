@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.doublematrix.DoubleMatrix2D;
 
+import de.labathome.LinearOperator;
 import minerva.tests.junit.MinervaAssertions;
 
 class TestModifiedDogleg {
@@ -15,8 +16,8 @@ class TestModifiedDogleg {
 		DoubleMatrix2D A = Matrix.Factory.importFromArray(new double[][] { { 1.0, 8.0 } });
 		Matrix b = Matrix.Factory.importFromArray(new double[][] { { -16.0 } });
 
-		Matrix[] projections = Projections.projections(A);
-		Matrix Y = projections[2];
+		LinearOperator[] projections = Projections.projections(A);
+		LinearOperator Y = projections[2];
 
 		double[] newtonPoint = { 0.24615385, 1.96923077 };
 

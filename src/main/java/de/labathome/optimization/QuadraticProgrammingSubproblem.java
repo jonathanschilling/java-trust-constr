@@ -8,6 +8,7 @@ import org.ujmp.core.doublematrix.SparseDoubleMatrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.LU.LUMatrix;
 
 import de.labathome.LinAlg;
+import de.labathome.LinearOperator;
 
 /**
  * Solve the Equality-Constrained Quadratic Programming Problem:
@@ -419,8 +420,8 @@ public class QuadraticProgrammingSubproblem {
 	 *
 	 * @param A [m][n] Matrix {@code A} in the minimization problem.
 	 *                 It should have dimensions {@code (m, n)} such that {@code m < n}.
-	 * @param Y [n][m] LinearOperator that apply the projection matrix
-	 *                 {@code Q = A.T inv(A A.T)} to the vector. The obtained vector
+	 * @param Y [n][m] Matrix or LinearOperator that applies the projection matrix
+	 *                 {@code Q = A.T inv(A A.T)} to the vector, the obtained vector
 	 *                 {@code y = Q x} being the minimum norm solution of {@code A y = x}.
 	 * @param b [m] Vector {@code b}in the minimization problem.
 	 * @param trustRadius Trust radius to be considered. Delimits a sphere boundary to the problem.
@@ -434,10 +435,17 @@ public class QuadraticProgrammingSubproblem {
 	 *               component is just ignored.
 	 * @return [n] Solution to the problem.
 	 */
-	public static Matrix modifiedDogleg(Matrix A, Matrix Y, Matrix b, double trustRadius, double[] lb, double[] ub) {
+	public static Matrix modifiedDogleg(Matrix A, Object Y, Matrix b, double trustRadius, double[] lb, double[] ub) {
 
 		// Compute minimum norm minimizer of 1/2*|| A x + b ||^2.
-		Matrix newtonPoint = Y.mtimes(b).times(-1);
+		Matrix newtonPoint;
+		if (Y instanceof Matrix) {
+			newtonPoint = ((Matrix) Y).mtimes(b).times(-1);
+		} else if (Y instanceof LinearOperator) {
+			newtonPoint = ((LinearOperator) Y).apply(b).times(-1);
+		} else {
+			throw new RuntimeException("Y must be of type Matrix or LinearOperator");
+		}
 
 		if (insideBoxBoundaries(newtonPoint.transpose().toDoubleArray()[0], lb, ub)
 				&& newtonPoint.norm2() <= trustRadius) {

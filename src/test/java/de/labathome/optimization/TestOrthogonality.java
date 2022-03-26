@@ -1,6 +1,8 @@
 package de.labathome.optimization;
 
 import org.junit.jupiter.api.Test;
+import org.ujmp.core.Matrix;
+import org.ujmp.core.doublematrix.SparseDoubleMatrix2D;
 
 import minerva.tests.junit.MinervaAssertions;
 
@@ -10,11 +12,11 @@ public class TestOrthogonality {
 	void testDenseMatrix() {
 		final double tolerance = 1.0e-9;
 
-		double[][] A = {
+		Matrix A = Matrix.Factory.importFromArray(new double[][] {
 				{1, 2, 3, 4, 0, 5, 0, 7},
 				{0, 8, 7, 0, 1, 5, 9, 0},
 				{1, 0, 0, 0, 0, 1, 2, 3}
-		};
+		});
 
 		double[][] testVectors = {
 				{ -1.98931144, -1.56363389,
@@ -29,7 +31,8 @@ public class TestOrthogonality {
 		double[] expOrth = {0, 0};
 
 		for (int i=0; i<testVectors.length; ++i) {
-			double orth = Projections.orthogonality(A, testVectors[i]);
+			Matrix g = Matrix.Factory.importFromArray(testVectors[i]).transpose();
+			double orth = Projections.orthogonality(A, g);
 			MinervaAssertions.assertRelAbsEquals(expOrth[i], orth, tolerance);
 		}
 	}
@@ -38,13 +41,20 @@ public class TestOrthogonality {
 	void testSparseMatrix() {
 		final double tolerance = 1.0e-9;
 
-		double[][] A = {
-				{1, 2, 3, 4, 0, 5, 0, 7},
-				{0, 8, 7, 0, 1, 5, 9, 0},
-				{1, 0, 0, 0, 0, 1, 2, 3}
-		};
+		Matrix A = Matrix.Factory.importFromArray(new double[][] {
+			{1, 2, 3, 4, 0, 5, 0, 7},
+			{0, 8, 7, 0, 1, 5, 9, 0},
+			{1, 0, 0, 0, 0, 1, 2, 3}
+		});
 
-		// TODO: convert A to csc_matrix
+		// convert A to sparse matrix
+		Matrix sparseA = SparseDoubleMatrix2D.Factory.zeros(A.getRowCount(), A.getColumnCount());
+		for (long[] pos: A.allCoordinates()) {
+			double aVal = A.getAsDouble(pos);
+			if (aVal != 0.0) {
+				sparseA.setAsDouble(aVal, pos);
+			}
+		}
 
 		double[][] testVectors = {
 				{ -1.98931144, -1.56363389,
@@ -59,9 +69,9 @@ public class TestOrthogonality {
 		double[] expOrth = {0, 0};
 
 		for (int i=0; i<testVectors.length; ++i) {
-			double orth = Projections.orthogonality(A, testVectors[i]);
+			Matrix g = Matrix.Factory.importFromArray(testVectors[i]).transpose();
+			double orth = Projections.orthogonality(A, g);
 			MinervaAssertions.assertRelAbsEquals(expOrth[i], orth, tolerance);
 		}
 	}
-
 }

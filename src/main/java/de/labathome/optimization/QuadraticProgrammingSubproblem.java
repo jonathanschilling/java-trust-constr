@@ -434,53 +434,62 @@ public class QuadraticProgrammingSubproblem {
 	 *               component is just ignored.
 	 * @return [n] Solution to the problem.
 	 */
-	public static double[] modifiedDogleg(double[][] A, double[][] Y, double[] b, double trustRadius, double[] lb, double[] ub) {
+	public static Matrix modifiedDogleg(Matrix A, Matrix Y, Matrix b, double trustRadius, double[] lb, double[] ub) {
 
 		// Compute minimum norm minimizer of 1/2*|| A x + b ||^2.
-		double[] newtonPoint = LinAlg.dot(Y, b, -1.0);
+		Matrix newtonPoint = Y.mtimes(b).times(-1);
 
-		if (insideBoxBoundaries(newtonPoint, lb, ub) && LinAlg.norm(newtonPoint) <= trustRadius) {
+		if (insideBoxBoundaries(newtonPoint.transpose().toDoubleArray()[0], lb, ub)
+				&& newtonPoint.norm2() <= trustRadius) {
 			return newtonPoint;
 		}
 
 		// Compute gradient vector {@code g = A.T b}
-		double[] g = LinAlg.dot(A, true, b);
+		Matrix g = A.transpose().mtimes(b);
 
 		// Compute Cauchy point:
 		// {@code cauchy_point = g.T g / (g.T A.T A g)}
-		double[] A_g = LinAlg.dot(A, g);
-		double cauchyScale = -LinAlg.dot(g, g) / LinAlg.dot(A_g, A_g);
-		double[] cauchyPoint = LinAlg.mulElem(g, cauchyScale);
+		Matrix A_g = A.mtimes(g);
+		double cauchyScale = -g.transpose().mtimes(g).doubleValue() / A_g.transpose().mtimes(A_g).doubleValue();
+		Matrix cauchyPoint = g.times(cauchyScale);
 
 		// Origin
-		double[] origin = new double[cauchyPoint.length];
+		Matrix origin = Matrix.Factory.zeros(cauchyPoint.getRowCount(), cauchyPoint.getColumnCount());
 
 		// Check the segment between cauchy_point and newton_point for a possible solution.
-		double[] z = cauchyPoint;
-		double[] p = LinAlg.subtract(newtonPoint, cauchyPoint);
-		IntersectionResult r1 = boxSphereIntersections(z, p, lb, ub, trustRadius);
+		Matrix z = cauchyPoint;
+		Matrix p = newtonPoint.minus(cauchyPoint);
+		IntersectionResult r1 = boxSphereIntersections(
+				z.transpose().toDoubleArray()[0],
+				p.transpose().toDoubleArray()[0],
+				lb, ub, trustRadius);
 		double alpha = r1.tB();
 
-		final double[] x1;
 		if (!r1.intersect()) {
 			// Check the segment between the origin and cauchy_point for a possible solution.
 			z = origin;
 			p = cauchyPoint;
-			IntersectionResult r2 = boxSphereIntersections(z, p, lb, ub, trustRadius);
+			IntersectionResult r2 = boxSphereIntersections(
+					z.transpose().toDoubleArray()[0],
+					p.transpose().toDoubleArray()[0],
+					lb, ub, trustRadius);
 			alpha = r2.tB();
 		}
-		x1 = LinAlg.add(z, LinAlg.mulElem(p, alpha));
+		Matrix x1 = z.plus(p.times(alpha));
 
 		// Check the segment between origin and newton_point for a possible solution.
 		z = origin;
 		p = newtonPoint;
-		IntersectionResult r3 = boxSphereIntersections(z, p, lb, ub, trustRadius);
+		IntersectionResult r3 = boxSphereIntersections(
+				z.transpose().toDoubleArray()[0],
+				p.transpose().toDoubleArray()[0],
+				lb, ub, trustRadius);
 		alpha = r3.tB();
-		double[] x2 = LinAlg.add(z, LinAlg.mulElem(p, alpha));
+		Matrix x2 = z.plus(p.times(alpha));
 
 		// Return the best solution among x1 and x2.
-		double norm1 = LinAlg.norm(LinAlg.add(LinAlg.dot(A, x1), b));
-		double norm2 = LinAlg.norm(LinAlg.add(LinAlg.dot(A, x2), b));
+		double norm1 = A.mtimes(x1).plus(b).norm2();
+		double norm2 = A.mtimes(x2).plus(b).norm2();
 		if (norm1 < norm2) {
 			return x1;
 		} else {

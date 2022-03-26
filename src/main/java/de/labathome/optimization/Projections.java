@@ -1,7 +1,7 @@
 package de.labathome.optimization;
 
-import de.labathome.LinAlg;
-import de.labathome.LinearOperator;
+import org.ujmp.core.Matrix;
+import org.ujmp.core.doublematrix.DoubleMatrix2D;
 
 public class Projections {
 
@@ -23,19 +23,23 @@ public class Projections {
 	 * @param g [m] vector
 	 * @return how orthogonal g is to the nullspace of A
 	 */
-	public static double orthogonality(double[][] A, double[] g) {
+	public static double orthogonality(Matrix A, Matrix g) {
+		if (!g.isRowVector()) {
+			throw new RuntimeException("g has to be a (n x 1)-vector");
+		}
+		if (A.getColumnCount() != g.getRowCount()) {
+			throw new RuntimeException("cols(A) must be equal to rows(g)");
+		}
 
-		double normG = LinAlg.norm(g);
-
-		// TODO: sparse version of A
-		double normA = LinAlg.frob(A);
+		double normG = g.norm2();
+		double normA = A.normF();
 
 		// Check if norms are zero
 		if (normG == 0.0 || normA == 0.0) {
 			return 0.0;
 		}
 
-		double normAg = LinAlg.norm(LinAlg.dot(A, g));
+		double normAg = A.mtimes(g).norm2();
 
 		// Orthogonality measure
 		double orth = normAg/(normA * normG);
@@ -43,22 +47,22 @@ public class Projections {
 		return orth;
 	}
 
-	public static LinearOperator[] projections(double[][] A)  {
+	public static Matrix[] projections(DoubleMatrix2D A)  {
 		ProjectionMethod method = null;
 		return projections(A, method);
 	}
 
-	public static LinearOperator[] projections(double[][] A, ProjectionMethod method)  {
+	public static Matrix[] projections(DoubleMatrix2D A, ProjectionMethod method)  {
 		double orthTol = 1.0e-12;
 		return projections(A, method, orthTol);
 	}
 
-	public static LinearOperator[] projections(double[][] A, ProjectionMethod method, double orthTol)  {
+	public static Matrix[] projections(DoubleMatrix2D A, ProjectionMethod method, double orthTol)  {
 		int maxRefine = 3;
 		return projections(A, method, orthTol, maxRefine);
 	}
 
-	public static LinearOperator[] projections(double[][] A, ProjectionMethod method, double orthTol, int maxRefine)  {
+	public static Matrix[] projections(DoubleMatrix2D A, ProjectionMethod method, double orthTol, int maxRefine)  {
 		double tolerance = 1.0e-15;
 		return projections(A, method, orthTol, maxRefine, tolerance);
 	}
@@ -103,33 +107,16 @@ public class Projections {
 	 *                  vector {@code y = Q x}  the minimum norm solution
 	 *                  of {@code A y = x}.
 	 */
-	public static LinearOperator[] projections(double[][] A, ProjectionMethod method, double orthTol, int maxRefine, double tolerance)  {
-
-		int m = A.length;
-		int n = A[0].length;
-
-		// The factorization of an empty matrix only works for the sparse representation.
-		if (m*n == 0) {
-			// TODO: A = csc_matrix(A)
-		}
+	public static Matrix[] projections(DoubleMatrix2D A, ProjectionMethod method, double orthTol, int maxRefine, double tolerance)  {
 
 		// Check Argument
-		if (isSparse(A)) {
+		if (A.isSparse()) {
 			if (method == null) {
 				method = ProjectionMethod.AUGMENTED_SYSTEM;
 			}
 
 			if (method != ProjectionMethod.AUGMENTED_SYSTEM && method != ProjectionMethod.NORMAL_EQUATION) {
 				throw new RuntimeException("Method not allowed for sparse matrix.");
-			}
-
-			boolean hasSkSparse = false;
-			if (method == ProjectionMethod.NORMAL_EQUATION && !hasSkSparse) {
-				System.out.println(
-						"Only accepts NORMAL_EQUATION option when\n" +
-						"scikit-sparse is available. Using \n" +
-						"AUGMENTED_SYSTEM option instead.");
-				method = ProjectionMethod.AUGMENTED_SYSTEM;
 			}
 		} else {
 			if (method == null) {
@@ -141,13 +128,13 @@ public class Projections {
 
 		switch (method) {
 		case NORMAL_EQUATION:
-			return normalEquationProjections(A, m, n, orthTol, maxRefine, tolerance);
+			return normalEquationProjections(A, orthTol, maxRefine, tolerance);
 		case AUGMENTED_SYSTEM:
-			return augmentedSystemProjections(A, m, n, orthTol, maxRefine, tolerance);
+			return augmentedSystemProjections(A, orthTol, maxRefine, tolerance);
 		case QR_FACTORIZATION:
-			return qrFactorizationProjections(A, m, n, orthTol, maxRefine, tolerance);
+			return qrFactorizationProjections(A, orthTol, maxRefine, tolerance);
 		case SVD_FACTORIZATION:
-			return svdFactorizationProjections(A, m, n, orthTol, maxRefine, tolerance);
+			return svdFactorizationProjections(A, orthTol, maxRefine, tolerance);
 		default:
 			throw new RuntimeException("Method not implemented yet.");
 		}
@@ -164,7 +151,7 @@ public class Projections {
 	 * @param tolerance
 	 * @return
 	 */
-	private static LinearOperator[] normalEquationProjections(double[][] A, int m, int n, double orthTol, int maxRefine, double tolerance) {
+	private static Matrix[] normalEquationProjections(DoubleMatrix2D A, double orthTol, int maxRefine, double tolerance) {
 
 		return null;
 	}
@@ -180,7 +167,7 @@ public class Projections {
 	 * @param tolerance
 	 * @return
 	 */
-	private static LinearOperator[] augmentedSystemProjections(double[][] A, int m, int n, double orthTol, int maxRefine, double tolerance) {
+	private static Matrix[] augmentedSystemProjections(DoubleMatrix2D A, double orthTol, int maxRefine, double tolerance) {
 
 		return null;
 	}
@@ -196,7 +183,7 @@ public class Projections {
 	 * @param tolerance
 	 * @return
 	 */
-	private static LinearOperator[] qrFactorizationProjections(double[][] A, int m, int n, double orthTol, int maxRefine, double tolerance) {
+	private static Matrix[] qrFactorizationProjections(DoubleMatrix2D A, double orthTol, int maxRefine, double tolerance) {
 
 		return null;
 	}
@@ -212,14 +199,8 @@ public class Projections {
 	 * @param tolerance
 	 * @return
 	 */
-	private static LinearOperator[] svdFactorizationProjections(double[][] A, int m, int n, double orthTol, int maxRefine, double tolerance) {
+	private static Matrix[] svdFactorizationProjections(DoubleMatrix2D A, double orthTol, int maxRefine, double tolerance) {
 
 		return null;
-	}
-
-
-	private static boolean isSparse(double[][] A) {
-		// TODO: handle sparse matrix properly
-		return false;
 	}
 }

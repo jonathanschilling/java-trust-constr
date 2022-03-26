@@ -1,141 +1,10 @@
 package de.labathome;
 
+import org.ujmp.core.Matrix;
+import org.ujmp.core.SparseMatrix;
+
 /** linear algebra helper class */
 public class LinAlg {
-
-	/**
-	 * Compute the Frobenius norm for a given matrix.
-	 *
-	 * @param A [n][m] matrix
-	 * @return Frobenius norm of A: sqrt{sum_ij{A_ij^2}}
-	 */
-	public static double frob(double[][] A) {
-		double f = 0.0;
-		for (int i=0; i<A.length; ++i) {
-			for (int j=0; j<A[0].length; ++j) {
-				f += A[i][j] * A[i][j];
-			}
-		}
-		return Math.sqrt(f);
-	}
-
-	/**
-	 * element-wise sum of two vectors
-	 * @param a [n] a vector
-	 * @param b [n] another vector
-	 * @return [n] the i-th element is a[i] + b[i] for i=0,1,...,(n-1)
-	 */
-	public static double[] add(double[] a, double[] b) {
-		int n = a.length;
-		double[] result = new double[n];
-		for (int i=0; i<n; ++i) {
-			result[i] = a[i] + b[i];
-		}
-		return result;
-	}
-
-	/**
-	 * element-wise difference between two vectors
-	 * @param a [n] a vector
-	 * @param b [n] another vector
-	 * @return [n] the i-th element is a[i] - b[i] for i=0,1,...,(n-1)
-	 */
-	public static double[] subtract(double[] a, double[] b) {
-		int n = a.length;
-		double[] result = new double[n];
-		for (int i=0; i<n; ++i) {
-			result[i] = a[i] - b[i];
-		}
-		return result;
-	}
-
-	/**
-	 * element-wise multiply
-	 *
-	 * @param a [n] vector
-	 * @param scale scaling factor
-	 * @return [n] a*scale element-wise
-	 */
-	public static double[] mulElem(double[] a, double scale) {
-		int n = a.length;
-		double[] scaledA = new double[n];
-		for (int i=0; i<n; ++i) {
-			scaledA[i] = a[i] * scale;
-		}
-		return scaledA;
-	}
-
-	/**
-	 * matrix-vector product
-	 *
-	 * @param A [n][m] matrix
-	 * @param b [m] vector
-	 * @return [n] result vector = A * b
-	 */
-	public static double[] dot(double[][] A, double[] b) {
-		double scale = 1.0;
-		return dot(A, b, scale);
-	}
-
-	/**
-	 * matrix-vector product
-	 *
-	 * @param A [n][m] matrix
-	 * @param b [m] vector
-	 * @param scale scaling factor to apply along the way
-	 * @return [n] result vector = A * b * scale
-	 */
-	public static double[] dot(double[][] A, double[] b, double scale) {
-		boolean transposeA = false;
-		return dot(A, transposeA, b, scale);
-	}
-
-	/**
-	 * matrix-vector product
-	 *
-	 * @param A [n][m] matrix
-	 * @param transposeA if true, assume A has shape [m][n]; otherwise, assume A has shape [n][m]
-	 * @param b [m] vector
-	 * @return [n] result vector = A * b or A^T * b
-	 */
-	public static double[] dot(double[][] A, boolean transposeA, double[] b) {
-		double scale = 1.0;
-		return dot(A, transposeA, b, scale);
-	}
-
-	/**
-	 * matrix-vector product
-	 *
-	 * @param A [n][m] matrix
-	 * @param transposeA if true, assume A has shape [m][n]; otherwise, assume A has shape [n][m]
-	 * @param b [m] vector
-	 * @param scale scaling factor to apply along the way
-	 * @return [n] result vector = A * b * scale or A^T * b * scale
-	 */
-	public static double[] dot(double[][] A, boolean transposeA, double[] b, double scale) {
-		int n = A.length;
-		int m = A[0].length;
-		double[] result = new double[n];
-		if (!transposeA) {
-			for (int i=0; i<n; ++i) {
-				double r = 0.0;
-				double[] aRow = A[i];
-				for (int j=0; j<m; ++j) {
-					r += aRow[j] * b[j];
-				}
-				result[i] = r * scale;
-			}
-		} else {
-			for (int j=0; j<m; ++j) {
-				double scaledB = b[j] * scale;
-				double[] aRow = A[j];
-				for (int i=0; i<n; ++i) {
-					result[i] += aRow[i] * scaledB;
-				}
-			}
-		}
-		return result;
-	}
 
 	/**
 	 * 2-norm of a vector
@@ -143,7 +12,7 @@ public class LinAlg {
 	 * @param v [n] vector
 	 * @return sqrt{sum_i{v[i] * v[i]}}
 	 */
-	public static double norm(double[] v) {
+	public static double norm2(double[] v) {
 		double n = 0.0;
 		for (int i=0; i<v.length; ++i) {
 			n += v[i] * v[i];
@@ -164,5 +33,36 @@ public class LinAlg {
 			d += a[i] * b[i];
 		}
 		return d;
+	}
+
+	/**
+	 * Export the first column as a vector.
+	 *
+	 * @param a [n][1] "row matrix"
+	 * @return [n] first column of a
+	 */
+	public static double[] col(Matrix a) {
+		double[] r = new double[(int) a.getRowCount()];
+		for (long[] pos: a.allCoordinates()) {
+			r[(int) pos[0]] = a.getAsDouble(pos);
+		}
+		return r;
+	}
+
+	/**
+	 * Extract the non-zero elements from a given 2D matrix.
+	 *
+	 * @param A [n][m] possibly dense matrix
+	 * @return [n][m] sparse matrix, contains only non-zero elements of A
+	 */
+	public static Matrix sparse(Matrix A) {
+		Matrix sparseA = SparseMatrix.Factory.zeros(A.getRowCount(), A.getColumnCount());
+		for (long[] pos: A.allCoordinates()) {
+			double aVal = A.getAsDouble(pos);
+			if (aVal != 0.0) {
+				sparseA.setAsDouble(aVal, pos);
+			}
+		}
+		return sparseA;
 	}
 }

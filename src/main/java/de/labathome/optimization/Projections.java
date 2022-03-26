@@ -1,12 +1,8 @@
 package de.labathome.optimization;
 
 import org.ujmp.core.Matrix;
-import org.ujmp.core.SparseMatrix;
 import org.ujmp.core.SparseMatrix2D;
 import org.ujmp.core.calculation.Calculation.Ret;
-import org.ujmp.core.doublematrix.DoubleMatrix2D;
-import org.ujmp.core.doublematrix.SparseDoubleMatrix;
-import org.ujmp.core.doublematrix.SparseDoubleMatrix2D;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.Chol.CholMatrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.LU.LUMatrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.QR.QRMatrix;
@@ -58,22 +54,22 @@ public class Projections {
 		return orth;
 	}
 
-	public static LinearOperator[] projections(DoubleMatrix2D A)  {
+	public static LinearOperator[] projections(Matrix A)  {
 		ProjectionMethod method = null;
 		return projections(A, method);
 	}
 
-	public static LinearOperator[] projections(DoubleMatrix2D A, ProjectionMethod method)  {
+	public static LinearOperator[] projections(Matrix A, ProjectionMethod method)  {
 		double orthTol = 1.0e-12;
 		return projections(A, method, orthTol);
 	}
 
-	public static LinearOperator[] projections(DoubleMatrix2D A, ProjectionMethod method, double orthTol)  {
+	public static LinearOperator[] projections(Matrix A, ProjectionMethod method, double orthTol)  {
 		int maxRefine = 3;
 		return projections(A, method, orthTol, maxRefine);
 	}
 
-	public static LinearOperator[] projections(DoubleMatrix2D A, ProjectionMethod method, double orthTol, int maxRefine)  {
+	public static LinearOperator[] projections(Matrix A, ProjectionMethod method, double orthTol, int maxRefine)  {
 		double tolerance = 1.0e-15;
 		return projections(A, method, orthTol, maxRefine, tolerance);
 	}
@@ -118,7 +114,7 @@ public class Projections {
 	 *                  vector {@code y = Q x}  the minimum norm solution
 	 *                  of {@code A y = x}.
 	 */
-	public static LinearOperator[] projections(DoubleMatrix2D A, ProjectionMethod method, double orthTol, int maxRefine, double tolerance)  {
+	public static LinearOperator[] projections(Matrix A, ProjectionMethod method, double orthTol, int maxRefine, double tolerance)  {
 
 		// Check Argument
 		if (A.isSparse()) {
@@ -168,7 +164,7 @@ public class Projections {
 	 * @param tolerance
 	 * @return { nullSpace, leastSquares, rowSpace }
 	 */
-	private static LinearOperator[] normalEquationProjections(DoubleMatrix2D A, double orthTol, int maxRefine, double tolerance) {
+	private static LinearOperator[] normalEquationProjections(Matrix A, double orthTol, int maxRefine, double tolerance) {
 
 		final CholMatrix cholAAt = new CholMatrix(A.mtimes(A.transpose()));
 
@@ -227,7 +223,7 @@ public class Projections {
 	 * @param tolerance
 	 * @return { nullSpace, leastSquares, rowSpace }
 	 */
-	private static LinearOperator[] augmentedSystemProjections(DoubleMatrix2D A, double orthTol, int maxRefine, double tolerance) {
+	private static LinearOperator[] augmentedSystemProjections(Matrix A, double orthTol, int maxRefine, double tolerance) {
 
 		// Form augmented system:
 		// [ 1 A^T ]
@@ -364,7 +360,7 @@ public class Projections {
 	 * @param tolerance
 	 * @return { nullSpace, leastSquares, rowSpace }
 	 */
-	private static LinearOperator[] qrFactorizationProjections(DoubleMatrix2D A, double orthTol, int maxRefine, double tolerance) {
+	private static LinearOperator[] qrFactorizationProjections(Matrix A, double orthTol, int maxRefine, double tolerance) {
 
 		// QR factorization of A^T
 		QRMatrix qr = new QRMatrix(A.transpose());
@@ -446,7 +442,7 @@ public class Projections {
 	 * @param tolerance
 	 * @return { nullSpace, leastSquares, rowSpace }
 	 */
-	private static LinearOperator[] svdFactorizationProjections(DoubleMatrix2D A, double orthTol, int maxRefine, double tolerance) {
+	private static LinearOperator[] svdFactorizationProjections(Matrix A, double orthTol, int maxRefine, double tolerance) {
 
 		// SVD Factorization
 		SVDMatrix svd = new SVDMatrix(A);

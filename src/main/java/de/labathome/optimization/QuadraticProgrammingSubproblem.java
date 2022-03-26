@@ -182,7 +182,7 @@ public class QuadraticProgrammingSubproblem {
 	public static IntersectionResult sphereIntersections(double[] z, double[] d, double trustRadius, boolean entireLine) {
 
 		// special case when d == 0
-		if (LinAlg.norm(d) == 0.0) {
+		if (LinAlg.norm2(d) == 0.0) {
 			return new IntersectionResult(0.0, 0.0, false);
 		}
 
@@ -288,7 +288,7 @@ public class QuadraticProgrammingSubproblem {
 	public static IntersectionResult boxIntersections(double[] zIn, double[] dIn, double[] lbIn, double[] ubIn, boolean entireLine) {
 
 		// special case when d == 0
-		if (LinAlg.norm(dIn) == 0.0) {
+		if (LinAlg.norm2(dIn) == 0.0) {
 			return new IntersectionResult(0.0, 0.0, false);
 		}
 

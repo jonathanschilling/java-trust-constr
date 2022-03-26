@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.doublematrix.SparseDoubleMatrix2D;
 
+import de.labathome.LinAlg;
 import minerva.tests.junit.MinervaAssertions;
 
 public class TestOrthogonality {
@@ -48,13 +49,7 @@ public class TestOrthogonality {
 		});
 
 		// convert A to sparse matrix
-		Matrix sparseA = SparseDoubleMatrix2D.Factory.zeros(A.getRowCount(), A.getColumnCount());
-		for (long[] pos: A.allCoordinates()) {
-			double aVal = A.getAsDouble(pos);
-			if (aVal != 0.0) {
-				sparseA.setAsDouble(aVal, pos);
-			}
-		}
+		Matrix sparseA = LinAlg.sparse(A);
 
 		double[][] testVectors = {
 				{ -1.98931144, -1.56363389,
@@ -70,7 +65,7 @@ public class TestOrthogonality {
 
 		for (int i=0; i<testVectors.length; ++i) {
 			Matrix g = Matrix.Factory.importFromArray(testVectors[i]).transpose();
-			double orth = Projections.orthogonality(A, g);
+			double orth = Projections.orthogonality(sparseA, g);
 			MinervaAssertions.assertRelAbsEquals(expOrth[i], orth, tolerance);
 		}
 	}

@@ -1,5 +1,6 @@
 package de.labathome.optimization;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.QR.QRMatrix;
@@ -101,5 +102,73 @@ class TestProjections {
 				MinervaAssertions.assertRelAbsEquals(0.0, Projections.orthogonality(A, x), 1.0e-13);
 			}
 		}
+	}
+
+	@Test
+	void testRowspaceSparse() {
+		final double tolerance = 1.0e-15;
+
+		Matrix A = Matrix.Factory.linkToArray(new double[][] {
+				{1, 2, 3, 4, 0, 5, 0, 7},
+				{0, 8, 7, 0, 1, 5, 9, 0},
+				{1, 0, 0, 0, 0, 1, 2, 3}
+		});
+
+		Matrix sparseA = LinAlg.sparse(A);
+
+		double[][] testPoints = {
+				{1, 2, 3},
+                {1, 10, 3},
+                {1.12, 10, 0}
+		};
+
+		for (ProjectionMethod method: SPARSE_METHODS) {
+			LinearOperator[] op = Projections.projections(sparseA, method);
+			LinearOperator Y = op[2]; // rowspace
+
+			for (double[] testPoint: testPoints) {
+				Matrix z = Matrix.Factory.linkToArray(testPoint);
+
+				// Test if x is solution of A x = z
+				Matrix x = Y.apply(z);
+				MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(z), LinAlg.col(A.mtimes(x)), tolerance);
+
+				// Test if x is in the return row space of A
+				long n = A.getRowCount();
+				Matrix extA = Matrix.Factory.zeros(n+1, A.getColumnCount());
+				for (long[] pos: A.allCoordinates()) {
+					extA.setAsDouble(A.getAsDouble(pos), pos);
+				}
+				for (long[] pos: x.allCoordinates()) {
+					extA.setAsDouble(x.getAsDouble(pos), n, pos[0]);
+				}
+				Assertions.assertEquals(A.rank(), extA.rank());
+			}
+		}
+	}
+
+	@Test
+	void testNullspaceAndLeastSquaresDense() {
+
+	}
+
+	@Test
+	void testCompareDenseAndSparse() {
+
+	}
+
+	@Test
+	void testCompareDenseAndSparse2() {
+
+	}
+
+	@Test
+	void testIterativeRefinementsDense() {
+
+	}
+
+	@Test
+	void testRowspaceDense() {
+
 	}
 }

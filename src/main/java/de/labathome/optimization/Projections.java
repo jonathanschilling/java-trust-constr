@@ -332,8 +332,8 @@ public class Projections {
 			public Matrix apply(Matrix x) {
 				// v = [0]
 		        //     [x]
-				long rowsA = A.getRowCount();
-				Matrix v = Matrix.Factory.zeros(x.getRowCount() + rowsA, 1);
+				long rowsA = A.getColumnCount();
+				Matrix v = Matrix.Factory.zeros(rowsA + x.getRowCount(), 1);
 				for (long[] pos: x.allCoordinates()) {
 					v.setAsDouble(x.getAsDouble(pos), rowsA + pos[0], pos[1]);
 				}
@@ -343,7 +343,8 @@ public class Projections {
 				Matrix luSol = luK.solve(v);
 
 				// return z = A.T inv(A A.T) x
-				return luSol.subMatrix(Ret.NEW, 0, 0, x.getRowCount()-1, 0);
+				Matrix z = luSol.subMatrix(Ret.NEW, 0, 0, rowsA-1, 0);
+				return z;
 			}
 		};
 

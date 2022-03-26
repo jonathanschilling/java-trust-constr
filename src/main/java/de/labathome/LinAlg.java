@@ -61,4 +61,14 @@ public class LinAlg {
 		}
 		return sparseA;
 	}
+
+	public static Matrix diag(double[] diagonal) {
+		int n = diagonal.length;
+		Matrix d = SparseMatrix.Factory.zeros(n, n);
+		for (int i=0; i<n; ++i) {
+			d.setAsDouble(diagonal[i], i, i);
+		}
+		return d;
+	}
+
 }

@@ -2,8 +2,12 @@ package de.labathome.optimization;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.ujmp.core.DenseMatrix;
 import org.ujmp.core.Matrix;
+import org.ujmp.core.SparseMatrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.QR.QRMatrix;
+import org.ujmp.core.util.MathUtil;
+import org.ujmp.core.util.matrices.RandomSeedMatrix;
 
 import de.labathome.LinAlg;
 import de.labathome.LinearOperator;
@@ -189,12 +193,92 @@ class TestProjections {
 
 	@Test
 	void testCompareDenseAndSparse() {
+		final double tolerance = 1.0e-15;
 
+		int n = 100;
+		Matrix D = SparseMatrix.Factory.zeros(n, n);
+		for (int i=0; i<n; ++i) {
+			D.setAsDouble(i+1, i, i);
+		}
+
+		Matrix sparseA = SparseMatrix.Factory.zeros(n, 4*n);
+		for (long[] pos: D.availableCoordinates()) {
+			double dVal = D.getAsDouble(pos);
+			sparseA.setAsDouble(dVal, pos[0], 0*n + pos[1]);
+			sparseA.setAsDouble(dVal, pos[0], 1*n + pos[1]);
+			sparseA.setAsDouble(dVal, pos[0], 2*n + pos[1]);
+			sparseA.setAsDouble(dVal, pos[0], 3*n + pos[1]);
+		}
+
+		Matrix denseA = DenseMatrix.Factory.copyFromMatrix(sparseA);
+
+		// set random seed; must be non-zero apparently
+		// https://github.com/ujmp/universal-java-matrix-package/issues/35
+		MathUtil.setSeed(1);
+
+		LinearOperator[] denseOp = Projections.projections(denseA);
+		LinearOperator denseZ = denseOp[0];
+		LinearOperator denseLS = denseOp[1];
+		LinearOperator denseY = denseOp[2];
+
+		LinearOperator[] sparseOp = Projections.projections(sparseA);
+		LinearOperator sparseZ = sparseOp[0];
+		LinearOperator sparseLS = sparseOp[1];
+		LinearOperator sparseY = sparseOp[2];
+
+		int numRepetitions = 1;
+		for (int i=0; i<numRepetitions; ++i) {
+			Matrix z = Matrix.Factory.randn(4*n, 1);
+			MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(denseZ.apply(z)), LinAlg.col(sparseZ.apply(z)), tolerance);
+			MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(denseLS.apply(z)), LinAlg.col(sparseLS.apply(z)), tolerance);
+
+			Matrix x = Matrix.Factory.randn(n, 1);
+			MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(denseY.apply(x)), LinAlg.col(sparseY.apply(x)), tolerance);
+		}
 	}
 
 	@Test
 	void testCompareDenseAndSparse2() {
+		final double tolerance = 1.0e-15;
 
+		Matrix D1 = LinAlg.diag(new double[] {-1.7, 1, 0.5});
+		Matrix D2 = LinAlg.diag(new double[] {1, -0.6, -0.3});
+		Matrix D3 = LinAlg.diag(new double[] {-0.3, -1.5, 2});
+		Matrix A = Matrix.Factory.zeros(3, 9);
+		for (long[] pos: D1.availableCoordinates()) {
+			A.setAsDouble(D1.getAsDouble(pos), pos);
+		}
+		for (long[] pos: D2.availableCoordinates()) {
+			A.setAsDouble(D1.getAsDouble(pos), pos[0], 3+pos[1]);
+		}
+		for (long[] pos: D3.availableCoordinates()) {
+			A.setAsDouble(D1.getAsDouble(pos), pos[0], 6+pos[1]);
+		}
+		Matrix sparseA = LinAlg.sparse(A);
+
+		// set random seed; must be non-zero apparently
+		// https://github.com/ujmp/universal-java-matrix-package/issues/35
+		MathUtil.setSeed(1);
+
+		LinearOperator[] denseOp = Projections.projections(A);
+		LinearOperator denseZ = denseOp[0];
+		LinearOperator denseLS = denseOp[1];
+		LinearOperator denseY = denseOp[2];
+
+		LinearOperator[] sparseOp = Projections.projections(sparseA);
+		LinearOperator sparseZ = sparseOp[0];
+		LinearOperator sparseLS = sparseOp[1];
+		LinearOperator sparseY = sparseOp[2];
+
+		int numRepetitions = 1;
+		for (int i=0; i<numRepetitions; ++i) {
+			Matrix z = Matrix.Factory.randn(9, 1);
+			MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(denseZ.apply(z)), LinAlg.col(sparseZ.apply(z)), tolerance);
+			MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(denseLS.apply(z)), LinAlg.col(sparseLS.apply(z)), tolerance);
+
+			Matrix x = Matrix.Factory.randn(3, 1);
+			MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(denseY.apply(x)), LinAlg.col(sparseY.apply(x)), tolerance);
+		}
 	}
 
 	@Test

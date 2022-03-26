@@ -369,8 +369,18 @@ public class Projections {
 		Matrix Q = qr.getQ();
 		Matrix R = qr.getR();
 
-		// TODO: check for inf-norm of last row in R factor:
+		// check for inf-norm of last row in R factor:
 		// if less than tolerance, use SVD factorization
+		Matrix lastRowOfR = Matrix.Factory.zeros(1, R.getColumnCount());
+		long rowsR = R.getRowCount();
+		for (long[] pos: lastRowOfR.allCoordinates()) {
+			lastRowOfR.setAsDouble(R.getAsDouble(rowsR-1, pos[1]), pos);
+		}
+		if (lastRowOfR.normInf() < tolerance) {
+			System.out.println("Singular Jacobian matrix. Using SVD decomposition to \n" +
+					           "perform the factorizations.");
+			return svdFactorizationProjections(lastRowOfR, orthTol, maxRefine, tolerance);
+		}
 
 		/** z = x - A.T inv(A A.T) A x */
 		LinearOperator nullSpace = new LinearOperator() {

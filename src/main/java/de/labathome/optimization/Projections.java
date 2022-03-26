@@ -1,11 +1,16 @@
 package de.labathome.optimization;
 
 import org.ujmp.core.Matrix;
+import org.ujmp.core.SparseMatrix;
 import org.ujmp.core.SparseMatrix2D;
 import org.ujmp.core.calculation.Calculation.Ret;
 import org.ujmp.core.doublematrix.DoubleMatrix2D;
+import org.ujmp.core.doublematrix.SparseDoubleMatrix;
+import org.ujmp.core.doublematrix.SparseDoubleMatrix2D;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.Chol.CholMatrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.LU.LUMatrix;
+import org.ujmp.core.doublematrix.calculation.general.decomposition.QR.QRMatrix;
+import org.ujmp.core.doublematrix.calculation.general.decomposition.SVD.SVDMatrix;
 
 import de.labathome.LinearOperator;
 
@@ -153,7 +158,7 @@ public class Projections {
 	}
 
 	/**
-	 * Return linear operators for matrix A using ``NormalEquation`` approach.
+	 * Return linear operators for matrix A using {@code NORMAL_EQUATION} approach.
 	 *
 	 * @param A
 	 * @param m
@@ -212,7 +217,7 @@ public class Projections {
 	}
 
 	/**
-	 * Return linear operators for matrix A - ``AugmentedSystem``.
+	 * Return linear operators for matrix A - {@code AUGMENTED_SYSTEM}.
 	 *
 	 * @param A
 	 * @param m
@@ -220,7 +225,7 @@ public class Projections {
 	 * @param orthTol
 	 * @param maxRefine
 	 * @param tolerance
-	 * @return
+	 * @return { nullSpace, leastSquares, rowSpace }
 	 */
 	private static LinearOperator[] augmentedSystemProjections(DoubleMatrix2D A, double orthTol, int maxRefine, double tolerance) {
 
@@ -349,7 +354,7 @@ public class Projections {
 	}
 
 	/**
-	 * Return linear operators for matrix A using ``QRFactorization`` approach.
+	 * Return linear operators for matrix A using {@code QR_FACTORIZATION} approach.
 	 *
 	 * @param A
 	 * @param m
@@ -357,15 +362,81 @@ public class Projections {
 	 * @param orthTol
 	 * @param maxRefine
 	 * @param tolerance
-	 * @return
+	 * @return { nullSpace, leastSquares, rowSpace }
 	 */
 	private static LinearOperator[] qrFactorizationProjections(DoubleMatrix2D A, double orthTol, int maxRefine, double tolerance) {
 
-		return null;
+		// QR factorization of A^T
+		QRMatrix qr = new QRMatrix(A.transpose());
+		Matrix Q = qr.getQ();
+		Matrix R = qr.getR();
+
+		// TODO: check for inf-norm of last row in R factor:
+		// if less than tolerance, use SVD factorization
+
+		/** z = x - A.T inv(A A.T) A x */
+		LinearOperator nullSpace = new LinearOperator() {
+			@Override
+			public Matrix apply(Matrix x) {
+
+				// v = inv(R) Q.T x
+				Matrix aux1 = Q.transpose().mtimes(x);
+				Matrix v = R.solve(aux1);
+
+				Matrix z = x.minus(A.transpose().mtimes(v));
+
+				// Iterative refinement to improve roundoff
+		        // errors described in [2], algorithm 5.1.
+				int k = 0;
+				while (orthogonality(A, z) > orthTol) {
+					if (k >= maxRefine) {
+						break;
+					}
+
+					//  v = inv(R) Q.T x
+					aux1 = Q.transpose().mtimes(z);
+					v = R.solve(aux1);
+
+					// z_next = z - A.T v
+					z = z.minus(A.transpose().mtimes(v));
+
+					k++;
+				}
+				return z;
+			}
+		};
+
+		/** z = inv(A A.T) A x */
+		LinearOperator leastSquares = new LinearOperator() {
+			@Override
+			public Matrix apply(Matrix x) {
+
+				// z = inv(R) Q.T x
+				Matrix aux1 = Q.transpose().mtimes(x);
+				Matrix z = R.solve(aux1);
+
+				return z;
+			}
+		};
+
+		/** z = A.T inv(A A.T) x */
+		LinearOperator rowSpace = new LinearOperator() {
+			@Override
+			public Matrix apply(Matrix x) {
+
+				// z = Q inv(R.T) P.T x
+				Matrix aux2 = R.solve(x);
+				Matrix z = Q.mtimes(aux2);
+
+				return z;
+			}
+		};
+
+		return new LinearOperator[] { nullSpace, leastSquares, rowSpace };
 	}
 
 	/**
-	 * Return linear operators for matrix A using ``SVDFactorization`` approach.
+	 * Return linear operators for matrix A using {@code SVD_FACTORIZATION} approach.
 	 *
 	 * @param A
 	 * @param m
@@ -373,10 +444,79 @@ public class Projections {
 	 * @param orthTol
 	 * @param maxRefine
 	 * @param tolerance
-	 * @return
+	 * @return { nullSpace, leastSquares, rowSpace }
 	 */
 	private static LinearOperator[] svdFactorizationProjections(DoubleMatrix2D A, double orthTol, int maxRefine, double tolerance) {
 
-		return null;
+		// SVD Factorization
+		SVDMatrix svd = new SVDMatrix(A);
+		Matrix U = svd.getU();
+		Matrix Vt = svd.getV().transpose();
+		Matrix invS = svd.getreciprocalS();
+
+		// TODO: Remove dimensions related with very small singular values
+
+		// z = x - A.T inv(A A.T) A x
+		LinearOperator nullSpace = new LinearOperator() {
+			@Override
+			public Matrix apply(Matrix x) {
+
+				// v = U 1/s V.T x = inv(A A.T) A x
+				Matrix aux1 = Vt.mtimes(x);
+				Matrix aux2 = invS.mtimes(aux1);
+				Matrix v = U.mtimes(aux2);
+				Matrix z = x.minus(A.transpose().mtimes(v));
+
+				// Iterative refinement to improve roundoff
+		        // errors described in [2]_, algorithm 5.1.
+				int k = 0;
+				while (orthogonality(A, z) > orthTol) {
+					if (k >= maxRefine) {
+						break;
+					}
+
+					// v = U 1/s V.T x = inv(A A.T) A x
+					aux1 = Vt.mtimes(z);
+					aux2 = invS.mtimes(aux1);
+					v = U.mtimes(aux2);
+
+					// z_next = z - A.T v
+					z = z.minus(A.transpose().mtimes(v));
+
+					k++;
+				}
+				return z;
+			}
+		};
+
+		/** z = inv(A A.T) A x */
+		LinearOperator leastSquares = new LinearOperator() {
+			@Override
+			public Matrix apply(Matrix x) {
+
+				// z = U 1/s V.T x = inv(A A.T) A x
+				Matrix aux1 = Vt.mtimes(x);
+				Matrix aux2 = invS.mtimes(aux1);
+				Matrix z = U.mtimes(aux2);
+
+				return z;
+			}
+		};
+
+		/** z = A.T inv(A A.T) x */
+		LinearOperator rowSpace = new LinearOperator() {
+			@Override
+			public Matrix apply(Matrix x) {
+
+				// z = V 1/s U.T x
+				Matrix aux1 = U.transpose().mtimes(x);
+				Matrix aux2 = invS.mtimes(aux1);
+				Matrix z = Vt.transpose().mtimes(aux2);
+
+				return z;
+			}
+		};
+
+		return new LinearOperator[] { nullSpace, leastSquares, rowSpace };
 	}
 }

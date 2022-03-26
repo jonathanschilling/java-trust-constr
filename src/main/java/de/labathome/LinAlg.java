@@ -38,15 +38,11 @@ public class LinAlg {
 	/**
 	 * Export the first column as a vector.
 	 *
-	 * @param a [n][1] "row matrix"
+	 * @param A [n][1] "row matrix"
 	 * @return [n] first column of a
 	 */
-	public static double[] col(Matrix a) {
-		double[] r = new double[(int) a.getRowCount()];
-		for (long[] pos: a.allCoordinates()) {
-			r[(int) pos[0]] = a.getAsDouble(pos);
-		}
-		return r;
+	public static double[] col(Matrix A) {
+		return A.transpose().toDoubleArray()[0];
 	}
 
 	/**

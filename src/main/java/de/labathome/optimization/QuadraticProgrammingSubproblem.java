@@ -2,7 +2,6 @@ package de.labathome.optimization;
 
 import org.ujmp.core.DenseMatrix;
 import org.ujmp.core.Matrix;
-import org.ujmp.core.doublematrix.DenseDoubleMatrix2D;
 import org.ujmp.core.doublematrix.DoubleMatrix;
 import org.ujmp.core.doublematrix.SparseDoubleMatrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.LU.LUMatrix;
@@ -49,10 +48,10 @@ public class QuadraticProgrammingSubproblem {
 	protected Matrix b;
 
 	/** [n] solution: vector of parameters */
-	protected DenseDoubleMatrix2D x;
+	protected Matrix x;
 
 	/** [m] solution: Lagrange multipliers for constriants */
-	protected DenseDoubleMatrix2D lambda;
+	protected Matrix lambda;
 
 	/**
 	 * Setup an equality-constrained quadratic programming problem.
@@ -81,7 +80,7 @@ public class QuadraticProgrammingSubproblem {
 	 *
 	 * @return [n] values of parameters
 	 */
-	public DenseDoubleMatrix2D getX() {
+	public Matrix getX() {
 		return x;
 	}
 
@@ -90,7 +89,7 @@ public class QuadraticProgrammingSubproblem {
 	 *
 	 * @return [m] values of Lagrange multipliers
 	 */
-	public DenseDoubleMatrix2D getLambda() {
+	public Matrix getLambda() {
 		return lambda;
 	}
 
@@ -467,20 +466,14 @@ public class QuadraticProgrammingSubproblem {
 		// Check the segment between cauchy_point and newton_point for a possible solution.
 		Matrix z = cauchyPoint;
 		Matrix p = newtonPoint.minus(cauchyPoint);
-		IntersectionResult r1 = boxSphereIntersections(
-				z.transpose().toDoubleArray()[0],
-				p.transpose().toDoubleArray()[0],
-				lb, ub, trustRadius);
+		IntersectionResult r1 = boxSphereIntersections(LinAlg.col(z), LinAlg.col(p), lb, ub, trustRadius);
 		double alpha = r1.tB();
 
 		if (!r1.intersect()) {
 			// Check the segment between the origin and cauchy_point for a possible solution.
 			z = origin;
 			p = cauchyPoint;
-			IntersectionResult r2 = boxSphereIntersections(
-					z.transpose().toDoubleArray()[0],
-					p.transpose().toDoubleArray()[0],
-					lb, ub, trustRadius);
+			IntersectionResult r2 = boxSphereIntersections(LinAlg.col(z), LinAlg.col(p), lb, ub, trustRadius);
 			alpha = r2.tB();
 		}
 		Matrix x1 = z.plus(p.times(alpha));
@@ -488,10 +481,7 @@ public class QuadraticProgrammingSubproblem {
 		// Check the segment between origin and newton_point for a possible solution.
 		z = origin;
 		p = newtonPoint;
-		IntersectionResult r3 = boxSphereIntersections(
-				z.transpose().toDoubleArray()[0],
-				p.transpose().toDoubleArray()[0],
-				lb, ub, trustRadius);
+		IntersectionResult r3 = boxSphereIntersections(LinAlg.col(z), LinAlg.col(p), lb, ub, trustRadius);
 		alpha = r3.tB();
 		Matrix x2 = z.plus(p.times(alpha));
 
@@ -504,6 +494,13 @@ public class QuadraticProgrammingSubproblem {
 			return x2;
 		}
 	}
+
+
+
+
+
+
+
 
 
 

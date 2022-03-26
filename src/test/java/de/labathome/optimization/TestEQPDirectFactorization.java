@@ -1,6 +1,11 @@
 package de.labathome.optimization;
 
 import org.junit.jupiter.api.Test;
+import org.ujmp.core.Matrix;
+import org.ujmp.core.doublematrix.DenseDoubleMatrix;
+import org.ujmp.core.doublematrix.DenseDoubleMatrix2D;
+import org.ujmp.core.doublematrix.DoubleMatrix2D;
+import org.ujmp.core.doublematrix.factory.DenseDoubleMatrix2DFactory;
 
 import minerva.tests.junit.MinervaAssertions;
 
@@ -11,31 +16,43 @@ class TestEQPDirectFactorization {
 	 */
 	@Test
 	void testNocedalExample() {
+		final double tolerance = 1.0e-15;
 
 		final int n = 3;
 		final int m = 2;
 
-		final double[][] H = {
+		Matrix H = Matrix.Factory.importFromArray(new double[][] {
 				{ 6.0, 2.0, 1.0 },
 				{ 2.0, 5.0, 2.0 },
 				{ 1.0, 2.0, 4.0 }
-		};
+		});
 
-		final double[][] A = {
+		Matrix A = Matrix.Factory.importFromArray(new double[][] {
 				{ 1.0, 0.0, 1.0 },
 				{ 0.0, 1.0, 1.0 }
-		};
+		});
 
-		final double[] c = { -8.0, -3.0, -3.0 };
-		final double[] b = { -3.0, 0.0 }; // This is actually -b.
+		Matrix c = Matrix.Factory.importFromArray(new double[][] {
+				{-8.0},
+				{-3.0},
+				{-3.0}
+		});
+
+		// This is actually -b.
+		Matrix b = Matrix.Factory.importFromArray(new double[][] {
+				{-3.0},
+				{ 0.0}
+		});
 
 		QuadraticProgrammingSubproblem eqp = new QuadraticProgrammingSubproblem(n, m, H, c, A, b);
 		eqp.directFactorization();
 
-		final double[] x = eqp.getX();
-		final double[] lambda = eqp.getLambda();
+		DenseDoubleMatrix2D xMat = eqp.getX();
+		DenseDoubleMatrix2D lambdaMat = eqp.getLambda();
 
-		final double tolerance = 1.0e-15;
+		final double[] x = xMat.transpose().toDoubleArray()[0];
+		final double[] lambda = lambdaMat.transpose().toDoubleArray()[0];
+
 		final double[] expectedX = { 2.0, -1.0, 1.0 };
 		final double[] expectedLambda = { 3.0, -2.0 };
 		MinervaAssertions.assertArrayRelAbsEquals(expectedX, x, tolerance);

@@ -1,8 +1,11 @@
 package de.labathome.optimization;
 
-import org.netlib.util.intW;
-
-import com.github.fommil.netlib.LAPACK;
+import org.ujmp.core.DenseMatrix;
+import org.ujmp.core.Matrix;
+import org.ujmp.core.doublematrix.DenseDoubleMatrix2D;
+import org.ujmp.core.doublematrix.DoubleMatrix;
+import org.ujmp.core.doublematrix.SparseDoubleMatrix;
+import org.ujmp.core.doublematrix.calculation.general.decomposition.LU.LUMatrix;
 
 import de.labathome.LinAlg;
 
@@ -26,8 +29,6 @@ import de.labathome.LinAlg;
  */
 public class QuadraticProgrammingSubproblem {
 
-	private static LAPACK lapack;
-
 	/** number of parameters of the problem */
 	protected int n;
 
@@ -35,22 +36,22 @@ public class QuadraticProgrammingSubproblem {
 	protected int m;
 
 	/** [n][n] Hessian matrix of the EQP problem */
-	protected double[][] H;
+	protected Matrix H;
 
 	/** [n] gradient of the quadratic objective function */
-	protected double[] c;
+	protected Matrix c;
 
 	/** [m][n] Jacobian matrix of the EQP problem */
-	protected double[][] A;
+	protected Matrix A;
 
 	/** [m] Right-hand side of the constraint equation * (-1) */
-	protected double[] b;
+	protected Matrix b;
 
 	/** [n] solution: vector of parameters */
-	protected double[] x;
+	protected DenseDoubleMatrix2D x;
 
 	/** [m] solution: Lagrange multipliers for constriants */
-	protected double[] lambda;
+	protected DenseDoubleMatrix2D lambda;
 
 	/**
 	 * Setup an equality-constrained quadratic programming problem.
@@ -62,7 +63,7 @@ public class QuadraticProgrammingSubproblem {
 	 * @param A [m][n] Jacobian matrix of the EQP problem
 	 * @param b [m] Right-hand side of the constraint equation * (-1)
 	 */
-	public QuadraticProgrammingSubproblem(int n, int m, double[][] H, double[] c, double[][] A, double[] b) {
+	public QuadraticProgrammingSubproblem(int n, int m, Matrix H, Matrix c, Matrix A, Matrix b) {
 		this.n = n;
 		this.m = m;
 		this.H = H;
@@ -70,8 +71,8 @@ public class QuadraticProgrammingSubproblem {
 		this.A = A;
 		this.b = b;
 
-		x = new double[n];
-		lambda = new double[m];
+		x = DenseMatrix.Factory.zeros(n, 1);
+		lambda = DenseMatrix.Factory.zeros(m, 1);
 	}
 
 	/**
@@ -79,7 +80,7 @@ public class QuadraticProgrammingSubproblem {
 	 *
 	 * @return [n] values of parameters
 	 */
-	public double[] getX() {
+	public DenseDoubleMatrix2D getX() {
 		return x;
 	}
 
@@ -88,74 +89,60 @@ public class QuadraticProgrammingSubproblem {
 	 *
 	 * @return [m] values of Lagrange multipliers
 	 */
-	public double[] getLambda() {
+	public DenseDoubleMatrix2D getLambda() {
 		return lambda;
 	}
 
 	/** solve by direct factorization of the KKT matrix (16.5) */
 	public void directFactorization() {
-		if (lapack == null) {
-			lapack = LAPACK.getInstance();
-		}
 
 		// 1. build explicit KKT matrix:
 		// [ G A^T ]
 		// [ A  0  ]
-		// It is stored in column-major format for compatibility with LAPACK.
-		final double[] kkt = new double[(n+m)*(n+m)];
+		Matrix kkt = SparseDoubleMatrix.Factory.zeros(n+m, n+m);
 
 		// copy G into top left block of KKT matrix
-		for (int iR = 0; iR < n; ++iR) {
-			for (int iC=0; iC < n; ++iC) {
-				kkt[iC * (n+m) + iR] = H[iR][iC];
-			}
+		for (long[] pos: H.availableCoordinates()) {
+			kkt.setAsDouble(H.getAsDouble(pos), pos);
 		}
 
-		for (int j=0; j<m; ++j) {
-			for (int i=0; i<n; ++i) {
-				// copy A into bottom left block of KKT matrix
-				kkt[i * (n+m) + (n+j)] = A[j][i];
+		for (long[] pos: A.availableCoordinates()) {
+			double aVal = A.getAsDouble(pos);
 
-				// copy A^T into top right block of KKT matrix
-				kkt[(n+j) * (n+m) + i] = A[j][i];
-			}
+			// copy A into bottom left block of KKT matrix
+			kkt.setAsDouble(aVal, n+pos[0], pos[1]);
+
+			// copy A^T into top right block of KKT matrix
+			kkt.setAsDouble(aVal, pos[1], n+pos[0]);
 		}
 
 		// 2. build RHS vector
 		// [ -c ]
 		// [ -b ]
-		final double[] rhs = new double[n+m];
-		for (int i=0; i<n; ++i) {
-			rhs[i] = -c[i];
+		Matrix rhs = DoubleMatrix.Factory.zeros(n+m, 1);
+		for (long[] pos: c.availableCoordinates()) {
+			rhs.setAsDouble(-c.getAsDouble(pos), pos);
 		}
-		for (int j=0; j<m; ++j) {
-			rhs[n+j] = -b[j]; // TODO: change to b --> also in API!
+		for (long[] pos: b.availableCoordinates()) {
+			// TODO: change to b for consistency with book --> also in API!
+			rhs.setAsDouble(-b.getAsDouble(pos), n + pos[0], pos[1]);
 		}
 
 		// TODO: Use a symmetric indefinite factorization
 		//       to solve the system twice as fast (because of the symmetry).
 
-		// 3. obtain LU factorization of KKT matrix using LAPACK's dgetrf
-		final int[] ipiv = new int[n+m];
-		intW info = new intW(0);
-		lapack.dgetrf(n+m, n+m, kkt, n+m, ipiv, info);
-		if (info.val != 0) {
-			throw new RuntimeException(String.format("DGETRF returned info = %d", info.val));
-		}
+		// 3. obtain LU factorization of KKT matrix
+		LUMatrix lu = new LUMatrix(kkt);
 
-		// 4. solve using LAPACK's dgetrs
-		String trans = "N";
-		lapack.dgetrs(trans, n+m, 1, kkt, n+m, ipiv, rhs, n+m, info);
-		if (info.val != 0) {
-			throw new RuntimeException(String.format("DGETRS returned info = %d", info.val));
-		}
+		// 4. solve
+		Matrix sln = lu.solve(rhs);
 
 		// 5. copy solution back into appropriate vectors
-		for (int i = 0; i < n; ++i) {
-			x[i] = rhs[i];
+		for (long[] pos: x.allCoordinates()) {
+			x.setAsDouble(sln.getAsDouble(pos), pos);
 		}
-		for (int j = 0; j < m; ++j) {
-			lambda[j] = -rhs[n + j];
+		for (long[] pos: lambda.allCoordinates()) {
+			lambda.setAsDouble(-sln.getAsDouble(n + pos[0], pos[1]), pos);
 		}
 	}
 

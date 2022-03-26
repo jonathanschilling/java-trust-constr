@@ -433,7 +433,7 @@ public class Projections {
 			public Matrix apply(Matrix x) {
 
 				// z = Q inv(R.T) P.T x
-				Matrix aux2 = R.solve(x);
+				Matrix aux2 = R.transpose().solve(x);
 				Matrix z = Q.mtimes(aux2);
 
 				return z;
@@ -518,7 +518,7 @@ public class Projections {
 
 				// z = V 1/s U.T x
 				Matrix aux1 = U.transpose().mtimes(x);
-				Matrix aux2 = invS.mtimes(aux1);
+				Matrix aux2 = invS.transpose().mtimes(aux1);
 				Matrix z = Vt.transpose().mtimes(aux2);
 
 				return z;

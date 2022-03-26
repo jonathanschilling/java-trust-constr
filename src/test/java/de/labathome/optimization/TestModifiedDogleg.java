@@ -11,7 +11,7 @@ class TestModifiedDogleg {
 
 	@Test
 	void testCauchyPointEqualToNewtonPoint() {
-		final double tolerance = 1.0e-15;
+		final double tolerance = 1.0e-8;
 
 		DoubleMatrix2D A = Matrix.Factory.importFromArray(new double[][] { { 1.0, 8.0 } });
 		Matrix b = Matrix.Factory.importFromArray(new double[][] { { -16.0 } });

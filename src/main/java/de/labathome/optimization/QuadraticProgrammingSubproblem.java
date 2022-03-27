@@ -1,105 +1,48 @@
 package de.labathome.optimization;
 
-import org.ujmp.core.DenseMatrix;
 import org.ujmp.core.Matrix;
-import org.ujmp.core.doublematrix.DoubleMatrix;
-import org.ujmp.core.doublematrix.SparseDoubleMatrix;
+import org.ujmp.core.SparseMatrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.LU.LUMatrix;
 
 import de.labathome.LinAlg;
 import de.labathome.LinearOperator;
 
-/**
- * Solve the Equality-Constrained Quadratic Programming Problem:
- *
- * <pre>
- * min wrt. x: q(x) = 1/2 x^T G x + x^T c
- * s.t.         A x = b
- *
- * where
- * G is the symmetric (n x n) Hessian matrix,
- * c and x are vectors in R^n and
- * A is the (m x n) Jacobian of constraints (with m <= n).
- * n = number of parameters
- * m = number of constraints
- * </pre>
- *
- * @see Nocedal/Wright, Numerical Optimization (2006), chapter 16.1
- * @see https://antonior92.github.io/posts/2017/05/projected-CG/
- */
 public class QuadraticProgrammingSubproblem {
 
-	/** number of parameters of the problem */
-	protected int n;
-
-	/** number of constraints of the problem */
-	protected int m;
-
-	/** [n][n] Hessian matrix of the EQP problem */
-	protected Matrix H;
-
-	/** [n] gradient of the quadratic objective function */
-	protected Matrix c;
-
-	/** [m][n] Jacobian matrix of the EQP problem */
-	protected Matrix A;
-
-	/** [m] Right-hand side of the constraint equation * (-1) */
-	protected Matrix b;
-
-	/** [n] solution: vector of parameters */
-	protected Matrix x;
-
-	/** [m] solution: Lagrange multipliers for constriants */
-	protected Matrix lambda;
-
 	/**
-	 * Setup an equality-constrained quadratic programming problem.
+	 * Solve the Equality-Constrained Quadratic Programming Problem:
 	 *
-	 * @param n number of parameters of the problem
-	 * @param m number of constraints of the problem
+	 * <pre>
+	 * min wrt. x: q(x) = 1/2 x^T G x + x^T c
+	 * s.t.         A x = b
+	 * </pre>
+	 * where
+	 * <pre>
+	 * G is the symmetric (n x n) Hessian matrix,
+	 * c and x are vectors in R^n and
+	 * A is the (m x n) Jacobian of constraints (with m <= n).
+	 * n = number of parameters
+	 * m = number of constraints
+	 * </pre>
+	 *
+	 * @see Nocedal/Wright, Numerical Optimization (2006), chapter 16.1
+	 * @see https://antonior92.github.io/posts/2017/05/projected-CG/
+	 *
 	 * @param H [n][n] Hessian matrix of the EQP problem
 	 * @param c [n] gradient of the quadratic objective function
 	 * @param A [m][n] Jacobian matrix of the EQP problem
 	 * @param b [m] Right-hand side of the constraint equation * (-1)
+	 * @return {x, lambda}: solution and Lagrange multipliers
 	 */
-	public QuadraticProgrammingSubproblem(int n, int m, Matrix H, Matrix c, Matrix A, Matrix b) {
-		this.n = n;
-		this.m = m;
-		this.H = H;
-		this.c = c;
-		this.A = A;
-		this.b = b;
+	public static Matrix[] eqpKktFact(Matrix H, Matrix c, Matrix A, Matrix b) {
 
-		x = DenseMatrix.Factory.zeros(n, 1);
-		lambda = DenseMatrix.Factory.zeros(m, 1);
-	}
-
-	/**
-	 * Get the solution vector.
-	 *
-	 * @return [n] values of parameters
-	 */
-	public Matrix getX() {
-		return x;
-	}
-
-	/**
-	 * Get the vector of Lagrange multipliers for the constraints.
-	 *
-	 * @return [m] values of Lagrange multipliers
-	 */
-	public Matrix getLambda() {
-		return lambda;
-	}
-
-	/** solve by direct factorization of the KKT matrix (16.5) */
-	public void directFactorization() {
+		long n = H.getRowCount();
+		long m = A.getRowCount();
 
 		// 1. build explicit KKT matrix:
 		// [ G A^T ]
 		// [ A  0  ]
-		Matrix kkt = SparseDoubleMatrix.Factory.zeros(n+m, n+m);
+		Matrix kkt = SparseMatrix.Factory.zeros(n+m, n+m);
 
 		// copy G into top left block of KKT matrix
 		for (long[] pos: H.availableCoordinates()) {
@@ -119,7 +62,7 @@ public class QuadraticProgrammingSubproblem {
 		// 2. build RHS vector
 		// [ -c ]
 		// [ -b ]
-		Matrix rhs = DoubleMatrix.Factory.zeros(n+m, 1);
+		Matrix rhs = Matrix.Factory.zeros(n+m, 1);
 		for (long[] pos: c.availableCoordinates()) {
 			rhs.setAsDouble(-c.getAsDouble(pos), pos);
 		}
@@ -138,17 +81,22 @@ public class QuadraticProgrammingSubproblem {
 		Matrix sln = lu.solve(rhs);
 
 		// 5. copy solution back into appropriate vectors
+		Matrix x = Matrix.Factory.zeros(n, 1);
 		for (long[] pos: x.allCoordinates()) {
 			x.setAsDouble(sln.getAsDouble(pos), pos);
 		}
+
+		Matrix lambda = Matrix.Factory.zeros(m, 1);
 		for (long[] pos: lambda.allCoordinates()) {
 			lambda.setAsDouble(-sln.getAsDouble(n + pos[0], pos[1]), pos);
 		}
+
+		return new Matrix[] {x, lambda};
 	}
 
 	/**
 	 * Find the intersection between segment (or line) and spherical constraints.
-	 *
+	 * <p>
 	 * Find the intersection between the segment (or line) defined by the parametric
 	 * equation {@code x(t) = z + t*d} and the ball {@code ||x|| <= trust_radius}.
 	 *
@@ -164,7 +112,7 @@ public class QuadraticProgrammingSubproblem {
 
 	/**
 	 * Find the intersection between segment (or line) and spherical constraints.
-	 *
+	 * <p>
 	 * Find the intersection between the segment (or line) defined by the parametric
 	 * equation {@code x(t) = z + t*d} and the ball {@code ||x|| <= trust_radius}.
 	 *
@@ -247,7 +195,7 @@ public class QuadraticProgrammingSubproblem {
 
 	/**
 	 * Find the intersection between segment (or line) and box constraints.
-	 *
+	 * <p>
 	 * Find the intersection between the segment (or line) defined by the
 	 * parametric  equation {@code x(t) = z + t*d} and the rectangular box
 	 * {@code lb <= x <= ub}.
@@ -267,7 +215,7 @@ public class QuadraticProgrammingSubproblem {
 
 	/**
 	 * Find the intersection between segment (or line) and box constraints.
-	 *
+	 * <p>
 	 * Find the intersection between the segment (or line) defined by the
 	 * parametric  equation {@code x(t) = z + t*d} and the rectangular box
 	 * {@code lb <= x <= ub}.
@@ -368,7 +316,7 @@ public class QuadraticProgrammingSubproblem {
 
 	/**
 	 * Find the intersection between segment (or line) and box/sphere constraints.
-	 *
+	 * <p>
 	 * Find the intersection between the segment (or line) defined by the
 	 * parametric  equation {@code x(t) = z + t*d}, the rectangular box
 	 * {@code lb <= x <= ub} and the ball {@code ||x|| <= trust_radius}.
@@ -405,17 +353,51 @@ public class QuadraticProgrammingSubproblem {
 	}
 
 	/**
-	 * Approximately  minimize {@code 1/2*|| A x + b ||^2} inside trust-region.
+	 * Return clipped value of x.
 	 *
+	 * @param x  [n] position vector to force into bounds
+	 * @param lb [n] lower bounds
+	 * @param ub [n] upper bounds
+	 * @return coerced copy of x such that lb <= x <= ub for all entries
+	 */
+	public static double[] reinforceBoxBoundaries(double[] x, double[] lb, double[] ub) {
+		double[] clippedX = x.clone();
+		for (int i=0; i<x.length; ++i) {
+			double temp = Math.max(x[i], lb[i]);
+			clippedX[i] = Math.min(temp, ub[i]);
+		}
+		return clippedX;
+	}
+
+	/**
+	 * Check if lb <= x <= ub.
+	 *
+	 * @param x  [n] position to test
+	 * @param lb [n] lower bounds
+	 * @param ub [n] upper bounds
+	 * @return true of lb <= x <= ub for all entries, false otherwise
+	 */
+	public static boolean insideBoxBoundaries(double[] x, double[] lb, double[] ub) {
+		for (int i=0; i<x.length; ++i) {
+			if (x[i] < lb[i] || x[i] > ub[i]) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Approximately  minimize {@code 1/2*|| A x + b ||^2} inside trust-region.
+	 * <p>
 	 * Approximately solve the problem of minimizing {@code 1/2*|| A x + b ||^2}
 	 * subject to {@code ||x|| < Delta} and {@code lb <= x <= ub} using a modification
 	 * of the classical dogleg approach.
-	 *
+	 * <p>
 	 * Based on implementations described in pp. 885-886 from [1].
 	 *
-	 * [1] Byrd, Richard H., Mary E. Hribar, and Jorge Nocedal.
-	 *     "An interior point algorithm for large-scale nonlinear
-	 *     programming." SIAM Journal on Optimization 9.4 (1999): 877-900.
+	 * @see [1] Byrd, Richard H., Mary E. Hribar, and Jorge Nocedal.
+	 *          "An interior point algorithm for large-scale nonlinear
+	 *          programming." SIAM Journal on Optimization 9.4 (1999): 877-900.
 	 *
 	 * @param A [m][n] Matrix {@code A} in the minimization problem.
 	 *                 It should have dimensions {@code (m, n)} such that {@code m < n}.
@@ -495,47 +477,44 @@ public class QuadraticProgrammingSubproblem {
 		}
 	}
 
-
-
-
-
-
-
-
-
-
-
-
 	/**
-	 * Return clipped value of x.
-	 * @param x  [n] position vector to force into bounds
-	 * @param lb [n] lower bounds
-	 * @param ub [n] upper bounds
-	 * @return coerced copy of x such that lb <= x <= ub for all entries
-	 */
-	public static double[] reinforceBoxBoundaries(double[] x, double[] lb, double[] ub) {
-		double[] clippedX = x.clone();
-		for (int i=0; i<x.length; ++i) {
-			double temp = Math.max(x[i], lb[i]);
-			clippedX[i] = Math.min(temp, ub[i]);
-		}
-		return clippedX;
-	}
-
-	/**
-	 * Check if lb <= x <= ub.
+	 * Solve EQP problem with projected CG method.
+	 * <p>
+	 * Solve equality-constrained quadratic programming problem
+	 * {@code min 1/2 x^T H x + x^t c}  subject to {@code A x + b = 0} and,
+	 * possibly, to trust region constraints {@code ||x|| < trust_radius}
+	 * and box constraints {@code lb <= x <= ub}.
 	 *
-	 * @param x  [n] position to test
-	 * @param lb [n] lower bounds
-	 * @param ub [n] upper bounds
-	 * @return true of lb <= x <= ub for all entries, false otherwise
+	 * @param H
+	 * @param c
+	 * @param Z
+	 * @param Y
+	 * @param b
+	 * @param trustRadius
+	 * @param lb
+	 * @param ub
+	 * @param tolerance
+	 * @param maxIterations
+	 * @param maxInfeasibleIterations
+	 * @param returnAll
 	 */
-	public static boolean insideBoxBoundaries(double[] x, double[] lb, double[] ub) {
-		for (int i=0; i<x.length; ++i) {
-			if (x[i] < lb[i] || x[i] > ub[i]) {
-				return false;
-			}
-		}
-		return true;
+	public static void projectedCG(Matrix H, Matrix c, Matrix Z, Matrix Y, Matrix b,
+			double trustRadius, double[] lb, double[] ub, double tolerance,
+			int maxIterations, int maxInfeasibleIterations, boolean returnAll) {
+
+
+
+
 	}
+
+
+
+
+
+
+
+
+
+
+
 }

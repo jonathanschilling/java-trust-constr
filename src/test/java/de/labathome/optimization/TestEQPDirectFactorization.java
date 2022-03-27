@@ -14,9 +14,6 @@ class TestEQPDirectFactorization {
 	void testNocedalExample() {
 		final double tolerance = 1.0e-15;
 
-		final int n = 3;
-		final int m = 2;
-
 		Matrix H = Matrix.Factory.importFromArray(new double[][] {
 				{ 6.0, 2.0, 1.0 },
 				{ 2.0, 5.0, 2.0 },
@@ -40,11 +37,9 @@ class TestEQPDirectFactorization {
 				{ 0.0}
 		});
 
-		QuadraticProgrammingSubproblem eqp = new QuadraticProgrammingSubproblem(n, m, H, c, A, b);
-		eqp.directFactorization();
-
-		final double[] x = eqp.getX().transpose().toDoubleArray()[0];
-		final double[] lambda = eqp.getLambda().transpose().toDoubleArray()[0];
+		Matrix[] xLambda = QuadraticProgrammingSubproblem.eqpKktFact(H, c, A, b);
+		final double[] x = xLambda[0].transpose().toDoubleArray()[0];
+		final double[] lambda = xLambda[1].transpose().toDoubleArray()[0];
 
 		final double[] expectedX = { 2.0, -1.0, 1.0 };
 		final double[] expectedLambda = { 3.0, -2.0 };

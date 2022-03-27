@@ -16,7 +16,7 @@ public class Projections {
 	 * Measure orthogonality between a vector and the null space of a matrix.
 	 *
 	 * Compute a measure of orthogonality between the null space
-	 * of the (possibly sparse) matrix ``A`` and a given vector ``g``.
+	 * of the (possibly sparse) matrix {@code A} and a given vector {@code g}.
 	 *
 	 * The formula is a simplified (and cheaper) version of formula (3.13) from [1]:
 	 * {@code orth =  norm(A g, ord=2)/(norm(A, ord='fro')*norm(g, ord=2))}

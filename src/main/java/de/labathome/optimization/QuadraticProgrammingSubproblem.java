@@ -497,6 +497,102 @@ public class QuadraticProgrammingSubproblem {
 	 *          programming problems arising in optimization."
 	 *          SIAM Journal on Scientific Computing 23.4 (2001): 1376-1395.
 	 *
+	 * @param H [n][n] Operator for computing {@code H v}
+	 * @param c [n] Gradient of the quadratic objective
+	 *          function
+	 * @param Z [n][n] Operator for projecting {@code x} into
+	 *          the null space of A.
+	 * @param Y [n][m] Operator that, for a given a vector
+	 *          {@code b}, compute smallest norm solution of
+	 *          {@code A x + b = 0}.
+	 * @param b [m] Right-hand side of the constraint equation
+	 * @return  solution vector and additional info
+	 */
+	public static PCGResult projectedCG(Matrix H, Matrix c, Object Z, Object Y, Matrix b) {
+
+		double trustRadius = Double.POSITIVE_INFINITY;
+		double[] lb = null;
+		double[] ub = null;
+		double tolerance = Double.NaN;
+
+		return projectedCG(H, c, Z, Y, b, trustRadius, lb, ub, tolerance);
+	}
+
+	/**
+	 * Solve EQP problem with projected CG method.
+	 * <p>
+	 * Solve equality-constrained quadratic programming problem
+	 * {@code min 1/2 x^T H x + x^t c} subject to {@code A x + b = 0} and, possibly,
+	 * to trust region constraints {@code ||x|| < trust_radius} and box constraints
+	 * {@code lb <= x <= ub}.
+	 * <p>
+	 * Implementation of Algorithm 6.2 on [1].
+	 * <p>
+	 * In the absence of spherical and box constraints, for sufficient
+	 * iterations, the method returns a truly optimal result.
+	 * In the presence of those constraints, the value returned is only
+	 * a inexpensive approximation of the optimal value.
+	 *
+	 * @see [1] Gould, Nicholas IM, Mary E. Hribar, and Jorge Nocedal.
+	 *          "On the solution of equality constrained quadratic
+	 *          programming problems arising in optimization."
+	 *          SIAM Journal on Scientific Computing 23.4 (2001): 1376-1395.
+	 *
+	 * @param H                       [n][n] Operator for computing {@code H v}
+	 * @param c                       [n] Gradient of the quadratic objective
+	 *                                function
+	 * @param Z                       [n][n] Operator for projecting {@code x} into
+	 *                                the null space of A.
+	 * @param Y                       [n][m] Operator that, for a given a vector
+	 *                                {@code b}, compute smallest norm solution of
+	 *                                {@code A x + b = 0}.
+	 * @param b                       [m] Right-hand side of the constraint equation
+	 * @param trustRadius             Trust radius to be considered. By default,
+	 *                                uses Double.POSITIVE_INFINITY, which means no
+	 *                                trust radius at all.
+	 * @param lb                      [n] Lower bounds to each one of the components
+	 *                                of {@code x}. If {@code lb[i] = -Inf} the
+	 *                                lower bound for the i-th component is just
+	 *                                ignored (default).
+	 * @param ub                      [n] Upper bounds to each one of the components
+	 *                                of {@code x}. If {@code ub[i] = Inf} the upper
+	 *                                bound for the i-th component is just ignored
+	 *                                (default).
+	 * @param tolerance               Tolerance used to interrupt the algorithm.
+	 * @return                        solution vector and additional info
+	 */
+	public static PCGResult projectedCG(Matrix H, Matrix c, Object Z, Object Y, Matrix b, double trustRadius, double[] lb,
+			double[] ub, double tolerance) {
+
+		long n = c.getRowCount();
+		long m = b.getRowCount();
+		long maxIterations = n - m;
+		long maxInfeasibleIterations = n - m;
+		boolean returnAll = false;
+
+		return projectedCG(H, c, Z, Y, b, trustRadius, lb, ub, tolerance, maxIterations, maxInfeasibleIterations, returnAll);
+	}
+
+	/**
+	 * Solve EQP problem with projected CG method.
+	 * <p>
+	 * Solve equality-constrained quadratic programming problem
+	 * {@code min 1/2 x^T H x + x^t c} subject to {@code A x + b = 0} and, possibly,
+	 * to trust region constraints {@code ||x|| < trust_radius} and box constraints
+	 * {@code lb <= x <= ub}.
+	 * <p>
+	 * Implementation of Algorithm 6.2 on [1].
+	 * <p>
+	 * In the absence of spherical and box constraints, for sufficient
+	 * iterations, the method returns a truly optimal result.
+	 * In the presence of those constraints, the value returned is only
+	 * a inexpensive approximation of the optimal value.
+	 *
+	 * @see [1] Gould, Nicholas IM, Mary E. Hribar, and Jorge Nocedal.
+	 *          "On the solution of equality constrained quadratic
+	 *          programming problems arising in optimization."
+	 *          SIAM Journal on Scientific Computing 23.4 (2001): 1376-1395.
+	 *
 	 * @param H                       [n][n] Operator for computing {@code H v}
 	 * @param c                       [n] Gradient of the quadratic objective
 	 *                                function
@@ -529,8 +625,8 @@ public class QuadraticProgrammingSubproblem {
 	 *                                vectors through the iterations.
 	 * @return                        solution vector and additional info
 	 */
-	public static PCGResult projectedCG(Matrix H, Matrix c, Matrix Z, Matrix Y, Matrix b, double trustRadius, double[] lb,
-			double[] ub, double tolerance, int maxIterations, int maxInfeasibleIterations, boolean returnAll) {
+	public static PCGResult projectedCG(Matrix H, Matrix c, Object Z, Object Y, Matrix b, double trustRadius, double[] lb,
+			double[] ub, double tolerance, long maxIterations, long maxInfeasibleIterations, boolean returnAll) {
 
 
 

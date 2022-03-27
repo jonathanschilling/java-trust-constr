@@ -14,7 +14,7 @@ public class PCGResult {
 		/** 3: Negative curvature detected */
 		NEGATIVE_CURVATURE,
 
-		/** Tolerance was satisfied */
+		/** 4: Tolerance was satisfied */
 		TOLERANCE_SATISFIED
 	}
 

@@ -29,7 +29,7 @@ class TestProjectedCG {
 
 		Matrix c = Matrix.Factory.linkToArray(new double[] {-8, -3, -3});
 
-		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0});
+		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0}).times(-1); // TODO: fix -1 in b !!!
 
 		LinearOperator[] op = Projections.projections(A);
 		LinearOperator Z = op[0];
@@ -93,7 +93,7 @@ class TestProjectedCG {
 
 		Matrix c = Matrix.Factory.linkToArray(new double[] {-2, -3, -3, 1});
 
-		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0});
+		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0}).times(-1); // TODO: fix -1 in b !!!
 
 		LinearOperator[] op = Projections.projections(A);
 		LinearOperator Z = op[0];
@@ -127,7 +127,7 @@ class TestProjectedCG {
 
 		Matrix c = Matrix.Factory.linkToArray(new double[] {-2, -3, -3, 1});
 
-		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0});
+		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0}).times(-1); // TODO: fix -1 in b !!!
 
 		LinearOperator[] op = Projections.projections(A);
 		LinearOperator Z = op[0];
@@ -163,7 +163,7 @@ class TestProjectedCG {
 
 		Matrix c = Matrix.Factory.linkToArray(new double[] {-2, -3, -3, 1});
 
-		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0});
+		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0}).times(-1); // TODO: fix -1 in b !!!
 
 		LinearOperator[] op = Projections.projections(A);
 		LinearOperator Z = op[0];
@@ -195,7 +195,7 @@ class TestProjectedCG {
 
 		Matrix c = Matrix.Factory.linkToArray(new double[] {-2, -3, -3, 1});
 
-		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0});
+		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0}).times(-1); // TODO: fix -1 in b !!!
 
 		LinearOperator[] op = Projections.projections(A);
 		LinearOperator Z = op[0];
@@ -228,7 +228,7 @@ class TestProjectedCG {
 
 		Matrix c = Matrix.Factory.linkToArray(new double[] {-2, -3, -3, 1});
 
-		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0});
+		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0}).times(-1); // TODO: fix -1 in b !!!
 
 		LinearOperator[] op = Projections.projections(A);
 		LinearOperator Z = op[0];
@@ -266,7 +266,7 @@ class TestProjectedCG {
 
 		Matrix c = Matrix.Factory.linkToArray(new double[] {-2, -3, -3, 1});
 
-		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0});
+		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0}).times(-1); // TODO: fix -1 in b !!!
 
 		LinearOperator[] op = Projections.projections(A);
 		LinearOperator Z = op[0];
@@ -306,7 +306,7 @@ class TestProjectedCG {
 
 		Matrix c = Matrix.Factory.linkToArray(new double[] {-2, -3, -3, 1});
 
-		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0});
+		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0}).times(-1); // TODO: fix -1 in b !!!
 
 		LinearOperator[] op = Projections.projections(A);
 		LinearOperator Z = op[0];
@@ -320,7 +320,7 @@ class TestProjectedCG {
 		Assertions.assertEquals(PCGStoppingCondition.ITER_LIMIT_REACHED, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
 
-		MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(b.times(-1)), LinAlg.col(A.mtimes(b)), tolerance);
+		MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(b.times(-1)), LinAlg.col(A.mtimes(r.x.transpose())), tolerance);
 		MinervaAssertions.assertRelAbsEquals(0.8, r.x.getAsDouble(0, 0), tolerance);
 	}
 
@@ -346,7 +346,7 @@ class TestProjectedCG {
 
 		Matrix c = Matrix.Factory.linkToArray(new double[] {-2, -3, -3, 1});
 
-		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0});
+		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0}).times(-1); // TODO: fix -1 in b !!!
 
 		LinearOperator[] op = Projections.projections(A);
 		LinearOperator Z = op[0];
@@ -360,7 +360,7 @@ class TestProjectedCG {
 		Assertions.assertEquals(PCGStoppingCondition.TRUST_REGION_BOUNDARY_REACHED, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
 
-		MinervaAssertions.assertRelAbsEquals(1.6, r.x.getAsDouble(2, 0), tolerance);
+		MinervaAssertions.assertRelAbsEquals(1.6, r.x.getAsDouble(0, 2), tolerance);
 	}
 
 	/**
@@ -385,7 +385,7 @@ class TestProjectedCG {
 
 		Matrix c = Matrix.Factory.linkToArray(new double[] {-2, -3, -3, 1});
 
-		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0});
+		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0}).times(-1); // TODO: fix -1 in b !!!
 
 		LinearOperator[] op = Projections.projections(A);
 		LinearOperator Z = op[0];
@@ -399,7 +399,7 @@ class TestProjectedCG {
 		Assertions.assertEquals(PCGStoppingCondition.TRUST_REGION_BOUNDARY_REACHED, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
 
-		MinervaAssertions.assertRelAbsEquals(0.1, r.x.getAsDouble(1, 0), tolerance);
+		MinervaAssertions.assertRelAbsEquals(0.1, r.x.getAsDouble(0, 1), tolerance);
 	}
 
 	/**
@@ -424,7 +424,7 @@ class TestProjectedCG {
 
 		Matrix c = Matrix.Factory.linkToArray(new double[] {-2, -3, -3, 1});
 
-		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0});
+		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0}).times(-1); // TODO: fix -1 in b !!!
 
 		LinearOperator[] op = Projections.projections(A);
 		LinearOperator Z = op[0];

@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import minerva.tests.junit.MinervaAssertions;
 
-public class TestBoxSphereBoundariesIntersections {
+class TestBoxSphereBoundariesIntersections {
 
 	@Test
 	void test2dBoxConstraints() {

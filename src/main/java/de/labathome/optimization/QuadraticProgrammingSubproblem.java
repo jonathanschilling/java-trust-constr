@@ -481,30 +481,66 @@ public class QuadraticProgrammingSubproblem {
 	 * Solve EQP problem with projected CG method.
 	 * <p>
 	 * Solve equality-constrained quadratic programming problem
-	 * {@code min 1/2 x^T H x + x^t c}  subject to {@code A x + b = 0} and,
-	 * possibly, to trust region constraints {@code ||x|| < trust_radius}
-	 * and box constraints {@code lb <= x <= ub}.
+	 * {@code min 1/2 x^T H x + x^t c} subject to {@code A x + b = 0} and, possibly,
+	 * to trust region constraints {@code ||x|| < trust_radius} and box constraints
+	 * {@code lb <= x <= ub}.
+	 * <p>
+	 * Implementation of Algorithm 6.2 on [1].
+	 * <p>
+	 * In the absence of spherical and box constraints, for sufficient
+	 * iterations, the method returns a truly optimal result.
+	 * In the presence of those constraints, the value returned is only
+	 * a inexpensive approximation of the optimal value.
 	 *
-	 * @param H
-	 * @param c
-	 * @param Z
-	 * @param Y
-	 * @param b
-	 * @param trustRadius
-	 * @param lb
-	 * @param ub
-	 * @param tolerance
-	 * @param maxIterations
-	 * @param maxInfeasibleIterations
-	 * @param returnAll
+	 * @see [1] Gould, Nicholas IM, Mary E. Hribar, and Jorge Nocedal.
+	 *          "On the solution of equality constrained quadratic
+	 *          programming problems arising in optimization."
+	 *          SIAM Journal on Scientific Computing 23.4 (2001): 1376-1395.
+	 *
+	 * @param H                       [n][n] Operator for computing {@code H v}
+	 * @param c                       [n] Gradient of the quadratic objective
+	 *                                function
+	 * @param Z                       [n][n] Operator for projecting {@code x} into
+	 *                                the null space of A.
+	 * @param Y                       [n][m] Operator that, for a given a vector
+	 *                                {@code b}, compute smallest norm solution of
+	 *                                {@code A x + b = 0}.
+	 * @param b                       [m] Right-hand side of the constraint equation
+	 * @param trustRadius             Trust radius to be considered. By default,
+	 *                                uses Double.POSITIVE_INFINITY, which means no
+	 *                                trust radius at all.
+	 * @param lb                      [n] Lower bounds to each one of the components
+	 *                                of {@code x}. If {@code lb[i] = -Inf} the
+	 *                                lower bound for the i-th component is just
+	 *                                ignored (default).
+	 * @param ub                      [n] Upper bounds to each one of the components
+	 *                                of {@code x}. If {@code ub[i] = Inf} the upper
+	 *                                bound for the i-th component is just ignored
+	 *                                (default).
+	 * @param tolerance               Tolerance used to interrupt the algorithm.
+	 * @param maxIterations           Maximum algorithm iterations, where
+	 *                                {@code max_inter <= n-m}. By default, uses
+	 *                                {@code max_iter = n-m}.
+	 * @param maxInfeasibleIterations Maximum infeasible (regarding box constraints)
+	 *                                iterations the algorithm is allowed to take.
+	 *                                By default, uses
+	 *                                {@code max_infeasible_iter = n-m}.
+	 * @param returnAll               When {@code true}, return the list of all
+	 *                                vectors through the iterations.
+	 * @return                        solution vector and additional info
 	 */
-	public static void projectedCG(Matrix H, Matrix c, Matrix Z, Matrix Y, Matrix b,
-			double trustRadius, double[] lb, double[] ub, double tolerance,
-			int maxIterations, int maxInfeasibleIterations, boolean returnAll) {
+	public static PCGResult projectedCG(Matrix H, Matrix c, Matrix Z, Matrix Y, Matrix b, double trustRadius, double[] lb,
+			double[] ub, double tolerance, int maxIterations, int maxInfeasibleIterations, boolean returnAll) {
 
 
 
 
+
+
+
+
+
+		return null;
 	}
 
 

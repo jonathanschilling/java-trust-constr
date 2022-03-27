@@ -6,7 +6,7 @@ import org.ujmp.core.Matrix;
 import de.labathome.LinAlg;
 import minerva.tests.junit.MinervaAssertions;
 
-public class TestOrthogonality {
+class TestOrthogonality {
 
 	@Test
 	void testDenseMatrix() {

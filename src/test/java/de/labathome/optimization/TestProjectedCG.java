@@ -59,7 +59,7 @@ class TestProjectedCG {
 
 		Matrix c = Matrix.Factory.linkToArray(new double[] {-2, -3, -3, 1});
 
-		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0});
+		Matrix b = Matrix.Factory.linkToArray(new double[] {3, 0}).times(-1); // TODO: fix -1 in b !!!
 
 		LinearOperator[] op = Projections.projections(A);
 		LinearOperator Z = op[0];

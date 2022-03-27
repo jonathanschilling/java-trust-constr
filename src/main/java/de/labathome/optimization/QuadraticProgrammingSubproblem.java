@@ -838,12 +838,13 @@ public class QuadraticProgrammingSubproblem {
 			p = gNext.times(-1).plus(p.times(beta));
 
 			// Prepare for next iteration
+
 			x = xNext;
 			g = gNext;
 			r = gNext;
 			double normG = g.norm2();
 			rt_g = normG*normG; // g.T g = r.T Z g = r.T g (ref [1] p.1389)
-			H_p = H.mtimes(g);
+			H_p = H.mtimes(p);
 		}
 
 		if (!insideBoxBoundaries(LinAlg.col(x), lb, ub)) {

@@ -437,6 +437,6 @@ class TestProjectedCG {
 		PCGResult r = QuadraticProgrammingSubproblem.projectedCG(H, c, Z, Y, b, trustRadius, lb, ub, tol);
 		Assertions.assertEquals(PCGStoppingCondition.NEGATIVE_CURVATURE, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
-		MinervaAssertions.assertRelAbsEquals(100.0, r.x.getAsDouble(2, 0), tolerance);
+		MinervaAssertions.assertRelAbsEquals(100.0, r.x.getAsDouble(0, 2), tolerance);
 	}
 }

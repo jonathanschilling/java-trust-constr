@@ -1,5 +1,7 @@
 package de.labathome.optimization;
 
+import java.util.List;
+
 import org.ujmp.core.Matrix;
 
 public class PCGResult {
@@ -27,7 +29,7 @@ public class PCGResult {
 	public PCGStoppingCondition stopCond;
 
 	/** List containing all intermediary vectors (optional). */
-	public Matrix[] allVecs;
+	public List<Matrix> allVecs;
 
 	/**
 	 * True if the proposed step is on the boundary

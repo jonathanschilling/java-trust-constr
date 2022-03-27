@@ -1,11 +1,15 @@
 package de.labathome.optimization;
 
+import java.util.Arrays;
+import java.util.LinkedList;
+
 import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.LU.LUMatrix;
 
 import de.labathome.LinAlg;
 import de.labathome.LinearOperator;
+import de.labathome.optimization.PCGResult.PCGStoppingCondition;
 
 public class QuadraticProgrammingSubproblem {
 
@@ -564,10 +568,8 @@ public class QuadraticProgrammingSubproblem {
 	public static PCGResult projectedCG(Matrix H, Matrix c, Object Z, Object Y, Matrix b, double trustRadius, double[] lb,
 			double[] ub, double tolerance) {
 
-		long n = c.getRowCount();
-		long m = b.getRowCount();
-		long maxIterations = n - m;
-		long maxInfeasibleIterations = n - m;
+		long maxIterations = -1;
+		long maxInfeasibleIterations = -1;
 		boolean returnAll = false;
 
 		return projectedCG(H, c, Z, Y, b, trustRadius, lb, ub, tolerance, maxIterations, maxInfeasibleIterations, returnAll);
@@ -628,25 +630,230 @@ public class QuadraticProgrammingSubproblem {
 	public static PCGResult projectedCG(Matrix H, Matrix c, Object Z, Object Y, Matrix b, double trustRadius, double[] lb,
 			double[] ub, double tolerance, long maxIterations, long maxInfeasibleIterations, boolean returnAll) {
 
+		PCGResult result = new PCGResult();
+		if (returnAll) {
+			result.allVecs = new LinkedList<>();
+		}
 
+		final double CLOSE_TO_ZERO = 1.0e-25;
 
+		final long n = c.getRowCount(); // Number of parameters
+		final long m = b.getRowCount(); // Number of constraints
 
+		// Initial Values
+		Matrix x;
+		if (Y instanceof Matrix) {
+			x = ((Matrix) Y).mtimes(b.times(-1));
+		} else if (Y instanceof LinearOperator) {
+			x = ((LinearOperator) Y).apply(b.times(-1));
+		} else {
+			throw new RuntimeException("Y has to be Matrix or LinearOperator");
+		}
 
+		Matrix r, g;
+		if (Z instanceof Matrix) {
+			r = ((Matrix) Z).mtimes(H.mtimes(x).plus(c));
+			g = ((Matrix) Z).mtimes(r);
+		} else if (Y instanceof LinearOperator) {
+			r = ((LinearOperator) Z).apply(H.mtimes(x).plus(c));
+			g = ((LinearOperator) Z).apply(r);
+		} else {
+			throw new RuntimeException("Z has to be Matrix or LinearOperator");
+		}
+		Matrix p = g.times(-1);
 
+		// Store {@code x} value
+		if (returnAll) {
+			result.allVecs.add(Matrix.Factory.copyFromMatrix(x));
+		}
 
+		// If x > trust-region the problem does not have a solution.
+		double trDistance = trustRadius - x.norm2();
+		if (trDistance < 0.0) {
+			throw new RuntimeException("Trust region problem does not have a solution.");
+		} else if (trDistance < CLOSE_TO_ZERO) {
+			// If x == trust_radius, then x is the solution
+			// to the optimization problem, since x is the
+			// minimum norm solution to Ax=b.
 
+			result.niter = 0;
+			result.stopCond = PCGStoppingCondition.TRUST_REGION_BOUNDARY_REACHED;
+			result.hitsBoundary = true;
+			if (returnAll) {
+				result.allVecs.add(Matrix.Factory.copyFromMatrix(x));
+			}
 
-		return null;
+			return result;
+		}
+
+		// Values for the first iteration
+		Matrix H_p = H.mtimes(p);
+		double gNorm = g.norm2();
+		double rt_g = gNorm*gNorm; // g.T g = r.T Z g = r.T g (ref [1], p.1389)
+
+		// Set default tolerance
+		if (Double.isNaN(tolerance)) {
+			tolerance = Math.max(Math.min(0.01*Math.sqrt(rt_g), 0.1*rt_g), CLOSE_TO_ZERO);
+		}
+
+		// Set default lower and upper bounds
+		if (lb == null) {
+			lb = new double[(int) n];
+			Arrays.fill(lb, Double.NEGATIVE_INFINITY);
+		}
+		if (ub == null) {
+			ub = new double[(int) n];
+			Arrays.fill(ub, Double.POSITIVE_INFINITY);
+		}
+
+		// Set maximum iterations
+		if (maxIterations == -1) {
+			maxIterations = n-m; // default value
+		}
+		maxIterations = Math.min(maxIterations, n-m); // limit to max. n-m
+
+		// Set maximum infeasible iterations
+		if (maxInfeasibleIterations == -1) {
+			maxInfeasibleIterations = n-m; // default value
+		}
+
+		result.hitsBoundary = false;
+		result.stopCond = PCGStoppingCondition.ITER_LIMIT_REACHED;
+		int counter = 0;
+		Matrix lastFeasibleX = Matrix.Factory.zeros(x.getRowCount(), x.getColumnCount());
+		int k = 0;
+		for (int i=0; i<maxIterations; ++i) {
+			// Stop criteria - Tolerance : r.T g < tol
+			if (rt_g < tolerance) {
+				result.stopCond = PCGStoppingCondition.TOLERANCE_SATISFIED;
+				break;
+			}
+
+			k++;
+
+			// Compute curvature
+			double pt_H_g = H_p.transpose().mtimes(p).doubleValue();
+
+			// Stop criteria - Negative curvature
+			if (pt_H_g <= 0.0) {
+				if (Double.isInfinite(trustRadius)) {
+					throw new RuntimeException("Negative curvature not allowed for unrestricted problems.");
+				} else {
+					// Find intersection with constraints
+					IntersectionResult ir = boxSphereIntersections(LinAlg.col(x), LinAlg.col(p), lb, ub, trustRadius, true);
+					double alpha = ir.tB();
+
+					// Update solution
+					if (ir.intersect()) {
+						x = x.plus(p.times(alpha));
+					}
+
+					// Reinforce variables are inside box constraints.
+	                // This is only necessary because of roundoff errors.
+					x = Matrix.Factory.importFromArray(reinforceBoxBoundaries(LinAlg.col(x), lb, ub));
+
+					// Attribute information
+					result.stopCond = PCGStoppingCondition.NEGATIVE_CURVATURE;
+					result.hitsBoundary = true;
+					break;
+				}
+			}
+
+			// Get next step
+			double alpha = rt_g / pt_H_g;
+			Matrix xNext = x.plus(p.times(alpha));
+
+			// Stop criteria - Hits boundary
+			if (xNext.norm2() >= trustRadius) {
+				// Find intersection with box constraints
+				IntersectionResult ir = boxSphereIntersections(LinAlg.col(x), LinAlg.col(p.times(alpha)), lb, ub, trustRadius);
+				double theta = ir.tB();
+
+				// Update solution
+				if (ir.intersect()) {
+					x = x.plus(p.times(alpha*theta));
+				}
+
+				// Reinforce variables are inside box constraints.
+                // This is only necessary because of roundoff errors.
+				x = Matrix.Factory.importFromArray(reinforceBoxBoundaries(LinAlg.col(x), lb, ub));
+
+				// Attribute information
+				result.stopCond = PCGStoppingCondition.TRUST_REGION_BOUNDARY_REACHED;
+				result.hitsBoundary = true;
+				break;
+			}
+
+			// Check if {@code x} is inside the box and start counter if it is not.
+			if (insideBoxBoundaries(LinAlg.col(xNext), lb, ub)) {
+				counter = 0;
+			} else {
+				counter++;
+			}
+
+			// Whenever outside box constraints keep looking for intersections.
+			if (counter > 0) {
+				IntersectionResult ir = boxSphereIntersections(LinAlg.col(x), LinAlg.col(p.times(alpha)), lb, ub, trustRadius);
+				double theta = ir.tB();
+
+				if (ir.intersect()) {
+					lastFeasibleX = x.plus(p.times(alpha*theta));
+
+					// Reinforce variables are inside box constraints.
+	                // This is only necessary because of roundoff errors.
+					lastFeasibleX = Matrix.Factory.importFromArray(reinforceBoxBoundaries(LinAlg.col(lastFeasibleX), lb, ub));
+
+					counter = 0;
+				}
+			}
+
+			// Stop after too many infeasible (regarding box constraints) iteration.
+			if (counter > maxInfeasibleIterations) {
+				break;
+			}
+
+			// Store ``x_next`` value
+			if (returnAll) {
+				result.allVecs.add(Matrix.Factory.copyFromMatrix(xNext));
+			}
+
+			// Update residual
+			Matrix rNext = r.plus(H_p.times(alpha));
+
+			// Project residual g+ = Z r+
+			Matrix gNext;
+			if (Z instanceof Matrix) {
+				gNext = ((Matrix) Z).mtimes(rNext);
+			} else if (Z instanceof LinearOperator) {
+				gNext = ((LinearOperator) Z).apply(rNext);
+			} else {
+				throw new RuntimeException("Z must be either Matrix or LinearOperator");
+			}
+
+			// Compute conjugate direction step d
+			double normGNext = gNext.norm2();
+			double rt_g_next = normGNext*normGNext; // g.T g = r.T g (ref [1] p.1389)
+
+			double beta = rt_g_next / rt_g;
+			p = gNext.times(-1).plus(p.times(beta));
+
+			// Prepare for next iteration
+			x = xNext;
+			g = gNext;
+			r = gNext;
+			double normG = g.norm2();
+			rt_g = normG*normG; // g.T g = r.T Z g = r.T g (ref [1] p.1389)
+			H_p = H.mtimes(g);
+		}
+
+		if (!insideBoxBoundaries(LinAlg.col(x), lb, ub)) {
+			x = lastFeasibleX;
+			result.hitsBoundary = true;
+		}
+
+		result.x = x;
+		result.niter = k;
+
+		return result;
 	}
-
-
-
-
-
-
-
-
-
-
-
 }

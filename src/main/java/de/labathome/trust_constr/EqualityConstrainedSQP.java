@@ -1,16 +1,7 @@
-package de.labathome.optimization;
+package de.labathome.trust_constr;
 
 import org.ujmp.core.Matrix;
 import org.ujmp.core.calculation.Calculation.Ret;
-
-import de.labathome.ECSQPResult;
-import de.labathome.FunctionAndConstraint;
-import de.labathome.GradientAndJacobian;
-import de.labathome.LagrangeHessian;
-import de.labathome.LinAlg;
-import de.labathome.LinearOperator;
-import de.labathome.State;
-import de.labathome.StoppingCriterion;
 
 /** Byrd-Omojokun Trust-Region SQP method */
 public class EqualityConstrainedSQP {

@@ -4,8 +4,10 @@ import org.junit.jupiter.api.Test;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.doublematrix.DoubleMatrix2D;
 
-import de.labathome.LinAlg;
-import de.labathome.LinearOperator;
+import de.labathome.trust_constr.LinAlg;
+import de.labathome.trust_constr.LinearOperator;
+import de.labathome.trust_constr.Projections;
+import de.labathome.trust_constr.QuadraticProgrammingSubproblem;
 import minerva.tests.junit.MinervaAssertions;
 
 class TestModifiedDogleg {

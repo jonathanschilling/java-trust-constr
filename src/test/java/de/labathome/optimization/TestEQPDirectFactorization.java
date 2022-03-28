@@ -3,6 +3,7 @@ package de.labathome.optimization;
 import org.junit.jupiter.api.Test;
 import org.ujmp.core.Matrix;
 
+import de.labathome.trust_constr.QuadraticProgrammingSubproblem;
 import minerva.tests.junit.MinervaAssertions;
 
 class TestEQPDirectFactorization {

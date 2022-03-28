@@ -1,8 +1,6 @@
-package de.labathome;
+package de.labathome.trust_constr;
 
 import org.ujmp.core.Matrix;
-
-import de.labathome.optimization.PCGResult;
 
 public interface StoppingCriterion {
 

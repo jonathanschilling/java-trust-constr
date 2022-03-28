@@ -3,6 +3,8 @@ package de.labathome.optimization;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import de.labathome.trust_constr.IntersectionResult;
+import de.labathome.trust_constr.QuadraticProgrammingSubproblem;
 import minerva.tests.junit.MinervaAssertions;
 
 class TestSphericalBoundariesIntersections {

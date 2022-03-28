@@ -3,7 +3,8 @@ package de.labathome.optimization;
 import org.junit.jupiter.api.Test;
 import org.ujmp.core.Matrix;
 
-import de.labathome.LinAlg;
+import de.labathome.trust_constr.LinAlg;
+import de.labathome.trust_constr.Projections;
 import minerva.tests.junit.MinervaAssertions;
 
 class TestOrthogonality {

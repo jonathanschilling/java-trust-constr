@@ -4,9 +4,12 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.ujmp.core.Matrix;
 
-import de.labathome.LinAlg;
-import de.labathome.LinearOperator;
-import de.labathome.optimization.PCGResult.PCGStoppingCondition;
+import de.labathome.trust_constr.LinAlg;
+import de.labathome.trust_constr.LinearOperator;
+import de.labathome.trust_constr.PCGResult;
+import de.labathome.trust_constr.Projections;
+import de.labathome.trust_constr.QuadraticProgrammingSubproblem;
+import de.labathome.trust_constr.PCGResult.PCGStoppingCondition;
 import minerva.tests.junit.MinervaAssertions;
 
 class TestProjectedCG {

@@ -1,4 +1,4 @@
-package de.labathome.optimization;
+package de.labathome.trust_constr;
 
 public enum ProjectionMethod {
 

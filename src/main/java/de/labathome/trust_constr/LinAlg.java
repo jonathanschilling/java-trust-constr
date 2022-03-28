@@ -1,4 +1,4 @@
-package de.labathome;
+package de.labathome.trust_constr;
 
 import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix;

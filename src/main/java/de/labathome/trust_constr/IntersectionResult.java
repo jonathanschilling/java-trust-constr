@@ -1,4 +1,4 @@
-package de.labathome.optimization;
+package de.labathome.trust_constr;
 
 /**
  * The line/segment {@code x(t) = z + t*d} is inside the ball for

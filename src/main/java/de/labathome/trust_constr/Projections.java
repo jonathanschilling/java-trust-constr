@@ -1,4 +1,4 @@
-package de.labathome.optimization;
+package de.labathome.trust_constr;
 
 import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix2D;
@@ -7,8 +7,6 @@ import org.ujmp.core.doublematrix.calculation.general.decomposition.Chol.CholMat
 import org.ujmp.core.doublematrix.calculation.general.decomposition.LU.LUMatrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.QR.QRMatrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.SVD.SVDMatrix;
-
-import de.labathome.LinearOperator;
 
 public class Projections {
 

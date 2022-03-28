@@ -1,4 +1,4 @@
-package de.labathome.optimization;
+package de.labathome.trust_constr;
 
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -7,9 +7,7 @@ import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.LU.LUMatrix;
 
-import de.labathome.LinAlg;
-import de.labathome.LinearOperator;
-import de.labathome.optimization.PCGResult.PCGStoppingCondition;
+import de.labathome.trust_constr.PCGResult.PCGStoppingCondition;
 
 public class QuadraticProgrammingSubproblem {
 

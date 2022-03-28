@@ -3,8 +3,6 @@ package de.labathome.trust_constr;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.calculation.Calculation.Ret;
 
-import de.labathome.trust_constr.PCGResult.PCGStoppingCondition;
-
 /** Byrd-Omojokun Trust-Region SQP method */
 public class EqualityConstrainedSQP {
 
@@ -64,7 +62,7 @@ public class EqualityConstrainedSQP {
 	 *          "Numerical optimization", Second Edition (2006)
 	 *
 	 */
-	public static Result eqSQP(
+	public static StatefulResult eqSQP(
 			IFunctionAndConstraint funAndConstr,
 			IGradientAndJacobian gradAndJac,
 			LagrangeHessian lagrHess,
@@ -118,7 +116,7 @@ public class EqualityConstrainedSQP {
 		} else {
 			constrViolation = 0.0;
 		}
-		PCGResult cgInfo = new PCGResult();
+		CGInfo cgInfo = new CGInfo();
 		cgInfo.niter = 0;
 		cgInfo.stopCond = PCGStoppingCondition.NOT_EVALUATED;
 		cgInfo.hitsBoundary = false;
@@ -153,7 +151,7 @@ public class EqualityConstrainedSQP {
 			double trustRadiusT = Math.sqrt(trustRadius*trustRadius - normDn*normDn);
 			Matrix lbT = trustLb.minus(dn);
 			Matrix ubT = trustUb.minus(dn);
-			PCGResult dtResult = QPSubproblem.projectedCG(H, c_t, Z, Y, b_t,
+			CGInfo dtResult = QPSubproblem.projectedCG(H, c_t, Z, Y, b_t,
 					trustRadiusT, LinAlg.col(lbT), LinAlg.col(ubT), Double.NaN); // default tolerance
 			Matrix dt = dtResult.x;
 
@@ -287,7 +285,7 @@ public class EqualityConstrainedSQP {
 			}
 		}
 
-		Result result = new Result();
+		StatefulResult result = new StatefulResult();
 		result.x = x;
 		result.state = state;
 

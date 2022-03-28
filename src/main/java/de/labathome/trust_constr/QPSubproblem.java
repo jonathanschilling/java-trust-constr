@@ -7,8 +7,6 @@ import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.LU.LUMatrix;
 
-import de.labathome.trust_constr.PCGResult.PCGStoppingCondition;
-
 public class QPSubproblem {
 
 	/**
@@ -510,7 +508,7 @@ public class QPSubproblem {
 	 * @param b [m] Right-hand side of the constraint equation
 	 * @return  solution vector and additional info
 	 */
-	public static PCGResult projectedCG(LinearOperator H, Matrix c, Object Z, Object Y, Matrix b) {
+	public static CGInfo projectedCG(LinearOperator H, Matrix c, Object Z, Object Y, Matrix b) {
 
 		double trustRadius = Double.POSITIVE_INFINITY;
 		double[] lb = null;
@@ -563,7 +561,7 @@ public class QPSubproblem {
 	 * @param tolerance               Tolerance used to interrupt the algorithm.
 	 * @return                        solution vector and additional info
 	 */
-	public static PCGResult projectedCG(LinearOperator H, Matrix c, Object Z, Object Y, Matrix b, double trustRadius, double[] lb,
+	public static CGInfo projectedCG(LinearOperator H, Matrix c, Object Z, Object Y, Matrix b, double trustRadius, double[] lb,
 			double[] ub, double tolerance) {
 
 		long maxIterations = -1;
@@ -625,10 +623,10 @@ public class QPSubproblem {
 	 *                                vectors through the iterations.
 	 * @return                        solution vector and additional info
 	 */
-	public static PCGResult projectedCG(LinearOperator H, Matrix c, Object Z, Object Y, Matrix b, double trustRadius, double[] lb,
+	public static CGInfo projectedCG(LinearOperator H, Matrix c, Object Z, Object Y, Matrix b, double trustRadius, double[] lb,
 			double[] ub, double tolerance, long maxIterations, long maxInfeasibleIterations, boolean returnAll) {
 
-		PCGResult result = new PCGResult();
+		CGInfo result = new CGInfo();
 		if (returnAll) {
 			result.allVecs = new LinkedList<>();
 		}

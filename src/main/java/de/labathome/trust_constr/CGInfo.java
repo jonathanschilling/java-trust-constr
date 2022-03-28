@@ -4,25 +4,7 @@ import java.util.List;
 
 import org.ujmp.core.Matrix;
 
-public class PCGResult {
-
-	public enum PCGStoppingCondition {
-
-		/** 0: CG subproblem not evaluated */
-		NOT_EVALUATED,
-
-		/** 1: Iteration limit was reached */
-		ITER_LIMIT_REACHED,
-
-		/** 2: Reached the trust-region boundary */
-		TRUST_REGION_BOUNDARY_REACHED,
-
-		/** 3: Negative curvature detected */
-		NEGATIVE_CURVATURE,
-
-		/** 4: Tolerance was satisfied */
-		TOLERANCE_SATISFIED
-	}
+public class CGInfo {
 
 	/** [n] Solution of the EQP problem. */
 	public Matrix x;

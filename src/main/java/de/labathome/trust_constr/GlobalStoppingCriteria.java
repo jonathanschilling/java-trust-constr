@@ -9,6 +9,6 @@ public interface GlobalStoppingCriteria {
 			Matrix x,
 			boolean lastIterationFailed,
 			double optimality, double constrViolation,
-			double trustRadius, double penalty, PCGResult cgInfo,
+			double trustRadius, double penalty, CGInfo cgInfo,
 			double barrierParameter, double tolerance);
 }

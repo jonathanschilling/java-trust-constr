@@ -9,6 +9,6 @@ public interface StoppingCriterion {
 			Matrix x,
 			boolean lastIterationFailed,
 			double optimality, double constrViolation,
-			double trustRadius, double penalty, PCGResult cgInfo);
+			double trustRadius, double penalty, CGInfo cgInfo);
 
 }

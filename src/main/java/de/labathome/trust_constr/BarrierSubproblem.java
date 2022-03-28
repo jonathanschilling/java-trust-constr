@@ -284,7 +284,7 @@ public class BarrierSubproblem {
 	 */
 	public boolean stoppingCriteria(State state, Matrix z, boolean lastIterationFailed,
 			double optimality, double constrViolation,
-			double trustRadius, double penalty, PCGResult cgInfo) {
+			double trustRadius, double penalty, CGInfo cgInfo) {
 
 		Matrix x = getVariables(z);
 

@@ -43,7 +43,7 @@ public class TrustRegionInteriorPoint {
 	 * </pre>
 	 * using trust-region interior point method described in [1].
 	 */
-	public static Result trustRegionInteriorPoint(
+	public static StatefulResult trustRegionInteriorPoint(
 			Function fun, Gradient grad, LagrangeHessian lagrHess,
 			int nVars, int nIneq, int nEq,
 			Constraint constr, Jacobian jac,
@@ -99,7 +99,7 @@ public class TrustRegionInteriorPoint {
 		while(true) {
 
 			// Solve SQP subproblem
-			Result r = EqualityConstrainedSQP.eqSQP(subProb::funAndConstr,
+			StatefulResult r = EqualityConstrainedSQP.eqSQP(subProb::funAndConstr,
 					subProb::gradAndJac, subProb::lagrangianHessian,
 					z, fun0SubProb, grad0SubProb, constr0SubProb, jac0SubProb,
 					subProb::stoppingCriteria, state, initialPenalty, trustRadius,
@@ -134,7 +134,7 @@ public class TrustRegionInteriorPoint {
 		// Get x and s
 		Matrix x = subProb.getVariables(z);
 
-		Result r = new Result();
+		StatefulResult r = new StatefulResult();
 		r.x = x;
 		r.state = state;
 

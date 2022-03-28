@@ -3,7 +3,7 @@ package de.labathome.optimization;
 import org.junit.jupiter.api.Test;
 import org.ujmp.core.Matrix;
 
-import de.labathome.trust_constr.QuadraticProgrammingSubproblem;
+import de.labathome.trust_constr.QPSubproblem;
 import minerva.tests.junit.MinervaAssertions;
 
 class TestEQPDirectFactorization {
@@ -38,7 +38,7 @@ class TestEQPDirectFactorization {
 				{ 0.0}
 		});
 
-		Matrix[] xLambda = QuadraticProgrammingSubproblem.eqpKktFact(H, c, A, b);
+		Matrix[] xLambda = QPSubproblem.eqpKktFact(H, c, A, b);
 		final double[] x = xLambda[0].transpose().toDoubleArray()[0];
 		final double[] lambda = xLambda[1].transpose().toDoubleArray()[0];
 

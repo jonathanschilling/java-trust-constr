@@ -9,7 +9,7 @@ import org.ujmp.core.doublematrix.calculation.general.decomposition.LU.LUMatrix;
 
 import de.labathome.trust_constr.PCGResult.PCGStoppingCondition;
 
-public class QuadraticProgrammingSubproblem {
+public class QPSubproblem {
 
 	/**
 	 * Solve the Equality-Constrained Quadratic Programming Problem:

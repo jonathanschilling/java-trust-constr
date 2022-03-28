@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import de.labathome.trust_constr.IntersectionResult;
-import de.labathome.trust_constr.QuadraticProgrammingSubproblem;
+import de.labathome.trust_constr.QPSubproblem;
 import minerva.tests.junit.MinervaAssertions;
 
 class TestSphericalBoundariesIntersections {
@@ -14,7 +14,7 @@ class TestSphericalBoundariesIntersections {
 		final double tolerance = 1.0e-15;
 
 		// Interior inicial point
-		IntersectionResult r1 = QuadraticProgrammingSubproblem.sphereIntersections(
+		IntersectionResult r1 = QPSubproblem.sphereIntersections(
 				new double[] {0.0, 0.0},
 				new double[] {1.0, 0.0}, 0.5);
 
@@ -23,19 +23,19 @@ class TestSphericalBoundariesIntersections {
 		Assertions.assertTrue(r1.intersect());
 
 		// No intersection between line and circle
-		IntersectionResult r2 = QuadraticProgrammingSubproblem.sphereIntersections(
+		IntersectionResult r2 = QPSubproblem.sphereIntersections(
 				new double[] {2.0, 0.0},
 				new double[] {0.0, 1.0}, 1.0);
 		Assertions.assertFalse(r2.intersect());
 
 		// Outside initial point pointing toward outside the circle
-		IntersectionResult r3 = QuadraticProgrammingSubproblem.sphereIntersections(
+		IntersectionResult r3 = QPSubproblem.sphereIntersections(
 				new double[] {2.0, 0.0},
 				new double[] {1.0, 0.0}, 1.0);
 		Assertions.assertFalse(r3.intersect());
 
 		// Outside initial point pointing toward inside the circle
-		IntersectionResult r4 = QuadraticProgrammingSubproblem.sphereIntersections(
+		IntersectionResult r4 = QPSubproblem.sphereIntersections(
 				new double[] { 2.0, 0.0},
 				new double[] {-1.0, 0.0}, 1.5);
 
@@ -44,7 +44,7 @@ class TestSphericalBoundariesIntersections {
 		Assertions.assertTrue(r4.intersect());
 
 		// Initial point on the boundary
-		IntersectionResult r5 = QuadraticProgrammingSubproblem.sphereIntersections(
+		IntersectionResult r5 = QPSubproblem.sphereIntersections(
 				new double[] {2.0, 0.0},
 				new double[] {1.0, 0.0}, 2.0);
 
@@ -58,7 +58,7 @@ class TestSphericalBoundariesIntersections {
 		final double tolerance = 1.0e-15;
 
 		// Interior initial point
-		IntersectionResult r1 = QuadraticProgrammingSubproblem.sphereIntersections(
+		IntersectionResult r1 = QPSubproblem.sphereIntersections(
 				new double[] {0.0, 0.0},
 				new double[] {1.0, 0.0}, 0.5, true);
 		MinervaAssertions.assertRelAbsEquals(-0.5, r1.tA(), tolerance);
@@ -66,13 +66,13 @@ class TestSphericalBoundariesIntersections {
 		Assertions.assertTrue(r1.intersect());
 
 		// No intersection between line and circle
-		IntersectionResult r2 = QuadraticProgrammingSubproblem.sphereIntersections(
+		IntersectionResult r2 = QPSubproblem.sphereIntersections(
 				new double[] {2.0, 0.0},
 				new double[] {0.0, 1.0}, 1.0, false);
 		Assertions.assertFalse(r2.intersect());
 
 		// Outside initial point pointing toward outside the circle
-		IntersectionResult r3 = QuadraticProgrammingSubproblem.sphereIntersections(
+		IntersectionResult r3 = QPSubproblem.sphereIntersections(
 				new double[] {2.0, 0.0},
 				new double[] {1.0, 0.0}, 1.0, true);
 		MinervaAssertions.assertRelAbsEquals(-3.0, r3.tA(), tolerance);
@@ -80,7 +80,7 @@ class TestSphericalBoundariesIntersections {
 		Assertions.assertTrue(r3.intersect());
 
 		// Outside initial point pointing toward inside the circle
-		IntersectionResult r4 = QuadraticProgrammingSubproblem.sphereIntersections(
+		IntersectionResult r4 = QPSubproblem.sphereIntersections(
 				new double[] { 2.0, 0.0},
 				new double[] {-1.0, 0.0}, 1.5, true);
 		MinervaAssertions.assertRelAbsEquals(0.5, r4.tA(), tolerance);
@@ -88,7 +88,7 @@ class TestSphericalBoundariesIntersections {
 		Assertions.assertTrue(r4.intersect());
 
 		// Initial point on the boundary
-		IntersectionResult r5 = QuadraticProgrammingSubproblem.sphereIntersections(
+		IntersectionResult r5 = QPSubproblem.sphereIntersections(
 				new double[] {2.0, 0.0},
 				new double[] {1.0, 0.0}, 2.0, true);
 		MinervaAssertions.assertRelAbsEquals(-4.0, r5.tA(), tolerance);

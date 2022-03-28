@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import de.labathome.trust_constr.IntersectionResult;
-import de.labathome.trust_constr.QuadraticProgrammingSubproblem;
+import de.labathome.trust_constr.QPSubproblem;
 import minerva.tests.junit.MinervaAssertions;
 
 class TestBoxSphereBoundariesIntersections {
@@ -14,7 +14,7 @@ class TestBoxSphereBoundariesIntersections {
 		final double tolerance = 1.0e-15;
 
 		// Both constraints are active
-		IntersectionResult r1 = QuadraticProgrammingSubproblem.boxSphereIntersections(
+		IntersectionResult r1 = QPSubproblem.boxSphereIntersections(
 				new double[] { 1.0, 1.0},
 				new double[] {-2.0, 2.0},
 				new double[] {-1.0, -2.0},
@@ -24,7 +24,7 @@ class TestBoxSphereBoundariesIntersections {
 		Assertions.assertTrue(r1.intersect());
 
 		// None of the constraints are active
-		IntersectionResult r2 = QuadraticProgrammingSubproblem.boxSphereIntersections(
+		IntersectionResult r2 = QPSubproblem.boxSphereIntersections(
 				new double[] { 1.0, 1.0},
 				new double[] {-1.0, 1.0},
 				new double[] {-1.0, -3.0},
@@ -34,7 +34,7 @@ class TestBoxSphereBoundariesIntersections {
 		Assertions.assertTrue(r2.intersect());
 
 		// Box constraints are active
-		IntersectionResult r3 = QuadraticProgrammingSubproblem.boxSphereIntersections(
+		IntersectionResult r3 = QPSubproblem.boxSphereIntersections(
 				new double[] { 1.0, 1.0},
 				new double[] {-4.0, 4.0},
 				new double[] {-1.0, -3.0},
@@ -44,7 +44,7 @@ class TestBoxSphereBoundariesIntersections {
 		Assertions.assertTrue(r3.intersect());
 
 		// Spherical constraints are active
-		IntersectionResult r4 = QuadraticProgrammingSubproblem.boxSphereIntersections(
+		IntersectionResult r4 = QPSubproblem.boxSphereIntersections(
 				new double[] { 1.0, 1.0},
 				new double[] {-4.0, 4.0},
 				new double[] {-1.0, -3.0},
@@ -54,14 +54,14 @@ class TestBoxSphereBoundariesIntersections {
 		Assertions.assertTrue(r4.intersect());
 
 		// Infeasible problems
-		IntersectionResult r5a = QuadraticProgrammingSubproblem.boxSphereIntersections(
+		IntersectionResult r5a = QPSubproblem.boxSphereIntersections(
 				new double[] { 2.0, 2.0},
 				new double[] {-4.0, 4.0},
 				new double[] {-1.0, -3.0},
 				new double[] { 1.0,  3.0}, 2.0);
 		Assertions.assertFalse(r5a.intersect());
 
-		IntersectionResult r5b = QuadraticProgrammingSubproblem.boxSphereIntersections(
+		IntersectionResult r5b = QPSubproblem.boxSphereIntersections(
 				new double[] { 1.0, 1.0},
 				new double[] {-4.0, 4.0},
 				new double[] {2.0, 4.0},
@@ -74,7 +74,7 @@ class TestBoxSphereBoundariesIntersections {
 		final double tolerance = 1.0e-15;
 
 		// Both constraints are active
-		IntersectionResult r1 = QuadraticProgrammingSubproblem.boxSphereIntersections(
+		IntersectionResult r1 = QPSubproblem.boxSphereIntersections(
 				new double[] { 1.0, 1.0},
 				new double[] {-2.0, 2.0},
 				new double[] {-1.0, -2.0},
@@ -84,7 +84,7 @@ class TestBoxSphereBoundariesIntersections {
 		Assertions.assertTrue(r1.intersect());
 
 		// None of the constraints are active
-		IntersectionResult r2 = QuadraticProgrammingSubproblem.boxSphereIntersections(
+		IntersectionResult r2 = QPSubproblem.boxSphereIntersections(
 				new double[] { 1.0, 1.0},
 				new double[] {-1.0, 1.0},
 				new double[] {-1.0, -3.0},
@@ -94,7 +94,7 @@ class TestBoxSphereBoundariesIntersections {
 		Assertions.assertTrue(r2.intersect());
 
 		// Box constraints are active
-		IntersectionResult r3 = QuadraticProgrammingSubproblem.boxSphereIntersections(
+		IntersectionResult r3 = QPSubproblem.boxSphereIntersections(
 				new double[] { 1.0, 1.0},
 				new double[] {-4.0, 4.0},
 				new double[] {-1.0, -3.0},
@@ -104,7 +104,7 @@ class TestBoxSphereBoundariesIntersections {
 		Assertions.assertTrue(r3.intersect());
 
 		// Spherical constraints are active
-		IntersectionResult r4 = QuadraticProgrammingSubproblem.boxSphereIntersections(
+		IntersectionResult r4 = QPSubproblem.boxSphereIntersections(
 				new double[] { 1.0, 1.0},
 				new double[] {-4.0, 4.0},
 				new double[] {-1.0, -3.0},
@@ -114,14 +114,14 @@ class TestBoxSphereBoundariesIntersections {
 		Assertions.assertTrue(r4.intersect());
 
 		// Infeasible problems
-		IntersectionResult r5a = QuadraticProgrammingSubproblem.boxSphereIntersections(
+		IntersectionResult r5a = QPSubproblem.boxSphereIntersections(
 				new double[] { 2.0, 2.0},
 				new double[] {-4.0, 4.0},
 				new double[] {-1.0, -3.0},
 				new double[] { 1.0,  3.0}, 2.0, true);
 		Assertions.assertFalse(r5a.intersect());
 
-		IntersectionResult r5b = QuadraticProgrammingSubproblem.boxSphereIntersections(
+		IntersectionResult r5b = QPSubproblem.boxSphereIntersections(
 				new double[] { 1.0, 1.0},
 				new double[] {-4.0, 4.0},
 				new double[] {2.0, 4.0},

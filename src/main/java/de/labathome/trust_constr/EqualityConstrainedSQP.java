@@ -133,7 +133,7 @@ public class EqualityConstrainedSQP {
 			// subject to:
 			// ||dn|| <= TR_FACTOR * trust_radius
 			// BOX_FACTOR * lb <= dn <= BOX_FACTOR * ub.
-			Matrix dn = QuadraticProgrammingSubproblem.modifiedDogleg(A, Y, b,
+			Matrix dn = QPSubproblem.modifiedDogleg(A, Y, b,
 					TR_FACTOR*trustRadius,
 					LinAlg.col(trustLb.times(BOX_FACTOR)),
 					LinAlg.col(trustUb.times(BOX_FACTOR)));
@@ -151,7 +151,7 @@ public class EqualityConstrainedSQP {
 			double trustRadiusT = Math.sqrt(trustRadius*trustRadius - normDn*normDn);
 			Matrix lbT = trustLb.minus(dn);
 			Matrix ubT = trustUb.minus(dn);
-			PCGResult dtResult = QuadraticProgrammingSubproblem.projectedCG(H, c_t, Z, Y, b_t,
+			PCGResult dtResult = QPSubproblem.projectedCG(H, c_t, Z, Y, b_t,
 					trustRadiusT, LinAlg.col(lbT), LinAlg.col(ubT), Double.NaN); // default tolerance
 			Matrix dt = dtResult.x;
 
@@ -204,7 +204,7 @@ public class EqualityConstrainedSQP {
 				Matrix y = Y.apply(bNext).times(-1);
 
 				// Make sure increment is inside box constraints
-				IntersectionResult r = QuadraticProgrammingSubproblem.boxIntersections(
+				IntersectionResult r = QPSubproblem.boxIntersections(
 						LinAlg.col(d), LinAlg.col(y), LinAlg.col(trustLb), LinAlg.col(trustUb));
 				double t = r.tB();
 

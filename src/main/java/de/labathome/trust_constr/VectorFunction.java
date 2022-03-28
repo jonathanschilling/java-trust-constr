@@ -8,6 +8,8 @@ public interface VectorFunction {
 	public int numGradientEval();
 	public int numHessianEval();
 
+	public boolean sparseJacobian();
+
 	public Matrix eval(Matrix x);
 	public Matrix gradient(Matrix x);
 	public Matrix hessian(Matrix x, Matrix v);

@@ -2,6 +2,7 @@ package de.labathome.trust_constr;
 
 import org.ujmp.core.Matrix;
 
+@FunctionalInterface
 public interface LagrangeHessian {
 
 	/**
@@ -11,6 +12,6 @@ public interface LagrangeHessian {
 	 * @param v [m] Lagrange multipliers
 	 * @return [n][n] Hessian of constraint
 	 */
-	public Matrix lagrHess(Matrix x, Matrix v);
+	public LinearOperator lagrHess(Matrix x, Matrix v);
 
 }

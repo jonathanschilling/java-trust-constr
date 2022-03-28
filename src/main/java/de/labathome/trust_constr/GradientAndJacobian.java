@@ -2,9 +2,7 @@ package de.labathome.trust_constr;
 
 import org.ujmp.core.Matrix;
 
-public interface GradientAndJacobian {
-
-	public Matrix grad(Matrix x);
-	public Matrix jac(Matrix x);
-
+public class GradientAndJacobian {
+	public Matrix grad;
+	public Matrix jac;
 }

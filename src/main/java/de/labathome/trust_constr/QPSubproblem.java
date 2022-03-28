@@ -510,7 +510,7 @@ public class QPSubproblem {
 	 * @param b [m] Right-hand side of the constraint equation
 	 * @return  solution vector and additional info
 	 */
-	public static PCGResult projectedCG(Matrix H, Matrix c, Object Z, Object Y, Matrix b) {
+	public static PCGResult projectedCG(LinearOperator H, Matrix c, Object Z, Object Y, Matrix b) {
 
 		double trustRadius = Double.POSITIVE_INFINITY;
 		double[] lb = null;
@@ -563,7 +563,7 @@ public class QPSubproblem {
 	 * @param tolerance               Tolerance used to interrupt the algorithm.
 	 * @return                        solution vector and additional info
 	 */
-	public static PCGResult projectedCG(Matrix H, Matrix c, Object Z, Object Y, Matrix b, double trustRadius, double[] lb,
+	public static PCGResult projectedCG(LinearOperator H, Matrix c, Object Z, Object Y, Matrix b, double trustRadius, double[] lb,
 			double[] ub, double tolerance) {
 
 		long maxIterations = -1;
@@ -625,7 +625,7 @@ public class QPSubproblem {
 	 *                                vectors through the iterations.
 	 * @return                        solution vector and additional info
 	 */
-	public static PCGResult projectedCG(Matrix H, Matrix c, Object Z, Object Y, Matrix b, double trustRadius, double[] lb,
+	public static PCGResult projectedCG(LinearOperator H, Matrix c, Object Z, Object Y, Matrix b, double trustRadius, double[] lb,
 			double[] ub, double tolerance, long maxIterations, long maxInfeasibleIterations, boolean returnAll) {
 
 		PCGResult result = new PCGResult();
@@ -649,10 +649,10 @@ public class QPSubproblem {
 
 		Matrix r, g;
 		if (Z instanceof Matrix) {
-			r = ((Matrix) Z).mtimes(H.mtimes(result.x).plus(c));
+			r = ((Matrix) Z).mtimes(H.apply(result.x).plus(c));
 			g = ((Matrix) Z).mtimes(r);
 		} else if (Y instanceof LinearOperator) {
-			r = ((LinearOperator) Z).apply(H.mtimes(result.x).plus(c));
+			r = ((LinearOperator) Z).apply(H.apply(result.x).plus(c));
 			g = ((LinearOperator) Z).apply(r);
 		} else {
 			throw new RuntimeException("Z has to be Matrix or LinearOperator");
@@ -684,7 +684,7 @@ public class QPSubproblem {
 		}
 
 		// Values for the first iteration
-		Matrix H_p = H.mtimes(p);
+		Matrix H_p = H.apply(p);
 		double gNorm = g.norm2();
 		double rt_g = gNorm*gNorm; // g.T g = r.T Z g = r.T g (ref [1], p.1389)
 
@@ -841,7 +841,7 @@ public class QPSubproblem {
 			r = gNext;
 			double normG = g.norm2();
 			rt_g = normG*normG; // g.T g = r.T Z g = r.T g (ref [1] p.1389)
-			H_p = H.mtimes(p);
+			H_p = H.apply(p);
 		}
 
 		if (!insideBoxBoundaries(LinAlg.col(result.x), lb, ub)) {

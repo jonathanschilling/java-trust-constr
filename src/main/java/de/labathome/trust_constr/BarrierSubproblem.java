@@ -43,7 +43,7 @@ public class BarrierSubproblem {
 			double barrierParameter, double tolerance,
 			boolean[] enforceFeasibility, GlobalStoppingCriteria globalStopCriteria,
 			double xtol, double fun0, Matrix grad0,
-			Matrix constrInEq0, Matrix jacInEq0,
+			Matrix constrIneq0, Matrix jacIneq0,
 			Matrix constrEq0, Matrix jacEq0) {
 
 		// Store parameters
@@ -63,10 +63,10 @@ public class BarrierSubproblem {
 		this.globalStopCriteria = globalStopCriteria;
 		this.xtol = xtol;
 
-		this.fun0 = computeFunction(fun0, constrInEq0, s0);
+		this.fun0 = computeFunction(fun0, constrIneq0, s0);
 		this.grad0 = computeGradient(grad0);
-		this.constr0 = computeConstraint(constrInEq0, constrEq0, s0);
-		this.jac0 = computeJacobian(jacEq0, jacInEq0, s0);
+		this.constr0 = computeConstraint(constrIneq0, constrEq0, s0);
+		this.jac0 = computeJacobian(jacEq0, jacIneq0, s0);
 
 		this.terminate = false;
 	}
@@ -112,18 +112,10 @@ public class BarrierSubproblem {
 		Matrix cIneq = constr.constrIneq(x);
 
 		// Return objective function and constraints
-		return new FunctionAndConstraint() {
-
-			@Override
-			public double objective(Matrix x) {
-				return computeFunction(f, cIneq, s);
-			}
-
-			@Override
-			public Matrix constraint(Matrix x) {
-				return computeConstraint(cIneq, cEq, s);
-			}
-		};
+		FunctionAndConstraint fc = new FunctionAndConstraint();
+		fc.f = computeFunction(f, cIneq, s);
+		fc.c = computeConstraint(cIneq, cEq, s);
+		return fc;
 	}
 
 	/**
@@ -133,7 +125,7 @@ public class BarrierSubproblem {
 	 * @param z
 	 * @return
 	 */
-	public LinearOperator getScaling(Matrix z) {
+	public Matrix getScaling(Matrix z) {
 		Matrix s = getSlack(z);
 		Matrix diagElements = SparseMatrix.Factory.zeros(nVars + s.getRowCount(), nVars + s.getColumnCount());
 		for (int i=0; i<nVars; ++i) {
@@ -143,13 +135,7 @@ public class BarrierSubproblem {
 			diagElements.setAsDouble(s.getAsDouble(pos), pos[0], pos[0]);
 		}
 
-		return new LinearOperator() {
-
-			@Override
-			public Matrix apply(Matrix x) {
-				return diagElements.mtimes(x);
-			}
-		};
+		return diagElements;
 	}
 
 	/**
@@ -182,18 +168,10 @@ public class BarrierSubproblem {
 		Matrix jIneq = jac.jacIneq(x);
 
 		// Return gradient and Jacobian
-		return new GradientAndJacobian() {
-
-			@Override
-			public Matrix jac(Matrix x) {
-				return computeGradient(g);
-			}
-
-			@Override
-			public Matrix grad(Matrix x) {
-				return computeJacobian(jEq, jIneq, s);
-			}
-		};
+		GradientAndJacobian gj = new GradientAndJacobian();
+		gj.grad = computeGradient(g);
+		gj.jac = computeJacobian(jEq, jIneq, s);
+		return gj;
 	}
 
 	/**
@@ -203,7 +181,7 @@ public class BarrierSubproblem {
 	 * @param v
 	 * @return
 	 */
-	public Matrix lagrHessX(Matrix z, Matrix v) {
+	public LinearOperator lagrHessX(Matrix z, Matrix v) {
 		Matrix x = getVariables(z);
 
 //		  # Get lagrange multipliers relatated to nonlinear equality constraints
@@ -264,7 +242,7 @@ public class BarrierSubproblem {
 	public LinearOperator lagrangianHessian(Matrix z, Matrix v) {
 
 		// Compute Hessian in relation to x and s
-		Matrix Hx = lagrHessX(z, v);
+		LinearOperator Hx = lagrHessX(z, v);
 		Matrix S_Hs_S;
 		if (nIneq > 0) {
 			S_Hs_S = lagrHessS(z, v);
@@ -282,9 +260,9 @@ public class BarrierSubproblem {
 				Matrix vecX = getVariables(vec);
 				Matrix vecS = getSlack(vec);
 				if (nIneq > 0) {
-					return Matrix.Factory.vertCat(Hx.mtimes(vecX), S_Hs_S.times(vecS));
+					return Matrix.Factory.vertCat(Hx.apply(vecX), S_Hs_S.times(vecS));
 				} else {
-					return Hx.mtimes(vecX);
+					return Hx.apply(vecX);
 				}
 			}
 		};
@@ -412,7 +390,7 @@ public class BarrierSubproblem {
 //	 * @return
 //	 */
 //	private Matrix assembleSparseJacobian(Matrix jEq, Matrix jIneq, Matrix s) {
-//		// TODO: special case optimization from SciPy not applicable here
+//		// special case optimization from SciPy not applicable here
 //		return null;
 //	}
 }

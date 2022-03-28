@@ -62,9 +62,9 @@ public class EqualityConstrainedSQP {
 	 *          "Numerical optimization", Second Edition (2006)
 	 *
 	 */
-	public static ECSQPResult eqSQP(
-			FunctionAndConstraint funAndConstr,
-			GradientAndJacobian gradAndJac,
+	public static Result eqSQP(
+			IFunctionAndConstraint funAndConstr,
+			IGradientAndJacobian gradAndJac,
 			LagrangeHessian lagrHess,
 			Matrix x0, double fun0, Matrix grad0, Matrix constr0, Matrix jac0,
 			StoppingCriterion stopCrit,
@@ -106,7 +106,7 @@ public class EqualityConstrainedSQP {
 		Matrix v = LS.apply(c).times(-1);
 
 		// Compute Hessian
-		Matrix H = lagrHess.lagrHess(x, v);
+		LinearOperator H = lagrHess.lagrHess(x, v);
 
 		// Update state parameters
 		double optimality = c.plus(A.transpose().mtimes(v)).normInf();
@@ -145,7 +145,7 @@ public class EqualityConstrainedSQP {
 			// A dt = 0
 			// ||dt|| <= sqrt(trust_radius**2 - ||dn||**2)
 			// lb - dn <= dt <= ub - dn
-			Matrix c_t = H.mtimes(dn).plus(c);
+			Matrix c_t = H.apply(dn).plus(c);
 			Matrix b_t = Matrix.Factory.zeros(b.getRowCount(), b.getColumnCount());
 			double normDn = dn.norm2();
 			double trustRadiusT = Math.sqrt(trustRadius*trustRadius - normDn*normDn);
@@ -159,7 +159,7 @@ public class EqualityConstrainedSQP {
 			Matrix d = dn.plus(dt);
 
 			// Compute second order model: 1/2 d H d + c.T d + f
-			double quadraticModel = 0.5 * d.transpose().mtimes(H).mtimes(d).doubleValue() + c.transpose().mtimes(c).doubleValue();
+			double quadraticModel = 0.5 * d.transpose().mtimes(H.apply(d)).doubleValue() + c.transpose().mtimes(c).doubleValue();
 
 			// Compute linearized constraint: l = A d + b.
 			Matrix linearizedConstr = A.mtimes(d).plus(b);
@@ -185,8 +185,9 @@ public class EqualityConstrainedSQP {
 
 			// Evaluate function and constraints at trial point
 			Matrix xNext = x.plus(S.mtimes(d));
-			double fNext = funAndConstr.objective(xNext);
-			Matrix bNext = funAndConstr.constraint(xNext);
+			FunctionAndConstraint fc = funAndConstr.funAndConstr(xNext);
+			double fNext = fc.f;
+			Matrix bNext = fc.c;
 
 			// Compute merit function at trial point
 			double meritFunctionNext = fNext + penalty * bNext.norm2();
@@ -210,8 +211,9 @@ public class EqualityConstrainedSQP {
 
 				// Compute tentative point
 				Matrix xSoc = x.plus(S.mtimes(d.plus(y.times(t))));
-				double fSoc = funAndConstr.objective(xSoc);
-				Matrix bSoc = funAndConstr.constraint(xSoc);
+				FunctionAndConstraint fcSoc = funAndConstr.funAndConstr(xSoc);
+				double fSoc = fcSoc.f;
+				Matrix bSoc = fcSoc.c;
 
 				// Recompute actual reduction
 				double meritFunctionSoc = fSoc + penalty * bSoc.norm2();
@@ -250,8 +252,9 @@ public class EqualityConstrainedSQP {
 				x = xNext;
 				f = fNext;
 				b = bNext;
-				c = gradAndJac.grad(x);
-				A = gradAndJac.jac(x);
+				GradientAndJacobian gj = gradAndJac.gradAndJac(x);
+				c = gj.grad;
+				A = gj.jac;
 				S = scaling.apply(x);
 
 				// Get projections
@@ -282,7 +285,7 @@ public class EqualityConstrainedSQP {
 			}
 		}
 
-		ECSQPResult result = new ECSQPResult();
+		Result result = new Result();
 		result.x = x;
 		result.state = state;
 

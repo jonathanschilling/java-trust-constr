@@ -38,7 +38,7 @@ class TestProjectedCG {
 		LinearOperator Z = op[0];
 		LinearOperator Y = op[2];
 
-		PCGResult r = QPSubproblem.projectedCG(H, c, Z, Y, b);
+		PCGResult r = QPSubproblem.projectedCG(LinAlg.op(H), c, Z, Y, b);
 		Assertions.assertEquals(PCGStoppingCondition.TOLERANCE_SATISFIED, r.stopCond);
 		Assertions.assertEquals(false, r.hitsBoundary);
 		MinervaAssertions.assertArrayRelAbsEquals(new double[] {2, -1, 1}, LinAlg.col(r.x), tolerance);
@@ -72,7 +72,7 @@ class TestProjectedCG {
 		double[] lb = null;
 		double[] ub = null;
 		double tol = 0.0; // iterate until max iterations
-		PCGResult r1 = QPSubproblem.projectedCG(H, c, Z, Y, b, trustRadius, lb, ub, tol);
+		PCGResult r1 = QPSubproblem.projectedCG(LinAlg.op(H), c, Z, Y, b, trustRadius, lb, ub, tol);
 		Assertions.assertEquals(PCGStoppingCondition.ITER_LIMIT_REACHED, r1.stopCond);
 		Assertions.assertEquals(false, r1.hitsBoundary);
 
@@ -108,7 +108,7 @@ class TestProjectedCG {
 		double tol = Double.NaN;
 
 		Assertions.assertThrows(RuntimeException.class, () -> {
-			QPSubproblem.projectedCG(H, c, Z, Y, b, trustRadius, lb, ub, tol);
+			QPSubproblem.projectedCG(LinAlg.op(H), c, Z, Y, b, trustRadius, lb, ub, tol);
 		});
 	}
 
@@ -140,7 +140,7 @@ class TestProjectedCG {
 		double[] lb = null;
 		double[] ub = null;
 		double tol = 0.0;
-		PCGResult r = QPSubproblem.projectedCG(H, c, Z, Y, b, trustRadius, lb, ub, tol);
+		PCGResult r = QPSubproblem.projectedCG(LinAlg.op(H), c, Z, Y, b, trustRadius, lb, ub, tol);
 
 		Assertions.assertEquals(PCGStoppingCondition.TRUST_REGION_BOUNDARY_REACHED, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
@@ -176,7 +176,7 @@ class TestProjectedCG {
 		double[] lb = null;
 		double[] ub = null;
 		double tol = 0.0;
-		PCGResult r = QPSubproblem.projectedCG(H, c, Z, Y, b, trustRadius, lb, ub, tol);
+		PCGResult r = QPSubproblem.projectedCG(LinAlg.op(H), c, Z, Y, b, trustRadius, lb, ub, tol);
 		Assertions.assertEquals(PCGStoppingCondition.TRUST_REGION_BOUNDARY_REACHED, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
 		MinervaAssertions.assertRelAbsEquals(trustRadius, r.x.norm2(), tolerance);
@@ -209,7 +209,7 @@ class TestProjectedCG {
 		double[] ub = null;
 		double tol = 0.0;
 		Assertions.assertThrows(RuntimeException.class, () -> {
-			QPSubproblem.projectedCG(H, c, Z, Y, b, trustRadius, lb, ub, tol);
+			QPSubproblem.projectedCG(LinAlg.op(H), c, Z, Y, b, trustRadius, lb, ub, tol);
 		});
 	}
 
@@ -241,7 +241,7 @@ class TestProjectedCG {
 		double[] lb = null;
 		double[] ub = null;
 		double tol = 0.0;
-		PCGResult r = QPSubproblem.projectedCG(H, c, Z, Y, b, trustRadius, lb, ub, tol);
+		PCGResult r = QPSubproblem.projectedCG(LinAlg.op(H), c, Z, Y, b, trustRadius, lb, ub, tol);
 		Assertions.assertEquals(PCGStoppingCondition.NEGATIVE_CURVATURE, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
 		MinervaAssertions.assertRelAbsEquals(trustRadius, r.x.norm2(), tolerance);
@@ -279,7 +279,7 @@ class TestProjectedCG {
 		double[] lb = new double[] {0.5, Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY};
 		double[] ub = null;
 		double tol = 0.0;
-		PCGResult r = QPSubproblem.projectedCG(H, c, Z, Y, b, trustRadius, lb, ub, tol);
+		PCGResult r = QPSubproblem.projectedCG(LinAlg.op(H), c, Z, Y, b, trustRadius, lb, ub, tol);
 		Assertions.assertEquals(PCGStoppingCondition.ITER_LIMIT_REACHED, r.stopCond);
 		Assertions.assertEquals(false, r.hitsBoundary);
 
@@ -319,7 +319,7 @@ class TestProjectedCG {
 		double[] lb = new double[] {0.8, Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY};
 		double[] ub = null;
 		double tol = 0.0;
-		PCGResult r = QPSubproblem.projectedCG(H, c, Z, Y, b, trustRadius, lb, ub, tol);
+		PCGResult r = QPSubproblem.projectedCG(LinAlg.op(H), c, Z, Y, b, trustRadius, lb, ub, tol);
 		Assertions.assertEquals(PCGStoppingCondition.ITER_LIMIT_REACHED, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
 
@@ -359,7 +359,7 @@ class TestProjectedCG {
 		double[] lb = null;
 		double[] ub = new double[] {Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, 1.6, Double.POSITIVE_INFINITY};
 		double tol = 0.0;
-		PCGResult r = QPSubproblem.projectedCG(H, c, Z, Y, b, trustRadius, lb, ub, tol);
+		PCGResult r = QPSubproblem.projectedCG(LinAlg.op(H), c, Z, Y, b, trustRadius, lb, ub, tol);
 		Assertions.assertEquals(PCGStoppingCondition.TRUST_REGION_BOUNDARY_REACHED, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
 
@@ -398,7 +398,7 @@ class TestProjectedCG {
 		double[] lb = null;
 		double[] ub = new double[] {Double.POSITIVE_INFINITY, 0.1, Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY};
 		double tol = 0.0;
-		PCGResult r = QPSubproblem.projectedCG(H, c, Z, Y, b, trustRadius, lb, ub, tol);
+		PCGResult r = QPSubproblem.projectedCG(LinAlg.op(H), c, Z, Y, b, trustRadius, lb, ub, tol);
 		Assertions.assertEquals(PCGStoppingCondition.TRUST_REGION_BOUNDARY_REACHED, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
 
@@ -437,7 +437,7 @@ class TestProjectedCG {
 		double[] lb = null;
 		double[] ub = new double[] {Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, 100.0, Double.POSITIVE_INFINITY};
 		double tol = 0.0;
-		PCGResult r = QPSubproblem.projectedCG(H, c, Z, Y, b, trustRadius, lb, ub, tol);
+		PCGResult r = QPSubproblem.projectedCG(LinAlg.op(H), c, Z, Y, b, trustRadius, lb, ub, tol);
 		Assertions.assertEquals(PCGStoppingCondition.NEGATIVE_CURVATURE, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
 		MinervaAssertions.assertRelAbsEquals(100.0, r.x.getAsDouble(0, 2), tolerance);

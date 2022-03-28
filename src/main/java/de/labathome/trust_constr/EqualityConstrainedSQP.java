@@ -3,6 +3,8 @@ package de.labathome.trust_constr;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.calculation.Calculation.Ret;
 
+import de.labathome.trust_constr.PCGResult.PCGStoppingCondition;
+
 /** Byrd-Omojokun Trust-Region SQP method */
 public class EqualityConstrainedSQP {
 
@@ -118,7 +120,7 @@ public class EqualityConstrainedSQP {
 		}
 		PCGResult cgInfo = new PCGResult();
 		cgInfo.niter = 0;
-		cgInfo.stopCond = null;
+		cgInfo.stopCond = PCGStoppingCondition.NOT_EVALUATED;
 		cgInfo.hitsBoundary = false;
 
 		boolean lastIterationFailed = false;

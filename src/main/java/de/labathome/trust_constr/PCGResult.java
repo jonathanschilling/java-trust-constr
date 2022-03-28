@@ -7,6 +7,10 @@ import org.ujmp.core.Matrix;
 public class PCGResult {
 
 	public enum PCGStoppingCondition {
+
+		/** 0: CG subproblem not evaluated */
+		NOT_EVALUATED,
+
 		/** 1: Iteration limit was reached */
 		ITER_LIMIT_REACHED,
 

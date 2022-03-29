@@ -43,8 +43,8 @@ public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy
 		}
 	};
 
-	private double initialScale;
-	private boolean initScaleAuto;
+	private final double initialScale;
+	private final boolean initScaleAuto;
 
 	protected double scale;
 
@@ -186,5 +186,10 @@ public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy
 		default:
 			throw new RuntimeException("not implemented");
 		}
+	}
+
+	@Override
+	public Matrix hess(Matrix x, Object args) {
+		throw new RuntimeException("not implemented yet");
 	}
 }

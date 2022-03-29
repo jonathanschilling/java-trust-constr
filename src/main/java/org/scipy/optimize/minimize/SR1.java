@@ -55,7 +55,7 @@ public class SR1 extends FullHessianUpdateStrategy {
 		FACTORY = new SR1Factory();
 	}
 
-	private double minDenominator;
+	private final double minDenominator;
 
 	protected SR1(boolean initialScaleAuto, double initialScale, double minDenominator) {
 		super(initialScaleAuto, initialScale);

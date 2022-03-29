@@ -1,5 +1,8 @@
 package org.scipy.optimize.minimize;
 
+import java.util.function.Consumer;
+import java.util.function.ToDoubleFunction;
+
 import org.ujmp.core.Matrix;
 
 /**
@@ -21,10 +24,8 @@ public class ScalarFunction {
 
 	public static class ScalarFunctionFactory {
 
-		private Matrix x0;
-
 		private Function fun;
-
+		private Matrix x0;
 		private Object args;
 
 		private Gradient grad;
@@ -33,16 +34,23 @@ public class ScalarFunction {
 
 		private Hessian hess;
 		private FiniteDifferenceMethod hessFD;
-		private HessianUpdateStrategy hessUpdateStrategy;
+		private HessianUpdateStrategy hessStrat;
 		private boolean hasHess;
 
 		private double finiteDiffRelStep;
-
 		private FiniteDifferenceBounds finiteDiffBounds;
-
 		private double[] epsilon;
 
-		private ScalarFunctionFactory() {}
+		private ScalarFunctionFactory() {
+			hasGrad = false;
+			hasHess = false;
+		}
+
+		/** Set the objective funciton to optimize. */
+		public ScalarFunctionFactory fun(Function fun) {
+			this.fun = fun;
+			return this;
+		}
 
 		/**
 		 * Provides an initial set of variables for evaluating fun.
@@ -54,14 +62,7 @@ public class ScalarFunction {
 			return this;
 		}
 
-		public ScalarFunctionFactory fun(Function fun) {
-			this.fun = fun;
-			return this;
-		}
-
-		/**
-		 * Any additional fixed parameters needed to completely specify the scalar function.
-		 */
+		/** Any additional fixed parameters needed to completely specify the scalar function. */
 		public ScalarFunctionFactory args(Object args) {
 			this.args = args;
 			return this;
@@ -82,10 +83,14 @@ public class ScalarFunction {
 	     * obey any specified `bounds`.
 		 */
 		public ScalarFunctionFactory grad(Gradient grad) {
-			this.grad = grad;
-			this.gradFD = null;
-			this.hasGrad = true;
-			return this;
+			if (hasGrad) {
+				throw new RuntimeException("You can only specify either Gradient or FiniteDifferenceMethod.");
+			} else {
+				this.grad = grad;
+				this.gradFD = null;
+				this.hasGrad = true;
+				return this;
+			}
 		}
 
 		/**
@@ -103,10 +108,14 @@ public class ScalarFunction {
 	     * obey any specified `bounds`.
 		 */
 		public ScalarFunctionFactory grad(FiniteDifferenceMethod grad) {
-			this.grad = null;
-			this.gradFD = grad;
-			this.hasGrad = true;
-			return this;
+			if (hasGrad) {
+				throw new RuntimeException("You can only specify either Gradient or FiniteDifferenceMethod.");
+			} else {
+				this.grad = null;
+				this.gradFD = grad;
+				this.hasGrad = true;
+				return this;
+			}
 		}
 
 		/**
@@ -125,10 +134,15 @@ public class ScalarFunction {
 	     * to be estimated using one of the quasi-Newton strategies.
 		 */
 		public ScalarFunctionFactory hess(Hessian hess) {
-			this.hess = hess;
-			this.hessFD = null;
-			this.hasHess = true;
-			return this;
+			if (hasHess) {
+				throw new RuntimeException("You can only specify either Hessian, FiniteDifferenceMethod or HessianUpdateStrategy.");
+			} else {
+				this.hess = hess;
+				this.hessFD = null;
+				this.hessStrat = null;
+				this.hasHess = true;
+				return this;
+			}
 		}
 
 		/**
@@ -147,10 +161,42 @@ public class ScalarFunction {
 	     * to be estimated using one of the quasi-Newton strategies.
 		 */
 		public ScalarFunctionFactory hess(FiniteDifferenceMethod hess) {
-			this.hess = null;
-			this.hessFD = hess;
-			this.hasHess = true;
-			return this;
+			if (hasHess) {
+				throw new RuntimeException("You can only specify either Hessian, FiniteDifferenceMethod or HessianUpdateStrategy.");
+			} else {
+				this.hess = null;
+				this.hessFD = hess;
+				this.hessStrat = null;
+				this.hasHess = true;
+				return this;
+			}
+		}
+
+		/**
+		 * Method for computing the Hessian matrix. If it is callable, it should
+	     * return the  Hessian matrix:
+	     *
+	     *     ``hess(x, *args) -> {LinearOperator, spmatrix, array}, (n, n)``
+	     *
+	     * where x is a (n,) ndarray and `args` is a tuple with the fixed
+	     * parameters. Alternatively, the keywords {'2-point', '3-point', 'cs'}
+	     * select a finite difference scheme for numerical estimation. Or, objects
+	     * implementing `HessianUpdateStrategy` interface can be used to
+	     * approximate the Hessian.
+	     * Whenever the gradient is estimated via finite-differences, the Hessian
+	     * cannot be estimated with options {'2-point', '3-point', 'cs'} and needs
+	     * to be estimated using one of the quasi-Newton strategies.
+		 */
+		public ScalarFunctionFactory hess(HessianUpdateStrategy hess) {
+			if (hasHess) {
+				throw new RuntimeException("You can only specify either Hessian, FiniteDifferenceMethod or HessianUpdateStrategy.");
+			} else {
+				this.hess = null;
+				this.hessFD = null;
+				this.hessStrat = hess;
+				this.hasHess = true;
+				return this;
+			}
 		}
 
 		/**
@@ -189,8 +235,25 @@ public class ScalarFunction {
 
 		public ScalarFunction build() {
 
+			// Actually check for nulls to safeguard against calling grad(null) or hess(null).
+			if (grad == null && gradFD == null) {
+				throw new RuntimeException("grad must be either callable or FiniteDifferenceMethod");
+			}
 
-			return new ScalarFunction(fun, x0);
+			if (hess == null && hessFD == null && hessStrat == null) {
+				throw new RuntimeException("hess must be either callable, FiniteDifferenceMethod or HessianUpdateStrategy");
+			}
+
+			if (gradFD != null && hessFD != null) {
+				throw new RuntimeException(
+						"Whenever the gradient is estimated via finite-differences, " +
+						"we require the Hessian to be estimated using one of the quasi-Newton strategies (BFGS or SR1).");
+			}
+
+			return new ScalarFunction(fun, x0, args,
+					grad, gradFD,
+					hess, hessFD, hessStrat,
+					finiteDiffRelStep, finiteDiffBounds, epsilon);
 		}
 	}
 
@@ -199,32 +262,9 @@ public class ScalarFunction {
 		FACTORY = new ScalarFunctionFactory();
 	}
 
-	private Function fun;
-	private double f;
-	private boolean updatedF;
-	private Matrix x0;
-	private Object args;
-
-	private Gradient grad;
-	private FiniteDifferenceMethod gradFD;
-	private boolean hasGrad;
-	private Matrix g;
-	private boolean updatedG;
-
-	private Hessian hess;
-	private FiniteDifferenceMethod hessFD;
-	private HessianUpdateStrategy hessUpdateStrategy;
-	private boolean hasHess;
-	private Matrix H;
-	private boolean updatedH;
-
-	private double finiteDiffRelStep;
-	private FiniteDifferenceBounds finiteDiffBounds;
-	private double[] epsilon;
-
-
 	/** current position */
 	private Matrix x;
+	private Matrix xPrev;
 
 	/** number of parameters */
 	private long n;
@@ -233,33 +273,29 @@ public class ScalarFunction {
 	private int numGradientEvals;
 	private int numHessianEvals;
 
-	private Matrix lowestX;
+	private double f;
+	private boolean updatedF;
+
+	private Matrix g;
+	private Matrix gPrev;
+	private boolean updatedG;
+
+	private Matrix H;
+	private HessianUpdateStrategy hStrat;
+	private boolean updatedH;
+
 	private double lowestF;
+	private Matrix lowestX;
 
+	private Runnable updateFunImpl;
+	private Runnable updateGradImpl;
+	private Runnable updateHessImpl;
+	private Consumer<Matrix> updateXImpl;
 
-	private ScalarFunction(Function fun, Matrix x0) {
-		this.fun = fun;
-		this.x0 = x0;
-	}
-
-
-
-	private void initialize() {
-		if (grad == null && gradFD == null) {
-			throw new RuntimeException("`grad` must be either callable or one of FiniteDifferenceMethod");
-		}
-
-		if (hess == null && hessFD == null && hessUpdateStrategy == null) {
-			throw new RuntimeException("hess` must be either callable, HessianUpdateStrategy or one of FiniteDifferenceMethod");
-		}
-
-		if (gradFD != null && hessFD != null) {
-			throw new RuntimeException(
-					"Whenever the gradient is estimated via " +
-					"finite-differences, we require the Hessian " +
-					"to be estimated using one of the " +
-					"quasi-Newton strategies (BFGS or SR1).");
-		}
+	private ScalarFunction(Function fun, Matrix x0, Object args,
+			Gradient grad, FiniteDifferenceMethod gradFD,
+			Hessian hess, FiniteDifferenceMethod hessFD, HessianUpdateStrategy hessStrat,
+			double finiteDiffRelStep, FiniteDifferenceBounds finiteDiffBounds, double[] epsilon) {
 
 		x = Matrix.Factory.copyFromMatrix(x0);
 		n = x.getRowCount();
@@ -274,8 +310,189 @@ public class ScalarFunction {
 
 		lowestX = null;
 		lowestF = Double.POSITIVE_INFINITY;
+
+		final FiniteDifferenceOptions options = new FiniteDifferenceOptions();
+		if (gradFD != null) {
+			options.method = gradFD;
+			options.relStep = finiteDiffRelStep;
+			options.absStep = epsilon;
+			options.bounds = finiteDiffBounds;
+		} else if (hessFD != null) {
+			options.method = hessFD;
+			options.relStep = finiteDiffRelStep;
+			options.absStep = epsilon;
+			options.asLinearOperator = true;
+		}
+
+		// For below setup of Runnable, ToDoubleFunction, ... see also:
+		// https://stackoverflow.com/a/40153253
+
+		// wrap function to count evaluations
+		// and keep track of lowest value encountered so far
+		ToDoubleFunction<Matrix> funWrapped = (Matrix x) -> {
+			numFunctionEvals++;
+
+			// Send a copy because the user may overwrite it.
+            // Overwriting results in undefined behavior because
+            // fun(this.x) will change this.x, with the two no longer linked.
+			double fx = fun.fun(Matrix.Factory.copyFromMatrix(x), args);
+
+			// keep track of lowest value encountered so far
+			if (fx < lowestF) {
+				lowestF = fx;
+				lowestX = x;
+			}
+
+			return fx;
+		};
+
+		updateFunImpl = () -> {
+			this.f = funWrapped.applyAsDouble(this.x);
+		};
+		updateFun();
+
+		// Gradient evaluation
+		final Runnable updateGrad;
+		final java.util.function.Function<Matrix, Matrix> gradWrapped;
+		if (grad != null) {
+			gradWrapped = (Matrix x) -> {
+				numGradientEvals++;
+				return grad.grad(Matrix.Factory.copyFromMatrix(x), args);
+			};
+			updateGrad = () -> {
+				this.g = gradWrapped.apply(this.x);
+			};
+		} else if (gradFD != null) {
+			gradWrapped = null;
+			updateGrad = () -> {
+				this.updateFun();
+				numGradientEvals++;
+				this.g = LinAlg.approxDerivative(funWrapped, x, f, options);
+			};
+		} else {
+			throw new RuntimeException("need either grad or gradFD");
+		}
+		this.updateGradImpl = updateGrad;
+		updateGrad();
+
+		// Hessian Evaluation
+		final Runnable updateHess;
+		if (hess != null) {
+			H = hess.hess(Matrix.Factory.copyFromMatrix(x0), args);
+			updatedH = true;
+			numHessianEvals++;
+
+			// TODO: sparse Hessian
+
+			// TODO: LinearOperator as Hessian
+
+			java.util.function.Function<Matrix, Matrix> hessWrapped = (Matrix x) -> {
+				numHessianEvals++;
+				return hess.hess(Matrix.Factory.copyFromMatrix(x), args);
+			};
+			updateHess = () -> {
+				this.H = hessWrapped.apply(this.x);
+			};
+		} else if (hessFD != null) {
+			updateHess = () -> {
+				updateGrad();
+				this.g = LinAlg.approxDerivative(gradWrapped, x, g, options);
+			};
+			updateHess();
+			updatedH = true;
+		} else if (hessStrat != null) {
+			hStrat = hessStrat;
+			hStrat.initialize(n, HessianApproximationType.HESSIAN);
+			updatedH = true;
+			xPrev = null;
+			gPrev = null;
+			updateHess = () -> {
+				updateGrad();
+				hStrat.update(x.minus(xPrev), g.minus(gPrev));
+			};
+		} else {
+			throw new RuntimeException("need either hess, hessFD or hessStrat");
+		}
+		updateHessImpl = updateHess;
+
+		Consumer<Matrix> updateX;
+		if (hessStrat != null) {
+			updateX = (Matrix x) -> {
+				// need to keep track of position and gradient
+                // for HessianUpdateStrategy
+				updateGrad(); // This is free if the gradient is up-to-date.
+				xPrev = this.x;
+				gPrev = this.g;
+
+				// ensure that self.x is a copy of x. Don't store a reference
+                // otherwise the memoization doesn't work properly.
+				this.x = Matrix.Factory.copyFromMatrix(x);
+				updatedF = false;
+				updatedG = false;
+				updatedH = false;
+				updateHess();
+			};
+		} else {
+			updateX = (Matrix x) -> {
+				// ensure that self.x is a copy of x. Don't store a reference
+                // otherwise the memoization doesn't work properly.
+				this.x = Matrix.Factory.copyFromMatrix(x);
+				updatedF = false;
+				updatedG = false;
+				updatedH = false;
+				updateHess();
+			};
+		}
+		updateXImpl = updateX;
 	}
 
+	private void updateFun() {
+		if (!updatedF) {
+			updateFunImpl.run();
+			updatedF = true;
+		}
+	}
+
+	private void updateGrad() {
+		if (!updatedG) {
+			updateGradImpl.run();
+			updatedG = true;
+		}
+	}
+
+	private void updateHess() {
+		if (!updatedH) {
+			updateHessImpl.run();
+			updatedH = true;
+		}
+	}
+
+
+
+
+	public double fun(Matrix x) {
+		if (!this.x.equalsContent(x)) {
+			updateXImpl.accept(x);
+		}
+		updateFun();
+		return this.f;
+	}
+
+	public Matrix grad(Matrix x) {
+		if (!this.x.equalsContent(x)) {
+			updateXImpl.accept(x);
+		}
+		updateGrad();
+		return this.g;
+	}
+
+	public Matrix hess(Matrix x) {
+		if (!this.x.equalsContent(x)) {
+			updateXImpl.accept(x);
+		}
+		updateHess();
+		return this.H;
+	}
 
 	public int numFunctionEvals() {
 		return numFunctionEvals;
@@ -289,27 +506,15 @@ public class ScalarFunction {
 		return numHessianEvals;
 	}
 
-	public double eval(Matrix x) {
-		return Double.NaN;
-	}
-
-	public Matrix gradient(Matrix x) {
-		return null;
-	}
-
-	public Matrix hessian(Matrix x) {
-		return null;
-	}
-
 	public double lastEval() {
-		return Double.NaN;
+		return f;
 	}
 
 	public Matrix lastGradient() {
-		return null;
+		return g;
 	}
 
 	public Matrix lastHessian() {
-		return null;
+		return H;
 	}
 }

@@ -87,8 +87,8 @@ public class BFGS extends FullHessianUpdateStrategy {
 		FACTORY = new BFGSFactory();
 	}
 
-	private ExceptionStrategy exceptionStrategy;
-	private double minCurvature;
+	private final ExceptionStrategy exceptionStrategy;
+	private final double minCurvature;
 
 	private BFGS(boolean initialScaleAuto, double initialScale, ExceptionStrategy exceptionStrategy, double minCurvature) {
 		super(initialScaleAuto, initialScale);

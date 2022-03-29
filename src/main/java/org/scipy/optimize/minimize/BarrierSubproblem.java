@@ -163,7 +163,7 @@ public class BarrierSubproblem {
 		Matrix s = getSlack(z);
 
 		// Compute first derivatives
-		Matrix g = grad.grad(x);
+		Matrix g = grad.grad(x, null); // TODO: transport args !!!
 		Matrix jEq = jac.jacEq(x);
 		Matrix jIneq = jac.jacIneq(x);
 

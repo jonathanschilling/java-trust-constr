@@ -1,5 +1,7 @@
 package org.scipy.optimize.minimize;
 
+import org.ujmp.core.Matrix;
+
 public class HessianLinearOperator implements Hessian {
 
 	HessianProduct hessp;
@@ -8,6 +10,12 @@ public class HessianLinearOperator implements Hessian {
 	public HessianLinearOperator(HessianProduct hessp, long nVars) {
 		this.hessp = hessp;
 		this.nVars = nVars;
+	}
+
+	@Override
+	public Matrix hess(Matrix x, Object args) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }

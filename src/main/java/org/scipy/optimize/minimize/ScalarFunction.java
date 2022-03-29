@@ -506,15 +506,31 @@ public class ScalarFunction {
 		return numHessianEvals;
 	}
 
-	public double lastEval() {
+	public double f() {
 		return f;
 	}
 
-	public Matrix lastGradient() {
+	/**
+	 * DANGER ZONE: write access to internal state!
+	 * @return
+	 */
+	public Matrix g() {
 		return g;
 	}
 
-	public Matrix lastHessian() {
+	/**
+	 * DANGER ZONE: write access to internal state!
+	 * @return
+	 */
+	public Matrix H() {
 		return H;
+	}
+
+	public double lowestF() {
+		return lowestF;
+	}
+
+	public Matrix lowestX() {
+		return Matrix.Factory.copyFromMatrix(lowestX);
 	}
 }

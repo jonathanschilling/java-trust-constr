@@ -38,8 +38,8 @@ public class MinimizeTrustConstr {
 
 		if (!lastIterationFailed) {
 			state.x = x;
-			state.fun = objective.lastEval();
-			state.grad = objective.lastGradient();
+			state.fun = objective.f();
+			state.grad = objective.g();
 
 			for (int i = 0; i < preparedConstraints.length; ++i) {
 				VectorFunction c = preparedConstraints[i].fun;

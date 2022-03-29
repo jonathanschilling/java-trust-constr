@@ -3,6 +3,12 @@ package org.scipy.optimize.minimize;
 import java.util.function.Consumer;
 import java.util.function.ToDoubleFunction;
 
+import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
+import org.scipy.optimize.minimize.enums.HessianApproximationType;
+import org.scipy.optimize.minimize.interfaces.Function;
+import org.scipy.optimize.minimize.interfaces.Gradient;
+import org.scipy.optimize.minimize.interfaces.Hessian;
+import org.scipy.optimize.minimize.interfaces.HessianUpdateStrategy;
 import org.ujmp.core.Matrix;
 
 /**
@@ -311,17 +317,18 @@ public class ScalarFunction {
 		lowestX = null;
 		lowestF = Double.POSITIVE_INFINITY;
 
-		final FiniteDifferenceOptions options = new FiniteDifferenceOptions();
+		final FiniteDifferenceOptions options;
 		if (gradFD != null) {
-			options.method = gradFD;
-			options.relStep = finiteDiffRelStep;
-			options.absStep = epsilon;
-			options.bounds = finiteDiffBounds;
+			boolean asLinearOperator = false;
+			options = new FiniteDifferenceOptions(
+					gradFD, finiteDiffRelStep, epsilon, finiteDiffBounds, asLinearOperator);
 		} else if (hessFD != null) {
-			options.method = hessFD;
-			options.relStep = finiteDiffRelStep;
-			options.absStep = epsilon;
-			options.asLinearOperator = true;
+			FiniteDifferenceBounds hessBounds = null;
+			boolean asLinearOperator = true;
+			options = new FiniteDifferenceOptions(
+					hessFD, finiteDiffRelStep, epsilon, hessBounds, asLinearOperator);
+		} else {
+			options = null;
 		}
 
 		// For below setup of Runnable, ToDoubleFunction, ... see also:

@@ -1,15 +1,8 @@
 package org.scipy.optimize.minimize;
 
-public class FiniteDifferenceOptions {
+import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
 
-	public FiniteDifferenceMethod method;
-	public double relStep;
-	public double[] absStep;
-	public FiniteDifferenceBounds bounds;
-	public boolean asLinearOperator;
-
-	public FiniteDifferenceOptions() {
-		asLinearOperator = false;
-	}
-
+public record FiniteDifferenceOptions(FiniteDifferenceMethod method,
+		double relStep, double[] absStep,
+		FiniteDifferenceBounds bounds, boolean asLinearOperator){
 }

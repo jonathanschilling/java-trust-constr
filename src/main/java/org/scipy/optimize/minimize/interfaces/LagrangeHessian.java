@@ -1,4 +1,4 @@
-package org.scipy.optimize.minimize;
+package org.scipy.optimize.minimize.interfaces;
 
 import org.ujmp.core.Matrix;
 

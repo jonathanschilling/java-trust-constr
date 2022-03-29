@@ -1,5 +1,12 @@
 package org.scipy.optimize.minimize;
 
+import org.scipy.optimize.minimize.enums.ProjectionMethod;
+import org.scipy.optimize.minimize.interfaces.Constraint;
+import org.scipy.optimize.minimize.interfaces.Function;
+import org.scipy.optimize.minimize.interfaces.GlobalStoppingCriteria;
+import org.scipy.optimize.minimize.interfaces.Gradient;
+import org.scipy.optimize.minimize.interfaces.Jacobian;
+import org.scipy.optimize.minimize.interfaces.LagrangeHessian;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.calculation.Calculation.Ret;
 
@@ -104,8 +111,8 @@ public class TrustRegionInteriorPoint {
 					z, fun0SubProb, grad0SubProb, constr0SubProb, jac0SubProb,
 					subProb::stoppingCriteria, state, initialPenalty, trustRadius,
 					factorizationMethod, trustLb, trustUb, subProb::getScaling);
-			z = r.x;
-			state = r.state;
+			z = r.x();
+			state = r.state();
 
 			if (subProb.terminate) {
 				break;
@@ -123,21 +130,17 @@ public class TrustRegionInteriorPoint {
 
 			// Compute initial values for next iteration
 			FunctionAndConstraint fc = subProb.funAndConstr(z);
-			fun0SubProb = fc.f;
-			constr0SubProb = fc.c;
+			fun0SubProb = fc.f();
+			constr0SubProb = fc.c();
 
 			GradientAndJacobian gj = subProb.gradAndJac(z);
-			grad0SubProb = gj.grad;
-			jac0SubProb = gj.jac;
+			grad0SubProb = gj.grad();
+			jac0SubProb = gj.jac();
 		}
 
 		// Get x and s
 		Matrix x = subProb.getVariables(z);
 
-		StatefulResult r = new StatefulResult();
-		r.x = x;
-		r.state = state;
-
-		return r;
+		return new StatefulResult(x, state);
 	}
 }

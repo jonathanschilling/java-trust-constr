@@ -2,9 +2,9 @@ package de.labathome.optimization;
 
 import org.junit.jupiter.api.Test;
 import org.scipy.optimize.minimize.LinAlg;
-import org.scipy.optimize.minimize.LinearOperator;
 import org.scipy.optimize.minimize.Projections;
 import org.scipy.optimize.minimize.QPSubproblem;
+import org.scipy.optimize.minimize.interfaces.LinearOperator;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.doublematrix.DoubleMatrix2D;
 

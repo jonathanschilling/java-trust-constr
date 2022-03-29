@@ -1,5 +1,6 @@
 package org.scipy.optimize.minimize;
 
+import org.scipy.optimize.minimize.enums.ExceptionStrategy;
 import org.ujmp.core.Matrix;
 
 /**

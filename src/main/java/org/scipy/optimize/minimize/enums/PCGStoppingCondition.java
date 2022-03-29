@@ -1,6 +1,7 @@
-package org.scipy.optimize.minimize;
+package org.scipy.optimize.minimize.enums;
 
 public enum PCGStoppingCondition {
+
 	/** 0: CG subproblem not evaluated */
 	NOT_EVALUATED,
 

@@ -4,6 +4,11 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 
+import org.scipy.optimize.minimize.enums.ProjectionMethod;
+import org.scipy.optimize.minimize.interfaces.Constraint;
+import org.scipy.optimize.minimize.interfaces.Function;
+import org.scipy.optimize.minimize.interfaces.Gradient;
+import org.scipy.optimize.minimize.interfaces.Hessian;
 import org.ujmp.core.Matrix;
 
 /** Java port of scipy.optimize.minimize(method='trust-constr') */
@@ -59,8 +64,8 @@ public class MinimizeTrustConstr {
 			// Compute maximum constraint violation
 			state.constrViolation = 0.0;
 			for (int i = 0; i < preparedConstraints.length; ++i) {
-				double[] lb = preparedConstraints[i].bounds.lb;
-				double[] ub = preparedConstraints[i].bounds.ub;
+				double[] lb = preparedConstraints[i].bounds.lb();
+				double[] ub = preparedConstraints[i].bounds.ub();
 				Matrix c = state.constr[i];
 				for (int j = 0; j < lb.length; ++j) {
 					double lowerViolation = lb[j] - c.getAsDouble(j, 0);
@@ -259,7 +264,7 @@ public class MinimizeTrustConstr {
 
 		FiniteDifferenceBounds finiteDiffBounds;
 		if (bounds != null) {
-			finiteDiffBounds = new StrictBounds(bounds.lb, bounds.ub, bounds.keepFeasible, nVars);
+			finiteDiffBounds = new StrictBounds(bounds, nVars);
 		} else {
 			finiteDiffBounds = FiniteDifferenceBounds.unbounded(nVars);
 		}

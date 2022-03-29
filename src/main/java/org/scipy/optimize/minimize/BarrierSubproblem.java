@@ -1,5 +1,12 @@
 package org.scipy.optimize.minimize;
 
+import org.scipy.optimize.minimize.interfaces.Constraint;
+import org.scipy.optimize.minimize.interfaces.Function;
+import org.scipy.optimize.minimize.interfaces.GlobalStoppingCriteria;
+import org.scipy.optimize.minimize.interfaces.Gradient;
+import org.scipy.optimize.minimize.interfaces.Jacobian;
+import org.scipy.optimize.minimize.interfaces.LagrangeHessian;
+import org.scipy.optimize.minimize.interfaces.LinearOperator;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix;
 import org.ujmp.core.calculation.Calculation.Ret;
@@ -112,9 +119,9 @@ public class BarrierSubproblem {
 		Matrix cIneq = constr.constrIneq(x);
 
 		// Return objective function and constraints
-		FunctionAndConstraint fc = new FunctionAndConstraint();
-		fc.f = computeFunction(f, cIneq, s);
-		fc.c = computeConstraint(cIneq, cEq, s);
+		FunctionAndConstraint fc = new FunctionAndConstraint(
+				computeFunction(f, cIneq, s),
+				computeConstraint(cIneq, cEq, s));
 		return fc;
 	}
 
@@ -168,9 +175,9 @@ public class BarrierSubproblem {
 		Matrix jIneq = jac.jacIneq(x);
 
 		// Return gradient and Jacobian
-		GradientAndJacobian gj = new GradientAndJacobian();
-		gj.grad = computeGradient(g);
-		gj.jac = computeJacobian(jEq, jIneq, s);
+		GradientAndJacobian gj = new GradientAndJacobian(
+				computeGradient(g),
+				computeJacobian(jEq, jIneq, s));
 		return gj;
 	}
 

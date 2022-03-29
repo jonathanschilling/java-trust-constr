@@ -1,5 +1,12 @@
 package org.scipy.optimize.minimize;
 
+import org.scipy.optimize.minimize.enums.PCGStoppingCondition;
+import org.scipy.optimize.minimize.enums.ProjectionMethod;
+import org.scipy.optimize.minimize.interfaces.IFunctionAndConstraint;
+import org.scipy.optimize.minimize.interfaces.IGradientAndJacobian;
+import org.scipy.optimize.minimize.interfaces.LagrangeHessian;
+import org.scipy.optimize.minimize.interfaces.LinearOperator;
+import org.scipy.optimize.minimize.interfaces.StoppingCriterion;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.calculation.Calculation.Ret;
 
@@ -186,8 +193,8 @@ public class EqualityConstrainedSQP {
 			// Evaluate function and constraints at trial point
 			Matrix xNext = x.plus(S.mtimes(d));
 			FunctionAndConstraint fc = funAndConstr.funAndConstr(xNext);
-			double fNext = fc.f;
-			Matrix bNext = fc.c;
+			double fNext = fc.f();
+			Matrix bNext = fc.c();
 
 			// Compute merit function at trial point
 			double meritFunctionNext = fNext + penalty * bNext.norm2();
@@ -212,8 +219,8 @@ public class EqualityConstrainedSQP {
 				// Compute tentative point
 				Matrix xSoc = x.plus(S.mtimes(d.plus(y.times(t))));
 				FunctionAndConstraint fcSoc = funAndConstr.funAndConstr(xSoc);
-				double fSoc = fcSoc.f;
-				Matrix bSoc = fcSoc.c;
+				double fSoc = fcSoc.f();
+				Matrix bSoc = fcSoc.c();
 
 				// Recompute actual reduction
 				double meritFunctionSoc = fSoc + penalty * bSoc.norm2();
@@ -253,8 +260,8 @@ public class EqualityConstrainedSQP {
 				f = fNext;
 				b = bNext;
 				GradientAndJacobian gj = gradAndJac.gradAndJac(x);
-				c = gj.grad;
-				A = gj.jac;
+				c = gj.grad();
+				A = gj.jac();
 				S = scaling.apply(x);
 
 				// Get projections
@@ -285,10 +292,6 @@ public class EqualityConstrainedSQP {
 			}
 		}
 
-		StatefulResult result = new StatefulResult();
-		result.x = x;
-		result.state = state;
-
-		return result;
+		return new StatefulResult(x, state);
 	}
 }

@@ -1,5 +1,7 @@
 package org.scipy.optimize.minimize;
 
+import org.scipy.optimize.minimize.enums.HessianApproximationType;
+import org.scipy.optimize.minimize.interfaces.HessianUpdateStrategy;
 import org.ujmp.core.DenseMatrix;
 import org.ujmp.core.Matrix;
 

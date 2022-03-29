@@ -2,6 +2,7 @@ package org.scipy.optimize.minimize;
 
 import java.util.List;
 
+import org.scipy.optimize.minimize.enums.PCGStoppingCondition;
 import org.ujmp.core.Matrix;
 
 public class CGInfo {

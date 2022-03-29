@@ -1,5 +1,7 @@
 package org.scipy.optimize.minimize;
 
+import org.scipy.optimize.minimize.enums.ProjectionMethod;
+import org.scipy.optimize.minimize.interfaces.LinearOperator;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix2D;
 import org.ujmp.core.calculation.Calculation.Ret;

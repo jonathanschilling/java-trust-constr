@@ -1,4 +1,4 @@
-package org.scipy.optimize.minimize;
+package org.scipy.optimize.minimize.enums;
 
 public enum ExceptionStrategy {
 

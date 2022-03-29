@@ -1,5 +1,7 @@
 package org.scipy.optimize.minimize;
 
+import org.scipy.optimize.minimize.enums.PCGStoppingCondition;
+import org.scipy.optimize.minimize.enums.TrustConstrMethod;
 import org.ujmp.core.Matrix;
 
 public class OptimizeResult {

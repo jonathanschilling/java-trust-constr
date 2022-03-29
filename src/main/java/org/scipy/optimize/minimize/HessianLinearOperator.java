@@ -1,5 +1,6 @@
 package org.scipy.optimize.minimize;
 
+import org.scipy.optimize.minimize.interfaces.Hessian;
 import org.ujmp.core.Matrix;
 
 public class HessianLinearOperator implements Hessian {

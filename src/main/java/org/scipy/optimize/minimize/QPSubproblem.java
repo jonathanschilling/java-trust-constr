@@ -3,6 +3,8 @@ package org.scipy.optimize.minimize;
 import java.util.Arrays;
 import java.util.LinkedList;
 
+import org.scipy.optimize.minimize.enums.PCGStoppingCondition;
+import org.scipy.optimize.minimize.interfaces.LinearOperator;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.LU.LUMatrix;

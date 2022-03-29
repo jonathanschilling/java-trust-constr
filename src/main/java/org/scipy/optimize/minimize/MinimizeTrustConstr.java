@@ -249,7 +249,7 @@ public class MinimizeTrustConstr {
 			if (hessp != null) {
 				hess = new HessianLinearOperator(hessp, nVars);
 			} else {
-				hess = new BFGS();
+				hess = BFGS.FACTORY.build();
 			}
 		}
 
@@ -265,12 +265,15 @@ public class MinimizeTrustConstr {
 		}
 
 		// Define Objective Function
-		ScalarFunction objective = new ScalarFunction(fun, x0)
+		ScalarFunction objective = ScalarFunction.FACTORY
+				.fun(fun)
+				.x0(x0)
 				.args(args)
 				.grad(grad)
 				.hess(hess)
 				.finiteDiffRelStep(finiteDifferenceRelStep)
-				.finiteDiffBounds(finiteDiffBounds);
+				.finiteDiffBounds(finiteDiffBounds)
+				.build();
 
 		// Put constraints in list format when needed.
 		Constraint[] rawConstraints;

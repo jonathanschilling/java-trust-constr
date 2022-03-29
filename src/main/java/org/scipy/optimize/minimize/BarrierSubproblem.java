@@ -107,7 +107,7 @@ public class BarrierSubproblem {
 		Matrix s = getSlack(z);
 
 		// Compute function and constraints
-		double f = fun.fun(x);
+		double f = fun.fun(x, null); // TODO: transmit args as well here!
 		Matrix cEq = constr.constrEq(x);
 		Matrix cIneq = constr.constrIneq(x);
 

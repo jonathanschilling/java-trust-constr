@@ -5,20 +5,6 @@ import org.ujmp.core.Matrix;
 /**
  * Broyden-Fletcher-Goldfarb-Shanno (BFGS) Hessian update strategy.
  *
- * min_curvature : float
- *     This number, scaled by a normalization factor, defines the
- *     minimum curvature ``dot(delta_grad, delta_x)`` allowed to go
- *     unaffected by the exception strategy. By default is equal to
- *     1e-8 when ``exception_strategy = 'skip_update'`` and equal
- *     to 0.2 when ``exception_strategy = 'damp_update'``.
- * init_scale : {float, 'auto'}
- *     Matrix scale at first iteration. At the first
- *     iteration the Hessian matrix or its inverse will be initialized
- *     with ``init_scale*np.eye(n)``, where ``n`` is the problem dimension.
- *     Set it to 'auto' in order to use an automatic heuristic for choosing
- *     the initial scale. The heuristic is described in [1]_, p.143.
- *     By default uses 'auto'.
- *
  * The update is based on the description in [1], p.140.
  *
  * @see [1] Nocedal, Jorge, and Stephen J. Wright. "Numerical optimization"
@@ -26,27 +12,34 @@ import org.ujmp.core.Matrix;
  */
 public class BFGS extends FullHessianUpdateStrategy {
 
-	public static class Factory {
-		ExceptionStrategy exceptionStrategy;
+	public static class BFGSFactory extends FullHessianUpdateStrategyFactory {
 
-		double minCurvature;
-		boolean hasMinCurvature;
+		private ExceptionStrategy exceptionStrategy;
 
-		public Factory() {
+		private double minCurvature;
+		private boolean hasMinCurvature;
+
+		private BFGSFactory() {
+			super();
+
+			exceptionStrategy = ExceptionStrategy.SKIP_UPDATE;
+
+			minCurvature = Double.NaN;
 			hasMinCurvature = false;
 		}
 
 		/**
 		 * Define how to proceed when the curvature condition is violated.
-		 *
-		 * @param exceptionStrategy Set it to 'skip_update' to just skip the update. Or,
+		 * Set it to 'skip_update' to just skip the update. Or,
 		 *                          alternatively, set it to 'damp_update' to
 		 *                          interpolate between the actual BFGS result and the
 		 *                          unmodified matrix. Both exceptions strategies are
 		 *                          explained in [1], p.536-537.
+		 *
+		 * @param exceptionStrategy
 		 * @return
 		 */
-		public Factory exceptionStrategy(ExceptionStrategy exceptionStrategy) {
+		public BFGSFactory exceptionStrategy(ExceptionStrategy exceptionStrategy) {
 			this.exceptionStrategy = exceptionStrategy;
 			return this;
 		}
@@ -57,10 +50,11 @@ public class BFGS extends FullHessianUpdateStrategy {
 		 * unaffected by the exception strategy. By default is equal to
 		 * 1e-8 when ``exception_strategy = 'skip_update'`` and equal
 		 * to 0.2 when ``exception_strategy = 'damp_update'``.
+		 *
 		 * @param minCurvature
 		 * @return
 		 */
-		public Factory minCurvature(double minCurvature) {
+		public BFGSFactory minCurvature(double minCurvature) {
 			this.minCurvature = minCurvature;
 			this.hasMinCurvature = true;
 			return this;
@@ -84,42 +78,23 @@ public class BFGS extends FullHessianUpdateStrategy {
 				throw new RuntimeException("not implemented");
 			}
 
-			return new BFGS(exceptionStrategy, minCurvature);
+			return new BFGS(initialScaleAuto, initialScale, exceptionStrategy, minCurvature);
 		}
 	};
 
-	ExceptionStrategy exceptionStrategy;
-	double minCurvature;
-
-	private BFGS(ExceptionStrategy exceptionStrategy, double minCurvature) {
-		this.exceptionStrategy = exceptionStrategy;
-		this.minCurvature = minCurvature;
+	public static final BFGSFactory FACTORY;
+	static {
+		FACTORY = new BFGSFactory();
 	}
 
-	@Override
-	void updateImplementation(Matrix deltaX, Matrix deltaG) {
+	private ExceptionStrategy exceptionStrategy;
+	private double minCurvature;
 
+	private BFGS(boolean initialScaleAuto, double initialScale, ExceptionStrategy exceptionStrategy, double minCurvature) {
+		super(initialScaleAuto, initialScale);
 
-		Matrix wz = null;
-		Matrix Mw = null;
-		Matrix wMw = null;
-		Matrix z = null;
-
-
-
-
-
-
-		switch (approxType) {
-		case HESSIAN:
-			updateHessian(wz, Mw, wMw, z);
-			break;
-		case INV_HESSIAN:
-			updateInverseHessian(wz, Mw, wMw, z);
-			break;
-		default:
-			throw new RuntimeException("not implemented");
-		}
+		this.exceptionStrategy = exceptionStrategy;
+		this.minCurvature = minCurvature;
 	}
 
 	/**
@@ -131,7 +106,7 @@ public class BFGS extends FullHessianUpdateStrategy {
      *              - 1/(s.T*y) * ((H*y)*s.T + s*(H*y).T)``
      *
      * where ``s = delta_x`` and ``y = delta_grad``. This formula is
-     * equivalent to (6.17) in [1]_ written in a more efficient way
+     * equivalent to (6.17) in [1] written in a more efficient way
      * for implementation.
      *
      * References
@@ -143,8 +118,17 @@ public class BFGS extends FullHessianUpdateStrategy {
 	 * @param yHy
 	 * @param s
 	 */
-	private void updateInverseHessian(Matrix ys, Matrix Hy, Matrix yHy, Matrix s) {
+	private void updateInverseHessian(double ys, Matrix Hy, double yHy, Matrix s) {
 
+		// TODO: use _syr2 from BLAS
+		// This is the second row in above equation.
+		double alpha = -1.0/ys;
+		H = H.plus( ( Hy.mtimes(s.transpose()).plus( s.mtimes(Hy.transpose()) ) ).times(alpha) );
+
+		// TODO: use _syr from BLAS
+		// This is the first row in above equation.
+		double alpha2 = (ys + yHy)/(ys*ys);
+		H = H.plus( s.mtimes(s.transpose()).times(alpha2) );
 	}
 
 	/**
@@ -155,7 +139,7 @@ public class BFGS extends FullHessianUpdateStrategy {
      *     ``B <- B - (B*s)*(B*s).T/s.T*(B*s) + y*y^T/s.T*y``
      *
      * where ``s`` is short for ``delta_x`` and ``y`` is short
-     * for ``delta_grad``. Formula (6.19) in [1]_.
+     * for ``delta_grad``. Formula (6.19) in [1].
      *
      * References
      * ----------
@@ -166,9 +150,96 @@ public class BFGS extends FullHessianUpdateStrategy {
 	 * @param sBs
 	 * @param y
 	 */
-	private void updateHessian(Matrix ys, Matrix Bs, Matrix sBs, Matrix y) {
+	private void updateHessian(double ys, Matrix Bs, double sBs, Matrix y) {
 
+		// TODO: use _syr from BLAS
+		// This is the second term in above equation.
+		B = B.plus( y.mtimes(y.transpose()).times(1.0/ys) );
+
+		// TODO: use _syr from BLAS
+		// This is the first term in above equation.
+		B = B.plus( Bs.mtimes(Bs.transpose()).times(-1.0/sBs) );
 	}
 
+	@Override
+	void updateImplementation(Matrix deltaX, Matrix deltaG) {
 
+		// Auxiliary variables w and z
+		Matrix w;
+		Matrix z;
+		switch (approxType) {
+		case HESSIAN:
+			w = deltaX;
+			z = deltaG;
+			break;
+		case INV_HESSIAN:
+			w = deltaG;
+			z = deltaX;
+			break;
+		default:
+			throw new RuntimeException("not implemented");
+		}
+
+		// Do some common operations
+		double wz = w.transpose().mtimes(z).doubleValue();
+		Matrix Mw = this.dot(w);
+		double wMw = Mw.mtimes(w).doubleValue();
+
+		// Guarantee that wMw > 0 by reinitializing matrix.
+        // While this is always true in exact arithmetics,
+        // indefinite matrix may appear due to roundoff errors.
+		if (wMw <= 0.0) {
+			double scale = autoScale(deltaX, deltaG);
+
+			// Reinitialize matrix
+			switch (approxType) {
+			case HESSIAN:
+				B = Matrix.Factory.eye(n, n).times(scale);
+				break;
+			case INV_HESSIAN:
+				H = Matrix.Factory.eye(n, n).times(scale);
+				break;
+			default:
+				throw new RuntimeException("not implemented");
+			}
+
+			// Do common operations for new matrix
+			Mw = this.dot(w);
+			wMw = Mw.mtimes(w).doubleValue();
+		}
+
+		// Check if curvature condition is violated
+		if (wz <= minCurvature * wMw) {
+
+			switch (exceptionStrategy) {
+			case SKIP_UPDATE:
+				// If the option 'skip_update' is set
+	            // we just skip the update when the condion
+	            // is violated.
+				return;
+			case DAMP_UPDATE:
+				// If the option 'damp_update' is set we
+	            // interpolate between the actual BFGS
+	            // result and the unmodified matrix.
+				double updateFactor = (1.0 - minCurvature) / (1.0 - wz/wMw);
+				z = z.times(updateFactor).plus( Mw.times(1.0-updateFactor) );
+				wz = w.transpose().mtimes(z).doubleValue();
+				break;
+			default:
+				throw new RuntimeException("not implemented");
+			}
+		}
+
+		// Update matrix
+		switch (approxType) {
+		case HESSIAN:
+			updateHessian(wz, Mw, wMw, z);
+			break;
+		case INV_HESSIAN:
+			updateInverseHessian(wz, Mw, wMw, z);
+			break;
+		default:
+			throw new RuntimeException("not implemented");
+		}
+	}
 }

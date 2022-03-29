@@ -8,42 +8,64 @@ import org.ujmp.core.Matrix;
  */
 public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy {
 
+	public static class FullHessianUpdateStrategyFactory {
+
+		protected boolean initialScaleAuto;
+		protected double initialScale;
+		private boolean hasInitialScale;
+
+		protected FullHessianUpdateStrategyFactory() {
+			initialScaleAuto = true;
+			initialScale = Double.NaN;
+			hasInitialScale = false;
+		}
+
+		public FullHessianUpdateStrategyFactory initialScaleAuto() {
+			if (hasInitialScale) {
+				throw new RuntimeException("You can only specify either initScaleAuto or initScale(double).");
+			} else {
+				this.initialScaleAuto = true;
+				this.initialScale = Double.NaN;
+				this.hasInitialScale = true;
+			}
+			return this;
+		}
+
+		public FullHessianUpdateStrategyFactory initalScale(double initialScale) {
+			if (hasInitialScale) {
+				throw new RuntimeException("You can only specify either initialScaleAuto or initalScale(double).");
+			} else {
+				this.initialScaleAuto = false;
+				this.initialScale = initialScale;
+				this.hasInitialScale = true;
+			}
+			return this;
+		}
+	};
+
 	private double initialScale;
 	private boolean initScaleAuto;
 
-	double scale;
+	protected double scale;
 
-	boolean firstIteration;
-	HessianApproximationType approxType;
+	protected boolean firstIteration;
+	protected HessianApproximationType approxType;
 
 	/** problem dimension */
-	long n;
+	protected long n;
 
 	/** Hessian */
-	Matrix B;
+	protected Matrix B;
 
 	/** inverse Hessian */
-	Matrix H;
+	protected Matrix H;
 
-	public FullHessianUpdateStrategy() {
-
-		// default: init_scale = 'auto'
-		initScaleAuto();
+	protected FullHessianUpdateStrategy(boolean initialScaleAuto, double initialScale) {
+		this.initScaleAuto = initialScaleAuto;
+		this.initialScale = initialScale;
 
 		firstIteration = false;
 		approxType = null;
-	}
-
-	public FullHessianUpdateStrategy initScaleAuto() {
-		this.initialScale = Double.NaN;
-		this.initScaleAuto = true;
-		return this;
-	}
-
-	public FullHessianUpdateStrategy initScale(double initScale) {
-		this.initialScale = initScale;
-		this.initScaleAuto = false;
-		return this;
 	}
 
 	@Override
@@ -74,7 +96,7 @@ public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy
 	 * @param deltaX
 	 * @param deltaG
 	 */
-	private double autoScale(Matrix deltaX, Matrix deltaG) {
+	protected double autoScale(Matrix deltaX, Matrix deltaG) {
 		double sNorm2 = deltaX.mtimes(deltaX).doubleValue();
 		double yNorm2 = deltaG.mtimes(deltaG).doubleValue();
 
@@ -110,6 +132,7 @@ public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy
 					"better results can be obtained by defining the\n" +
 					"Hessian as zero instead of using quasi-Newton\n" +
 					"approximations.");
+			return;
 		}
 
 		if (firstIteration) {

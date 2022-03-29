@@ -9,6 +9,7 @@ import org.scipy.optimize.minimize.interfaces.Function;
 import org.scipy.optimize.minimize.interfaces.Gradient;
 import org.scipy.optimize.minimize.interfaces.Hessian;
 import org.scipy.optimize.minimize.interfaces.HessianUpdateStrategy;
+import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
 import org.ujmp.core.Matrix;
 
 /**

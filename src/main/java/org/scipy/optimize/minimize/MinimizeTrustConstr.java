@@ -9,6 +9,7 @@ import org.scipy.optimize.minimize.interfaces.Constraint;
 import org.scipy.optimize.minimize.interfaces.Function;
 import org.scipy.optimize.minimize.interfaces.Gradient;
 import org.scipy.optimize.minimize.interfaces.Hessian;
+import org.scipy.optimize.minimize.records.Bounds;
 import org.ujmp.core.Matrix;
 
 /** Java port of scipy.optimize.minimize(method='trust-constr') */

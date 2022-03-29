@@ -7,6 +7,9 @@ import org.scipy.optimize.minimize.interfaces.GlobalStoppingCriteria;
 import org.scipy.optimize.minimize.interfaces.Gradient;
 import org.scipy.optimize.minimize.interfaces.Jacobian;
 import org.scipy.optimize.minimize.interfaces.LagrangeHessian;
+import org.scipy.optimize.minimize.records.FunctionAndConstraint;
+import org.scipy.optimize.minimize.records.GradientAndJacobian;
+import org.scipy.optimize.minimize.records.StatefulResult;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.calculation.Calculation.Ret;
 

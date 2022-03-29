@@ -1,6 +1,6 @@
 package org.scipy.optimize.minimize.interfaces;
 
-import org.scipy.optimize.minimize.GradientAndJacobian;
+import org.scipy.optimize.minimize.records.GradientAndJacobian;
 import org.ujmp.core.Matrix;
 
 @FunctionalInterface

@@ -1,4 +1,4 @@
-package org.scipy.optimize.minimize;
+package org.scipy.optimize.minimize.records;
 
 /**
  * The line/segment {@code x(t) = z + t*d} is inside the ball for

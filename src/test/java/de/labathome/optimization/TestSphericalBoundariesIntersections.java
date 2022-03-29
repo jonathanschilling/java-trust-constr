@@ -2,8 +2,8 @@ package de.labathome.optimization;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.IntersectionResult;
 import org.scipy.optimize.minimize.QPSubproblem;
+import org.scipy.optimize.minimize.records.IntersectionResult;
 
 import minerva.tests.junit.MinervaAssertions;
 

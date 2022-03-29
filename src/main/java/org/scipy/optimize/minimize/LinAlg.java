@@ -3,6 +3,7 @@ package org.scipy.optimize.minimize;
 import java.util.function.ToDoubleFunction;
 
 import org.scipy.optimize.minimize.interfaces.LinearOperator;
+import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix;
 

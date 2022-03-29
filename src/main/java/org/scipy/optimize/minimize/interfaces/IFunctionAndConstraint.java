@@ -1,6 +1,6 @@
 package org.scipy.optimize.minimize.interfaces;
 
-import org.scipy.optimize.minimize.FunctionAndConstraint;
+import org.scipy.optimize.minimize.records.FunctionAndConstraint;
 import org.ujmp.core.Matrix;
 
 @FunctionalInterface

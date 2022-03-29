@@ -3,6 +3,7 @@ package org.scipy.optimize.minimize;
 import java.util.Optional;
 
 import org.scipy.optimize.minimize.interfaces.Constraint;
+import org.scipy.optimize.minimize.records.Bounds;
 import org.ujmp.core.Matrix;
 
 public class PreparedConstraint {

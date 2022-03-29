@@ -1,5 +1,6 @@
-package org.scipy.optimize.minimize;
+package org.scipy.optimize.minimize.records;
 
+import org.scipy.optimize.minimize.FiniteDifferenceBounds;
 import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
 
 public record FiniteDifferenceOptions(FiniteDifferenceMethod method,

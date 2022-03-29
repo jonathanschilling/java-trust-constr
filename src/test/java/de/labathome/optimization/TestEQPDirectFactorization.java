@@ -1,9 +1,9 @@
 package de.labathome.optimization;
 
 import org.junit.jupiter.api.Test;
+import org.scipy.optimize.minimize.QPSubproblem;
 import org.ujmp.core.Matrix;
 
-import de.labathome.trust_constr.QPSubproblem;
 import minerva.tests.junit.MinervaAssertions;
 
 class TestEQPDirectFactorization {

@@ -1,13 +1,13 @@
 package de.labathome.optimization;
 
 import org.junit.jupiter.api.Test;
+import org.scipy.optimize.minimize.LinAlg;
+import org.scipy.optimize.minimize.LinearOperator;
+import org.scipy.optimize.minimize.Projections;
+import org.scipy.optimize.minimize.QPSubproblem;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.doublematrix.DoubleMatrix2D;
 
-import de.labathome.trust_constr.LinAlg;
-import de.labathome.trust_constr.LinearOperator;
-import de.labathome.trust_constr.Projections;
-import de.labathome.trust_constr.QPSubproblem;
 import minerva.tests.junit.MinervaAssertions;
 
 class TestModifiedDogleg {

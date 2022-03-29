@@ -2,16 +2,16 @@ package de.labathome.optimization;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.scipy.optimize.minimize.LinAlg;
+import org.scipy.optimize.minimize.LinearOperator;
+import org.scipy.optimize.minimize.ProjectionMethod;
+import org.scipy.optimize.minimize.Projections;
 import org.ujmp.core.DenseMatrix;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.QR.QRMatrix;
 import org.ujmp.core.util.MathUtil;
 
-import de.labathome.trust_constr.LinAlg;
-import de.labathome.trust_constr.LinearOperator;
-import de.labathome.trust_constr.ProjectionMethod;
-import de.labathome.trust_constr.Projections;
 import minerva.tests.junit.MinervaAssertions;
 
 class TestProjections {

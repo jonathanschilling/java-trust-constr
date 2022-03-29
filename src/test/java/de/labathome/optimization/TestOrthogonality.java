@@ -1,10 +1,10 @@
 package de.labathome.optimization;
 
 import org.junit.jupiter.api.Test;
+import org.scipy.optimize.minimize.LinAlg;
+import org.scipy.optimize.minimize.Projections;
 import org.ujmp.core.Matrix;
 
-import de.labathome.trust_constr.LinAlg;
-import de.labathome.trust_constr.Projections;
 import minerva.tests.junit.MinervaAssertions;
 
 class TestOrthogonality {

@@ -234,8 +234,17 @@ public class NumDiff {
 		return groups;
 	}
 
+	/**
+	 * Find groups of independent columns of a sparse matrix.
+	 *
+	 * @see https://stackoverflow.com/a/52299730
+	 *
+	 * @param m
+	 * @param n
+	 * @param A
+	 * @return
+	 */
 	private static int[] groupSparse(int m, int n, SparseMatrix A) {
-
 		int[] groups = new int[n];
 		Arrays.fill(groups, -1);
 

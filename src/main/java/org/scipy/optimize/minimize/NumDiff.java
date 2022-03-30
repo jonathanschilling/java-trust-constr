@@ -147,13 +147,10 @@ public class NumDiff {
 		// apply column ordering
 		// TODO: this surely can be done more elegantly...
 		Matrix orderedA = SparseMatrix.Factory.zeros(A.getSize());
-		for (long[] srcPos: A.availableCoordinates()) {
-			for (long[] tgtPos: orderedA.allCoordinates()) {
-				//if (srcPos[0] == tgtPos[0] && order[(int) srcPos[1]] == tgtPos[1]) {
-				if (srcPos[0] == tgtPos[0] && srcPos[1] == order[(int) tgtPos[1]]) {
-					System.out.printf("(%d,%d) --> (%d,%d)\n", srcPos[0], srcPos[1], tgtPos[0], tgtPos[1]);
-					orderedA.setAsDouble(A.getAsDouble(srcPos), tgtPos);
-				}
+		for (long[] pos: A.allCoordinates()) {
+			double aVal = A.getAsDouble(pos[0], order[(int) pos[1]]);
+			if (aVal != 0.0) {
+				orderedA.setAsDouble(aVal, pos);
 			}
 		}
 		A = orderedA;
@@ -254,7 +251,6 @@ public class NumDiff {
 
 		// Loop through all the columns.
 		for (int i=0; i<n; ++i) {
-			System.out.println("handle col i = " + i);
 			if (groups[i] >= 0) {
 				// A group was already assigned.
 				continue;
@@ -268,11 +264,9 @@ public class NumDiff {
 			Matrix ithCol = A.subMatrix(Ret.LINK, 0, i, A.getRowCount()-1, i);
 			for (long[] pos: ithCol.availableCoordinates()) {
 				if (ithCol.getAsDouble(pos) != 0.0) {
-					System.out.println("  k = " + pos[0]);
 					union[(int) pos[0]] = 1;
 				}
 			}
-			System.out.println("  union = " + Arrays.toString(union));
 
 			for (int j = 0; j < n; ++j) {
 				if (groups[j] < 0) {
@@ -297,11 +291,9 @@ public class NumDiff {
 				if (!intersect) {
 					for (long[] pos: jthCol.availableCoordinates()) {
 						if (jthCol.getAsDouble(pos) != 0.0) {
-							System.out.println("  k = " + pos[0]);
 							union[(int) pos[0]] = 1;
 						}
 					}
-					System.out.println("  union = " + Arrays.toString(union));
 					groups[j] = currentGroup;
 				}
 			}

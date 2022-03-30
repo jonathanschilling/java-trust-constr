@@ -145,9 +145,16 @@ public class NumDiff {
 		}
 
 		// apply column ordering
+		// TODO: this surely can be done more elegantly...
 		Matrix orderedA = SparseMatrix.Factory.zeros(A.getSize());
-		for (long[] pos: A.availableCoordinates()) {
-			orderedA.setAsDouble(A.getAsDouble(pos[0], order[(int) pos[1]]), pos);
+		for (long[] srcPos: A.availableCoordinates()) {
+			for (long[] tgtPos: orderedA.allCoordinates()) {
+				//if (srcPos[0] == tgtPos[0] && order[(int) srcPos[1]] == tgtPos[1]) {
+				if (srcPos[0] == tgtPos[0] && srcPos[1] == order[(int) tgtPos[1]]) {
+					System.out.printf("(%d,%d) --> (%d,%d)\n", srcPos[0], srcPos[1], tgtPos[0], tgtPos[1]);
+					orderedA.setAsDouble(A.getAsDouble(srcPos), tgtPos);
+				}
+			}
 		}
 		A = orderedA;
 

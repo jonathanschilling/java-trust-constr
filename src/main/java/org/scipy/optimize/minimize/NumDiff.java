@@ -9,12 +9,123 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.ToDoubleFunction;
 
+import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
+import org.scipy.optimize.minimize.records.AdjustedDifferencingScheme;
 import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix;
 import org.ujmp.core.calculation.Calculation.Ret;
 
 public class NumDiff {
+
+	/**
+	 * @param x0       [n] Point at which we wish to estimate derivative.
+	 * @param h        [n] Desired absolute finite difference steps.
+	 * @param numSteps Number of `h` steps in one direction required to implement
+	 *                 finite difference scheme. For example, 2 means that we need
+	 *                 to evaluate f(x0 + 2 * h) or f(x0 - 2 * h)
+	 * @param scheme   Whether steps in one or both directions are required. In
+	 *                 other words '1-sided' applies to forward and backward
+	 *                 schemes, '2-sided' applies to center schemes.
+	 * @param lb       [n] Lower bounds on independent variables.
+	 * @param ub       [n] Upper bounds on independent variables.
+	 * @return hAdjusted Adjusted absolute step sizes.
+	 *                   Step size decreases only if a sign flip
+	 *                   or switching to one-sided scheme doesn't allow to take a full step.
+	 *         useOneSided Whether to switch to one-sided scheme.
+	 *                     Informative only for ``scheme='2-sided'``.
+	 */
+	public static AdjustedDifferencingScheme adjustSchemeToBounds(Matrix x0, Matrix h, int numSteps,
+			FiniteDifferenceMethod scheme, Matrix lb, Matrix ub) {
+
+		int n = (int) h.getRowCount();
+
+		final boolean[] useOneSided = new boolean[n];
+		switch (scheme) {
+		case ONE_SIDED:
+			Arrays.fill(useOneSided, true);
+			break;
+		case TWO_SIDED:
+			h = h.abs(Ret.ORIG);
+			Arrays.fill(useOneSided, false); // could be omitted...
+			break;
+		default:
+			throw new RuntimeException("schema must be either ONE_SIDED or TWO_SIDED");
+		}
+
+		boolean hasBounds = false;
+		for (int i=0; i<n; ++i) {
+			if (lb.getAsDouble(i, 0) != Double.NEGATIVE_INFINITY || ub.getAsDouble(i, 0) != Double.POSITIVE_INFINITY) {
+				hasBounds = true;
+				break;
+			}
+		}
+		if (!hasBounds) {
+			return new AdjustedDifferencingScheme(h, useOneSided);
+		}
+
+		Matrix hTotal = h.times(numSteps);
+		Matrix hAdjusted = Matrix.Factory.copyFromMatrix(h);
+
+		Matrix lowerDist = x0.minus(lb);
+		Matrix upperDist = ub.minus(x0);
+
+		Matrix maxDist = Matrix.Factory.copyFromMatrix(lowerDist);
+		for (long[] pos: maxDist.allCoordinates()) {
+			double ud = upperDist.getAsDouble(pos);
+			if (ud > maxDist.getAsDouble(pos)) {
+				maxDist.setAsDouble(ud, pos);
+			}
+		}
+
+		if (scheme == FiniteDifferenceMethod.ONE_SIDED) {
+			Matrix x = x0.plus(hTotal);
+			Matrix violated = x.lt(Ret.LINK, lb).or(Ret.NEW, x.gt(Ret.LINK, ub));
+			Matrix fitting = hTotal.abs(Ret.LINK).le(Ret.NEW, maxDist);
+			for (long[] pos: hAdjusted.allCoordinates()) {
+				if (violated.getAsBoolean(pos) && fitting.getAsBoolean(pos)) {
+					hAdjusted.setAsDouble(-1.0 * hAdjusted.getAsDouble(pos), pos);
+				}
+			}
+
+			Matrix forward = upperDist.ge(Ret.LINK, lowerDist).and(Ret.NEW, fitting.not(Ret.LINK));
+			for (long[] pos: forward.availableCoordinates()) {
+				if (forward.getAsBoolean(pos)) {
+					hAdjusted.setAsDouble(upperDist.getAsDouble(pos) / numSteps, pos);
+				}
+			}
+
+			Matrix backward = upperDist.lt(Ret.LINK, lowerDist).and(Ret.NEW, fitting.not(Ret.LINK));
+			for (long[] pos: backward.availableCoordinates()) {
+				if (backward.getAsBoolean(pos)) {
+					hAdjusted.setAsDouble(-lowerDist.getAsDouble(pos) / numSteps, pos);
+				}
+			}
+
+		} else if (scheme == FiniteDifferenceMethod.TWO_SIDED) {
+
+			Matrix central = lowerDist.ge(Ret.LINK, hTotal).and(Ret.NEW, upperDist.ge(Ret.LINK, hTotal));
+
+			Matrix forward = upperDist.ge(Ret.LINK, lowerDist).and(Ret.NEW, central.not(Ret.LINK));
+
+			// TODO: hAdjusted[forward] ...
+
+
+
+
+
+		} else {
+			throw new RuntimeException("schema must be either ONE_SIDED or TWO_SIDED");
+		}
+
+
+		return null;
+	}
+
+
+
+
+
 
 	/**
 	 * Finite-difference gradient of a real-valued function.
@@ -148,8 +259,10 @@ public class NumDiff {
 		// TODO: this surely can be done more elegantly...
 		Matrix orderedA = SparseMatrix.Factory.zeros(A.getSize());
 		for (long[] pos: A.allCoordinates()) {
+			// Take elements from column given in order[col] ...
 			double aVal = A.getAsDouble(pos[0], order[(int) pos[1]]);
-			if (aVal != 0.0) {
+			if (aVal != 0.0) { // retain sparsity
+				// ... and put them into column col.
 				orderedA.setAsDouble(aVal, pos);
 			}
 		}

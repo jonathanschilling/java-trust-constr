@@ -150,7 +150,7 @@ public class NumDiff {
 
 		final int[] groups;
 		if (A.isSparse()) {
-			groups = groupSparse(m, n, A.availableCoordinates());
+			groups = groupSparse((int) m, (int) n, A.availableCoordinates());
 		} else {
 			groups = groupDense((int) m, (int) n, A);
 		}
@@ -224,10 +224,63 @@ public class NumDiff {
 		return groups;
 	}
 
-	private static int[] groupSparse(long m, long n, Iterable<long[]> availableCoordinates) {
+	private static int[] groupSparse(int m, int n, Iterable<long[]> availableCoordinates) {
 
+		int[] groups = new int[n];
+		Arrays.fill(groups, -1);
 
-		return null;
+		int currentGroup = 0;
+
+		int[] union = new int[m];
+
+		// Loop through all the columns.
+		for (int i=0; i<n; ++i) {
+			if (groups[i] >= 0) {
+				// A group was already assigned.
+				continue;
+			}
+
+			groups[i] = currentGroup;
+			boolean allGrouped = true;
+
+			// Here we store the union of grouped columns.
+			Arrays.fill(union, 0);
+			for (long[] pos: availableCoordinates) {
+				union[(int) pos[0]] = 1;
+			}
+
+			for (int j = 0; j < n; ++j) {
+				if (groups[j] < 0) {
+					allGrouped = false;
+				} else {
+					continue;
+				}
+
+				// Determine if j-th column intersects with the union.
+				boolean intersect = false;
+				for (long[] pos: availableCoordinates) {
+					if (union[(int) pos[0]] == 1) {
+						intersect = true;
+						break;
+					}
+				}
+
+				// If not, add it to the union and assign the group to it.
+				if (!intersect) {
+					for (long[] pos: availableCoordinates) {
+						union[(int) pos[0]] = 1;
+					}
+					groups[j] = currentGroup;
+				}
+			}
+
+			if (allGrouped) {
+				break;
+			}
+
+			currentGroup++;
+		}
+
+		return groups;
 	}
-
 }

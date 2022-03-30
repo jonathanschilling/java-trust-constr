@@ -83,37 +83,4 @@ public class LinAlg {
 			}
 		};
 	}
-
-	/**
-	 * finite-difference gradient
-	 *
-	 * @param f
-	 * @param x
-	 * @param f0
-	 * @param options
-	 * @return
-	 */
-	public static Matrix approxDerivative(ToDoubleFunction<Matrix> f, Matrix x, double f0, FiniteDifferenceOptions options) {
-
-		// TODO
-
-		return null;
-	}
-
-	/**
-	 * finite-difference Hessian
-	 *
-	 * @param f
-	 * @param x
-	 * @param f0
-	 * @param options
-	 * @return
-	 */
-	public static Matrix approxDerivative(java.util.function.Function<Matrix, Matrix> f, Matrix x, Matrix f0, FiniteDifferenceOptions options) {
-
-		// TODO
-
-		return null;
-	}
-
 }

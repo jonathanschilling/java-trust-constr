@@ -375,7 +375,7 @@ public class ScalarFunction {
 			updateGrad = () -> {
 				this.updateFun();
 				numGradientEvals++;
-				this.g = LinAlg.approxDerivative(funWrapped, x, f, options);
+				this.g = NumDiff.approxDerivative(funWrapped, x, f, options);
 			};
 		} else {
 			throw new RuntimeException("need either grad or gradFD");
@@ -404,7 +404,7 @@ public class ScalarFunction {
 		} else if (hessFD != null) {
 			updateHess = () -> {
 				updateGrad();
-				this.g = LinAlg.approxDerivative(gradWrapped, x, g, options);
+				this.g = NumDiff.approxDerivative(gradWrapped, x, g, options);
 			};
 			updateHess();
 			updatedH = true;

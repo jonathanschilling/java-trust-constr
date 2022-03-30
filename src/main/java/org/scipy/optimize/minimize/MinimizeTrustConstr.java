@@ -37,9 +37,9 @@ public class MinimizeTrustConstr {
 		}
 		for (int i = 0; i < preparedConstraints.length; ++i) {
 			VectorFunction c = preparedConstraints[i].fun;
-			state.numConstraintEval[i] = c.numEval();
-			state.numConstraintJacobianEval[i] = c.numGradientEval();
-			state.numConstraintHessianEval[i] = c.numHessianEval();
+			state.numConstraintEval[i] = c.numFunctionEvals();
+			state.numConstraintJacobianEval[i] = c.numJacobianEvals();
+			state.numConstraintHessianEval[i] = c.numHessianEvals();
 		}
 
 		if (!lastIterationFailed) {
@@ -50,15 +50,15 @@ public class MinimizeTrustConstr {
 			for (int i = 0; i < preparedConstraints.length; ++i) {
 				VectorFunction c = preparedConstraints[i].fun;
 				state.v[i] = c.lastV();
-				state.constr[i] = c.lastEval();
-				state.jac[i] = c.lastGradient();
+				state.constr[i] = c.f();
+				state.jac[i] = c.J();
 			}
 
 			// Compute Lagrangian Gradient
 			state.lagrangianGrad = Matrix.Factory.copyFromMatrix(state.grad);
 			for (PreparedConstraint c : preparedConstraints) {
 				state.lagrangianGrad = state.lagrangianGrad
-						.plus(c.fun.lastGradient().transpose().mtimes(c.fun.lastV()));
+						.plus(c.fun.J().transpose().mtimes(c.fun.lastV()));
 			}
 			state.optimality = state.lagrangianGrad.normInf();
 

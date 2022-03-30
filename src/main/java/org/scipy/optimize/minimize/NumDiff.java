@@ -1,0 +1,233 @@
+package org.scipy.optimize.minimize;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
+import java.util.function.Function;
+import java.util.function.ToDoubleFunction;
+
+import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
+import org.ujmp.core.Matrix;
+import org.ujmp.core.SparseMatrix;
+import org.ujmp.core.calculation.Calculation.Ret;
+import org.ujmp.core.enums.ValueType;
+
+public class NumDiff {
+
+
+	/**
+	 * Finite-difference gradient of a real-valued function.
+	 *
+	 * Internally, this uses approxDerivative for vector-valued functions.
+	 *
+	 * @param f
+	 * @param x
+	 * @param f0
+	 * @param options
+	 * @return
+	 */
+	public static Matrix approxDerivative(ToDoubleFunction<Matrix> f, Matrix x, double f0, FiniteDifferenceOptions options) {
+
+		java.util.function.Function<Matrix, Matrix> fVec = new Function<Matrix, Matrix>() {
+			@Override
+			public Matrix apply(Matrix t) {
+				return Matrix.Factory.linkToArray(new double[] { f.applyAsDouble(t) });
+			}
+		};
+
+		Matrix f0Vec = Matrix.Factory.linkToArray(new double[] { f0 });
+
+		return approxDerivative(fVec, x, f0Vec, options);
+	}
+
+	/**
+	 * Finite-difference approximation of the first-order derivative matrix of a vector-valued function.
+	 *
+	 * @param f
+	 * @param x
+	 * @param f0
+	 * @param options
+	 * @return
+	 */
+	public static Matrix approxDerivative(java.util.function.Function<Matrix, Matrix> f, Matrix x, Matrix f0, FiniteDifferenceOptions options) {
+
+		// TODO
+
+		return null;
+	}
+
+	/**
+	 * Group columns of a 2-D matrix for sparse finite differencing [1].
+	 *
+	 * Two columns are in the same group if in each row at least one of them has
+	 * zero. A greedy sequential algorithm is used to construct groups.
+	 *
+	 * @see [1] A. Curtis, M. J. D. Powell, and J. Reid,
+	 *      "On the estimation of sparse Jacobian matrices", Journal of the
+	 *      Institute of Mathematics and its Applications, 13 (1974), pp. 117-120.
+	 *
+	 * @param A [m][n] Matrix of which to group columns.
+	 * @return [n] Contains values from 0 to n_groups-1, where n_groups is the
+	 *         number of found groups. Each value ``groups[i]`` is an index of a
+	 *         group to which ith column assigned. The procedure was helpful only if
+	 *         n_groups is significantly less than n.
+	 */
+	public static int[] groupColumns(Matrix A) {
+		int[] defaultOrder = { 0 };
+		return groupColumns(A, defaultOrder);
+	}
+
+	/**
+	 * Group columns of a 2D matrix for sparse finite differencing [1].
+	 *
+	 * Two columns are in the same group if in each row at least one of them has zero.
+	 * A greedy sequential algorithm is used to construct groups.
+	 *
+	 * @see [1] A. Curtis, M. J. D. Powell, and J. Reid,
+	 *          "On the estimation of sparse Jacobian matrices",
+	 *          Journal of the Institute of Mathematics and its Applications, 13 (1974), pp. 117-120.
+	 *
+	 * @param A     [m][n] Matrix of which to group columns.
+	 * @param order [n] Permutation array which defines the order of columns enumeration.
+	 *                  If int or None, a random permutation is used with `order` used as a random seed.
+	 *                  Default is 0, that is use a random permutation but guarantee repeatability.
+	 * @return [n] Contains values from 0 to n_groups-1, where n_groups is the number of found groups.
+	 *             Each value ``groups[i]`` is an index of a group to which the i-th is column assigned.
+	 *             The procedure was helpful only if n_groups is significantly less than n.
+	 */
+	public static int[] groupColumns(Matrix A, int[] order) {
+
+		// TODO: is this a sparse int matrix already?
+		Matrix newA = SparseMatrix.Factory.zeros(A.getSize());
+		for (long[] pos: A.availableCoordinates()) {
+			double aVal = A.getAsDouble(pos);
+			if (aVal != 0.0) {
+				newA.setAsInt(1, pos);
+			}
+		}
+		A = newA;
+
+		if (A.getSize().length != 2) {
+			throw new RuntimeException("`A` must be 2-dimensional.");
+		}
+
+		long m = A.getRowCount();
+		long n = A.getColumnCount();
+
+		// get random, but reproducible order if no order is given
+		// or check given order for compatibility with A
+		if (order == null || order.length <= 1) {
+			// reproducible RNG
+			Random rnd;
+			if (order == null || order.length == 0) {
+				rnd = new Random(0);
+			} else {
+				rnd = new Random(order[0]);
+			}
+
+			// obtain permutation of [0, 1, ..., (n-1)]
+			List<Integer> indices = new ArrayList<>((int) n);
+			for (int i = 0; i < n; ++i) {
+				indices.add(i);
+			}
+			Collections.shuffle(indices, rnd);
+			order = indices.stream().mapToInt(i -> i).toArray();
+		} else {
+			if (order.length != n) {
+				throw new RuntimeException("length of order has to equal n");
+			}
+		}
+
+		// apply column ordering
+		Matrix orderedA = SparseMatrix.Factory.zeros(A.getSize());
+		for (long[] pos: A.availableCoordinates()) {
+			orderedA.setAsDouble(A.getAsDouble(pos[0], order[(int) pos[1]]), pos);
+		}
+		A = orderedA;
+
+		final int[] groups;
+		if (A.isSparse()) {
+			groups = groupSparse(m, n, A.availableCoordinates());
+		} else {
+			groups = groupDense((int) m, (int) n, A);
+		}
+
+		final int[] orderedGroups = new int[groups.length];
+		for (int i = 0; i<n; ++i) {
+			orderedGroups[order[i]] = groups[i];
+		}
+
+		return orderedGroups;
+	}
+
+	private static int[] groupDense(int m, int n, Matrix A) {
+
+		int[] groups = new int[n];
+		Arrays.fill(groups, -1);
+
+		int currentGroup = 0;
+
+		int[] union = new int[m];
+
+		// Loop through all the columns.
+		for (int i=0; i<n; ++i) {
+			if (groups[i] >= 0) {
+				// A group was already assigned.
+				continue;
+			}
+
+			groups[i] = currentGroup;
+			boolean allGrouped = true;
+
+			// Here we store the union of grouped columns.
+			Matrix aCol = A.selectColumns(Ret.LINK, i);
+			for (long[] pos: aCol.allCoordinates()) {
+				union[(int) pos[1]] = aCol.getAsInt(pos);
+			}
+
+			for (int j = 0; j < n; ++j) {
+				if (groups[j] < 0) {
+					allGrouped = false;
+				} else {
+					continue;
+				}
+
+				// Determine if j-th column intersects with the union.
+				boolean intersect = false;
+				for (int k=0; k<m; ++k) {
+					if (union[k] > 0 && A.getAsInt(k, j) > 0) {
+						intersect = true;
+						break;
+					}
+				}
+
+				// If not, add it to the union and assign the group to it.
+				if (!intersect) {
+					Matrix aOtherCol = A.selectColumns(Ret.LINK, j);
+					for (long[] pos: aOtherCol.allCoordinates()) {
+						union[(int) pos[1]] += aOtherCol.getAsInt(pos);
+					}
+					groups[j] = currentGroup;
+				}
+			}
+
+			if (allGrouped) {
+				break;
+			}
+
+			currentGroup++;
+		}
+
+		return groups;
+	}
+
+	private static int[] groupSparse(long m, long n, Iterable<long[]> availableCoordinates) {
+
+
+		return null;
+	}
+
+}

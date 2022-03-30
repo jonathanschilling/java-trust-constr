@@ -105,7 +105,7 @@ public class NumDiff {
 
 		// TODO: is this a sparse int matrix already?
 		Matrix newA = SparseMatrix.Factory.zeros(A.getSize());
-		for (long[] pos: A.availableCoordinates()) {
+		for (long[] pos: A.allCoordinates()) {
 			double aVal = A.getAsDouble(pos);
 			if (aVal != 0.0) {
 				newA.setAsInt(1, pos);
@@ -153,7 +153,7 @@ public class NumDiff {
 
 		final int[] groups;
 		if (A.isSparse()) {
-			groups = groupSparse((int) m, (int) n, A.availableCoordinates());
+			groups = groupSparse((int) m, (int) n, (SparseMatrix) A);
 		} else {
 			groups = groupDense((int) m, (int) n, A);
 		}
@@ -227,7 +227,7 @@ public class NumDiff {
 		return groups;
 	}
 
-	private static int[] groupSparse(int m, int n, Iterable<long[]> availableCoordinates) {
+	private static int[] groupSparse(int m, int n, SparseMatrix A) {
 
 		int[] groups = new int[n];
 		Arrays.fill(groups, -1);
@@ -238,6 +238,7 @@ public class NumDiff {
 
 		// Loop through all the columns.
 		for (int i=0; i<n; ++i) {
+			System.out.println("handle col i = " + i);
 			if (groups[i] >= 0) {
 				// A group was already assigned.
 				continue;
@@ -248,9 +249,14 @@ public class NumDiff {
 
 			// Here we store the union of grouped columns.
 			Arrays.fill(union, 0);
-			for (long[] pos: availableCoordinates) {
-				union[(int) pos[0]] = 1;
+			Matrix ithCol = A.subMatrix(Ret.LINK, 0, i, A.getRowCount()-1, i);
+			for (long[] pos: ithCol.availableCoordinates()) {
+				if (ithCol.getAsDouble(pos) != 0.0) {
+					System.out.println("  k = " + pos[0]);
+					union[(int) pos[0]] = 1;
+				}
 			}
+			System.out.println("  union = " + Arrays.toString(union));
 
 			for (int j = 0; j < n; ++j) {
 				if (groups[j] < 0) {
@@ -261,18 +267,25 @@ public class NumDiff {
 
 				// Determine if j-th column intersects with the union.
 				boolean intersect = false;
-				for (long[] pos: availableCoordinates) {
-					if (union[(int) pos[0]] == 1) {
-						intersect = true;
-						break;
+				Matrix jthCol = A.subMatrix(Ret.LINK, 0, j, A.getRowCount()-1, j);
+				for (long[] pos: jthCol.availableCoordinates()) {
+					if (jthCol.getAsDouble(pos) != 0.0) {
+						if (union[(int) pos[0]] == 1) {
+							intersect = true;
+							break;
+						}
 					}
 				}
 
 				// If not, add it to the union and assign the group to it.
 				if (!intersect) {
-					for (long[] pos: availableCoordinates) {
-						union[(int) pos[0]] = 1;
+					for (long[] pos: jthCol.availableCoordinates()) {
+						if (jthCol.getAsDouble(pos) != 0.0) {
+							System.out.println("  k = " + pos[0]);
+							union[(int) pos[0]] = 1;
+						}
 					}
+					System.out.println("  union = " + Arrays.toString(union));
 					groups[j] = currentGroup;
 				}
 			}

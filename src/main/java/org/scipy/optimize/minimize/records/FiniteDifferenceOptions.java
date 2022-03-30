@@ -10,14 +10,16 @@ public final class FiniteDifferenceOptions {
 	private double[] absStep;
 	private FiniteDifferenceBounds bounds;
 	private boolean asLinearOperator;
+	private Sparsity sparsity;
 
 	public FiniteDifferenceOptions(FiniteDifferenceMethod method, double relStep, double[] absStep,
-			FiniteDifferenceBounds bounds, boolean asLinearOperator) {
+			FiniteDifferenceBounds bounds, boolean asLinearOperator, Sparsity sparsity) {
 		this.method = method;
 		this.relStep = relStep;
 		this.absStep = absStep;
 		this.bounds = bounds;
 		this.asLinearOperator = asLinearOperator;
+		this.sparsity = sparsity;
 	}
 
 	public FiniteDifferenceMethod method() {
@@ -38,5 +40,9 @@ public final class FiniteDifferenceOptions {
 
 	public boolean asLinearOperator() {
 		return asLinearOperator;
+	}
+
+	public Sparsity sparsity() {
+		return sparsity;
 	}
 }

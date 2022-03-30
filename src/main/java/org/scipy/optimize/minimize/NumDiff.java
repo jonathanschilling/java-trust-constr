@@ -2,10 +2,10 @@ package org.scipy.optimize.minimize;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.ToDoubleFunction;
 
@@ -13,10 +13,8 @@ import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix;
 import org.ujmp.core.calculation.Calculation.Ret;
-import org.ujmp.core.enums.ValueType;
 
 public class NumDiff {
-
 
 	/**
 	 * Finite-difference gradient of a real-valued function.
@@ -31,11 +29,8 @@ public class NumDiff {
 	 */
 	public static Matrix approxDerivative(ToDoubleFunction<Matrix> f, Matrix x, double f0, FiniteDifferenceOptions options) {
 
-		java.util.function.Function<Matrix, Matrix> fVec = new Function<Matrix, Matrix>() {
-			@Override
-			public Matrix apply(Matrix t) {
-				return Matrix.Factory.linkToArray(new double[] { f.applyAsDouble(t) });
-			}
+		Function<Matrix, Matrix> fVec = (Matrix t) -> {
+			return Matrix.Factory.linkToArray(new double[] { f.applyAsDouble(t) });
 		};
 
 		Matrix f0Vec = Matrix.Factory.linkToArray(new double[] { f0 });
@@ -52,7 +47,15 @@ public class NumDiff {
 	 * @param options
 	 * @return
 	 */
-	public static Matrix approxDerivative(java.util.function.Function<Matrix, Matrix> f, Matrix x, Matrix f0, FiniteDifferenceOptions options) {
+	public static Matrix approxDerivative(Function<Matrix, Matrix> f, Matrix x, Matrix f0, FiniteDifferenceOptions options) {
+		Object args = null;
+		BiFunction<Matrix, Object, Matrix> fArg =  (Matrix t, Object _args) -> {
+			return f.apply(t);
+		};
+		return approxDerivative(fArg, x, f0, options, args);
+	}
+
+	public static Matrix approxDerivative(BiFunction<Matrix, Object, Matrix> f, Matrix x, Matrix f0, FiniteDifferenceOptions options, Object args) {
 
 		// TODO
 

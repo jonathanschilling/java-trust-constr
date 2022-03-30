@@ -1,10 +1,11 @@
 package org.scipy.optimize.minimize;
 
+import java.util.function.BiFunction;
+import java.util.function.ToDoubleBiFunction;
+
 import org.scipy.optimize.minimize.enums.ProjectionMethod;
 import org.scipy.optimize.minimize.interfaces.Constraint;
-import org.scipy.optimize.minimize.interfaces.Function;
 import org.scipy.optimize.minimize.interfaces.GlobalStoppingCriteria;
-import org.scipy.optimize.minimize.interfaces.Gradient;
 import org.scipy.optimize.minimize.interfaces.Jacobian;
 import org.scipy.optimize.minimize.interfaces.LagrangeHessian;
 import org.scipy.optimize.minimize.records.FunctionAndConstraint;
@@ -54,7 +55,7 @@ public class TrustRegionInteriorPoint {
 	 * using trust-region interior point method described in [1].
 	 */
 	public static StatefulResult trustRegionInteriorPoint(
-			Function fun, Gradient grad, LagrangeHessian lagrHess,
+			ToDoubleBiFunction<Matrix, Object> fun, BiFunction<Matrix, Object, Matrix> grad, LagrangeHessian lagrHess,
 			int nVars, int nIneq, int nEq,
 			Constraint constr, Jacobian jac,
 			Matrix x0, double fun0, Matrix grad0,

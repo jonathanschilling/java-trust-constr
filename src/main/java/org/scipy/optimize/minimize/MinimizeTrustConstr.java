@@ -3,12 +3,13 @@ package org.scipy.optimize.minimize;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.function.ToDoubleBiFunction;
+import java.util.function.ToDoubleFunction;
 
 import org.scipy.optimize.minimize.enums.ProjectionMethod;
 import org.scipy.optimize.minimize.interfaces.Constraint;
-import org.scipy.optimize.minimize.interfaces.Function;
-import org.scipy.optimize.minimize.interfaces.Gradient;
-import org.scipy.optimize.minimize.interfaces.Hessian;
 import org.scipy.optimize.minimize.records.Bounds;
 import org.ujmp.core.Matrix;
 
@@ -49,7 +50,7 @@ public class MinimizeTrustConstr {
 
 			for (int i = 0; i < preparedConstraints.length; ++i) {
 				VectorFunction c = preparedConstraints[i].fun;
-				state.v[i] = c.lastV();
+				state.v[i] = c.v();
 				state.constr[i] = c.f();
 				state.jac[i] = c.J();
 			}
@@ -58,7 +59,7 @@ public class MinimizeTrustConstr {
 			state.lagrangianGrad = Matrix.Factory.copyFromMatrix(state.grad);
 			for (PreparedConstraint c : preparedConstraints) {
 				state.lagrangianGrad = state.lagrangianGrad
-						.plus(c.fun.J().transpose().mtimes(c.fun.lastV()));
+						.plus(c.fun.J().transpose().mtimes(c.fun.v()));
 			}
 			state.optimality = state.lagrangianGrad.normInf();
 
@@ -239,7 +240,8 @@ public class MinimizeTrustConstr {
 	 * @param disp                     If True (default), then `verbose` will be set
 	 *                                 to 1 if it was 0.
 	 */
-	public static OptimizeResult minimizeTrustConstr(Function fun, Matrix x0, Object args, Gradient grad, Hessian hess,
+	public static OptimizeResult minimizeTrustConstr(ToDoubleBiFunction<Matrix, Object> fun, Matrix x0, Object args,
+			BiFunction<Matrix, Object, Matrix> grad, BiFunction<Matrix, Object, Matrix> hess,
 			HessianProduct hessp, Bounds bounds,
 			Object constraints,
 			double xTol, double gTol, double barrierTol, Optional<Boolean> sparseJacobian,

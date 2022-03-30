@@ -1,9 +1,10 @@
 package org.scipy.optimize.minimize;
 
-import org.scipy.optimize.minimize.interfaces.Hessian;
+import java.util.function.BiFunction;
+
 import org.ujmp.core.Matrix;
 
-public class HessianLinearOperator implements Hessian {
+public class HessianLinearOperator implements BiFunction<Matrix, Object, Matrix> {
 
 	HessianProduct hessp;
 	long nVars;
@@ -14,7 +15,7 @@ public class HessianLinearOperator implements Hessian {
 	}
 
 	@Override
-	public Matrix hess(Matrix x, Object args) {
+	public Matrix apply(Matrix t, Object args) {
 		// TODO Auto-generated method stub
 		return null;
 	}

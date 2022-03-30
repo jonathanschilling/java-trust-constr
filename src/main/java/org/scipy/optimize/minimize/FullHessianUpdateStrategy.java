@@ -43,6 +43,8 @@ public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy
 			}
 			return this;
 		}
+
+		// no build() method here, since FullHessianUpdateStrategy is abstract
 	};
 
 	private final double initialScale;
@@ -164,8 +166,7 @@ public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy
 	}
 
 	@Override
-	public Matrix dot(Matrix p) {
-
+	public Matrix apply(Matrix p, Object args) {
 		// TODO: use _symv from LAPACK
 
 		switch (approxType) {
@@ -188,10 +189,5 @@ public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy
 		default:
 			throw new RuntimeException("not implemented");
 		}
-	}
-
-	@Override
-	public Matrix hess(Matrix x, Object args) {
-		throw new RuntimeException("not implemented yet");
 	}
 }

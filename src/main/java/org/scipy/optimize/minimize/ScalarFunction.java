@@ -1,15 +1,16 @@
 package org.scipy.optimize.minimize;
 
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.ToDoubleBiFunction;
 import java.util.function.ToDoubleFunction;
 
 import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
 import org.scipy.optimize.minimize.enums.HessianApproximationType;
-import org.scipy.optimize.minimize.interfaces.Function;
-import org.scipy.optimize.minimize.interfaces.Gradient;
-import org.scipy.optimize.minimize.interfaces.Hessian;
 import org.scipy.optimize.minimize.interfaces.HessianUpdateStrategy;
 import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
+import org.scipy.optimize.minimize.records.Sparsity;
 import org.ujmp.core.Matrix;
 
 /**
@@ -31,15 +32,15 @@ public class ScalarFunction {
 
 	public static class ScalarFunctionFactory {
 
-		private Function fun;
+		private ToDoubleBiFunction<Matrix, Object> fun;
 		private Matrix x0;
 		private Object args;
 
-		private Gradient grad;
+		private BiFunction<Matrix, Object, Matrix> grad;
 		private FiniteDifferenceMethod gradFD;
 		private boolean hasGrad;
 
-		private Hessian hess;
+		private BiFunction<Matrix, Object, Matrix> hess;
 		private FiniteDifferenceMethod hessFD;
 		private HessianUpdateStrategy hessStrat;
 		private boolean hasHess;
@@ -54,7 +55,7 @@ public class ScalarFunction {
 		}
 
 		/** Set the objective funciton to optimize. */
-		public ScalarFunctionFactory fun(Function fun) {
+		public ScalarFunctionFactory fun(ToDoubleBiFunction<Matrix, Object> fun) {
 			this.fun = fun;
 			return this;
 		}
@@ -89,7 +90,7 @@ public class ScalarFunction {
 	     * gradient with a relative step size. These finite difference schemes
 	     * obey any specified `bounds`.
 		 */
-		public ScalarFunctionFactory grad(Gradient grad) {
+		public ScalarFunctionFactory grad(BiFunction<Matrix, Object, Matrix> grad) {
 			if (hasGrad) {
 				throw new RuntimeException("You can only specify either Gradient or FiniteDifferenceMethod.");
 			} else {
@@ -140,7 +141,7 @@ public class ScalarFunction {
 	     * cannot be estimated with options {'2-point', '3-point', 'cs'} and needs
 	     * to be estimated using one of the quasi-Newton strategies.
 		 */
-		public ScalarFunctionFactory hess(Hessian hess) {
+		public ScalarFunctionFactory hess(BiFunction<Matrix, Object, Matrix> hess) {
 			if (hasHess) {
 				throw new RuntimeException("You can only specify either Hessian, FiniteDifferenceMethod or HessianUpdateStrategy.");
 			} else {
@@ -299,9 +300,9 @@ public class ScalarFunction {
 	private Runnable updateHessImpl;
 	private Consumer<Matrix> updateXImpl;
 
-	private ScalarFunction(Function fun, Matrix x0, Object args,
-			Gradient grad, FiniteDifferenceMethod gradFD,
-			Hessian hess, FiniteDifferenceMethod hessFD, HessianUpdateStrategy hessStrat,
+	private ScalarFunction(ToDoubleBiFunction<Matrix, Object> fun, Matrix x0, Object args,
+			BiFunction<Matrix, Object, Matrix> grad, FiniteDifferenceMethod gradFD,
+			BiFunction<Matrix, Object, Matrix> hess, FiniteDifferenceMethod hessFD, HessianUpdateStrategy hessStrat,
 			double finiteDiffRelStep, FiniteDifferenceBounds finiteDiffBounds, double[] epsilon) {
 
 		x = Matrix.Factory.copyFromMatrix(x0);
@@ -321,13 +322,15 @@ public class ScalarFunction {
 		final FiniteDifferenceOptions options;
 		if (gradFD != null) {
 			boolean asLinearOperator = false;
+			Sparsity sparsity = null;
 			options = new FiniteDifferenceOptions(
-					gradFD, finiteDiffRelStep, epsilon, finiteDiffBounds, asLinearOperator);
+					gradFD, finiteDiffRelStep, epsilon, finiteDiffBounds, asLinearOperator, sparsity);
 		} else if (hessFD != null) {
 			FiniteDifferenceBounds hessBounds = null;
 			boolean asLinearOperator = true;
+			Sparsity sparsity = null;
 			options = new FiniteDifferenceOptions(
-					hessFD, finiteDiffRelStep, epsilon, hessBounds, asLinearOperator);
+					hessFD, finiteDiffRelStep, epsilon, hessBounds, asLinearOperator, sparsity);
 		} else {
 			options = null;
 		}
@@ -343,7 +346,7 @@ public class ScalarFunction {
 			// Send a copy because the user may overwrite it.
             // Overwriting results in undefined behavior because
             // fun(this.x) will change this.x, with the two no longer linked.
-			double fx = fun.fun(Matrix.Factory.copyFromMatrix(x), args);
+			double fx = fun.applyAsDouble(Matrix.Factory.copyFromMatrix(x), args);
 
 			// keep track of lowest value encountered so far
 			if (fx < lowestF) {
@@ -361,11 +364,11 @@ public class ScalarFunction {
 
 		// Gradient evaluation
 		final Runnable updateGrad;
-		final java.util.function.Function<Matrix, Matrix> gradWrapped;
+		final Function<Matrix, Matrix> gradWrapped;
 		if (grad != null) {
 			gradWrapped = (Matrix x) -> {
 				numGradientEvals++;
-				return grad.grad(Matrix.Factory.copyFromMatrix(x), args);
+				return grad.apply(Matrix.Factory.copyFromMatrix(x), args);
 			};
 			updateGrad = () -> {
 				this.g = gradWrapped.apply(this.x);
@@ -386,7 +389,7 @@ public class ScalarFunction {
 		// Hessian Evaluation
 		final Runnable updateHess;
 		if (hess != null) {
-			H = hess.hess(Matrix.Factory.copyFromMatrix(x0), args);
+			H = hess.apply(Matrix.Factory.copyFromMatrix(x0), args);
 			updatedH = true;
 			numHessianEvals++;
 
@@ -396,7 +399,7 @@ public class ScalarFunction {
 
 			java.util.function.Function<Matrix, Matrix> hessWrapped = (Matrix x) -> {
 				numHessianEvals++;
-				return hess.hess(Matrix.Factory.copyFromMatrix(x), args);
+				return hess.apply(Matrix.Factory.copyFromMatrix(x), args);
 			};
 			updateHess = () -> {
 				this.H = hessWrapped.apply(this.x);
@@ -448,7 +451,6 @@ public class ScalarFunction {
 				updatedF = false;
 				updatedG = false;
 				updatedH = false;
-				updateHess();
 			};
 		}
 		updateXImpl = updateX;

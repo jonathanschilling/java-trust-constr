@@ -83,7 +83,8 @@ public class SR1 extends FullHessianUpdateStrategy {
 		}
 
 		// Do some common operations
-		Matrix Mw = this.dot(w);
+		Object args = null; // compatibility with extra args for user-defined Hessian
+		Matrix Mw = this.apply(w, args);
 		Matrix zMinusMw = z.minus(Mw);
 		double denominator = w.transpose().mtimes(zMinusMw).doubleValue();
 

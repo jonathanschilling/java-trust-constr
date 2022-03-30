@@ -1,9 +1,10 @@
 package org.scipy.optimize.minimize;
 
+import java.util.function.BiFunction;
+import java.util.function.ToDoubleBiFunction;
+
 import org.scipy.optimize.minimize.interfaces.Constraint;
-import org.scipy.optimize.minimize.interfaces.Function;
 import org.scipy.optimize.minimize.interfaces.GlobalStoppingCriteria;
-import org.scipy.optimize.minimize.interfaces.Gradient;
 import org.scipy.optimize.minimize.interfaces.Jacobian;
 import org.scipy.optimize.minimize.interfaces.LagrangeHessian;
 import org.scipy.optimize.minimize.interfaces.LinearOperator;
@@ -27,8 +28,8 @@ public class BarrierSubproblem {
 	long nVars;
 	Matrix x0;
 	Matrix s0;
-	Function fun;
-	Gradient grad;
+	ToDoubleBiFunction<Matrix, Object> fun;
+	BiFunction<Matrix, Object, Matrix> grad;
 	LagrangeHessian lagrHess;
 	Constraint constr;
 	Jacobian jac;
@@ -46,7 +47,7 @@ public class BarrierSubproblem {
 	boolean terminate;
 
 	public BarrierSubproblem(Matrix x0, Matrix s0,
-			Function fun, Gradient grad, LagrangeHessian lagrHess,
+			ToDoubleBiFunction<Matrix, Object> fun, BiFunction<Matrix, Object, Matrix> grad, LagrangeHessian lagrHess,
 			long nVars, long nIneq, long nEq,
 			Constraint constr, Jacobian jac,
 			double barrierParameter, double tolerance,
@@ -116,7 +117,7 @@ public class BarrierSubproblem {
 		Matrix s = getSlack(z);
 
 		// Compute function and constraints
-		double f = fun.fun(x, null); // TODO: transmit args as well here!
+		double f = fun.applyAsDouble(x, null); // TODO: transmit args as well here!
 		Matrix cEq = constr.constrEq(x);
 		Matrix cIneq = constr.constrIneq(x);
 
@@ -172,7 +173,7 @@ public class BarrierSubproblem {
 		Matrix s = getSlack(z);
 
 		// Compute first derivatives
-		Matrix g = grad.grad(x, null); // TODO: transport args !!!
+		Matrix g = grad.apply(x, null); // TODO: transport args !!!
 		Matrix jEq = jac.jacEq(x);
 		Matrix jIneq = jac.jacIneq(x);
 

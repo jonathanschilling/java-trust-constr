@@ -182,8 +182,9 @@ public class BFGS extends FullHessianUpdateStrategy {
 		}
 
 		// Do some common operations
+		Object args = null; // compatibility with extra args for user-defined Hessian
 		double wz = w.transpose().mtimes(z).doubleValue();
-		Matrix Mw = this.dot(w);
+		Matrix Mw = this.apply(w, args);
 		double wMw = Mw.mtimes(w).doubleValue();
 
 		// Guarantee that wMw > 0 by reinitializing matrix.
@@ -205,7 +206,7 @@ public class BFGS extends FullHessianUpdateStrategy {
 			}
 
 			// Do common operations for new matrix
-			Mw = this.dot(w);
+			Mw = this.apply(w, args);
 			wMw = Mw.mtimes(w).doubleValue();
 		}
 

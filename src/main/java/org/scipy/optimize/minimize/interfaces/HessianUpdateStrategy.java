@@ -1,5 +1,8 @@
 package org.scipy.optimize.minimize.interfaces;
 
+import java.util.function.BiFunction;
+import java.util.function.Function;
+
 import org.scipy.optimize.minimize.enums.HessianApproximationType;
 import org.ujmp.core.Matrix;
 
@@ -25,7 +28,7 @@ import org.ujmp.core.Matrix;
  * the compatible solvers to approximate the Hessian (or
  * inverse Hessian) used by the optimization algorithms.
  */
-public interface HessianUpdateStrategy extends Hessian {
+public interface HessianUpdateStrategy extends BiFunction<Matrix, Object, Matrix> {
 
 	/**
 	 * Initialize internal matrix.
@@ -52,14 +55,6 @@ public interface HessianUpdateStrategy extends Hessian {
             		 ``delta_grad = grad(x2) - grad(x1)``.
 	 */
 	public void update(Matrix deltaX, Matrix deltaG);
-
-	/**
-	 * Compute the product of the internal matrix with the given vector.
-	 *
-	 * @param p 1-D array representing a vector.
-	 * @return 1-D represents the result of multiplying the approximation matrix by vector p.
-	 */
-	public Matrix dot(Matrix p);
 
 	/**
 	 * Return current internal matrix.

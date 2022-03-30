@@ -1,12 +1,19 @@
 package org.scipy.optimize.minimize;
 
+import java.util.Optional;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.Function;
+
 import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
-import org.scipy.optimize.minimize.interfaces.Function;
-import org.scipy.optimize.minimize.interfaces.Hessian;
+import org.scipy.optimize.minimize.enums.HessianApproximationType;
 import org.scipy.optimize.minimize.interfaces.HessianUpdateStrategy;
-import org.scipy.optimize.minimize.interfaces.Jacobian;
+import org.scipy.optimize.minimize.interfaces.LinearOperator;
 import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
+import org.scipy.optimize.minimize.records.Sparsity;
+import org.ujmp.core.DenseMatrix;
 import org.ujmp.core.Matrix;
+import org.ujmp.core.SparseMatrix;
 
 /**
  * Vector function and its derivatives.
@@ -29,14 +36,16 @@ public class VectorFunction {
 
 	public static class VectorFunctionFactory {
 
-		private Function fun;
+		private Function<Matrix, Matrix> fun;
 		private Matrix x0;
 
-		private Jacobian jac;
+		private Function<Matrix, Matrix> jac;
 		private FiniteDifferenceMethod jacFD;
+		private Matrix finiteDiffJacSparsity;
 		private boolean hasJac;
+		private Optional<Boolean> sparseJacobian;
 
-		private Hessian hess;
+		private BiFunction<Matrix, Matrix, Matrix> hess;
 		private FiniteDifferenceMethod hessFD;
 		private HessianUpdateStrategy hessStrat;
 		private boolean hasHess;
@@ -47,10 +56,11 @@ public class VectorFunction {
 		private VectorFunctionFactory() {
 			hasJac = false;
 			hasHess = false;
+			sparseJacobian = Optional.empty();
 		}
 
 		/** Set the objective funciton to optimize. */
-		public VectorFunctionFactory fun(Function fun) {
+		public VectorFunctionFactory fun(Function<Matrix, Matrix> fun) {
 			this.fun = fun;
 			return this;
 		}
@@ -80,7 +90,7 @@ public class VectorFunction {
 	     * gradient with a relative step size. These finite difference schemes
 	     * obey any specified `bounds`.
 		 */
-		public VectorFunctionFactory jac(Jacobian jac) {
+		public VectorFunctionFactory jac(Function<Matrix, Matrix> jac) {
 			if (hasJac) {
 				throw new RuntimeException("You can only specify either Jacobian or FiniteDifferenceMethod.");
 			} else {
@@ -106,6 +116,22 @@ public class VectorFunction {
 		}
 
 		/**
+		 * Specify a matrix that has non-zero elements only where non-zero Jacobian elements are expected.
+		 *
+		 * @param finiteDiffJacSparsity
+		 * @return
+		 */
+		public VectorFunctionFactory finiteDiffJacSparsity(Matrix finiteDiffJacSparsity) {
+			this.finiteDiffJacSparsity = finiteDiffJacSparsity;
+			return this;
+		}
+
+		public VectorFunctionFactory sparseJacobian() {
+			sparseJacobian = Optional.of(true);
+			return this;
+		}
+
+		/**
 		 * Method for computing the Hessian matrix. If it is callable, it should
 	     * return the  Hessian matrix:
 	     *
@@ -120,7 +146,7 @@ public class VectorFunction {
 	     * cannot be estimated with options {'2-point', '3-point', 'cs'} and needs
 	     * to be estimated using one of the quasi-Newton strategies.
 		 */
-		public VectorFunctionFactory hess(Hessian hess) {
+		public VectorFunctionFactory hess(BiFunction<Matrix, Matrix, Matrix> hess) {
 			if (hasHess) {
 				throw new RuntimeException("You can only specify either Hessian, FiniteDifferenceMethod or HessianUpdateStrategy.");
 			} else {
@@ -226,9 +252,10 @@ public class VectorFunction {
 			}
 
 			return new VectorFunction(fun, x0,
-					jac, jacFD,
+					jac, jacFD, finiteDiffJacSparsity,
 					hess, hessFD, hessStrat,
-					finiteDiffRelStep, finiteDiffBounds);
+					finiteDiffRelStep, finiteDiffBounds,
+					sparseJacobian);
 
 		}
 	};
@@ -240,9 +267,16 @@ public class VectorFunction {
 
 	/** current position */
 	private Matrix x;
+	private Matrix xPrev;
 
 	/** number of parameters */
 	private long n;
+
+	/** [m] Lagrange multipliers */
+	private Matrix v;
+
+	/** number of function dimensions */
+	private long m;
 
 	private int numFunctionEvals;
 	private int numJacobianEvals;
@@ -254,17 +288,22 @@ public class VectorFunction {
 	private Matrix J;
 	private Matrix JPrev;
 	private boolean updatedJ;
+	private final boolean sparseJacobian;
 
 	private Matrix H;
 	private HessianUpdateStrategy hStrat;
 	private boolean updatedH;
 
+	private Runnable updateFunImpl;
+	private Runnable updateJacImpl;
+	private Runnable updateHessImpl;
+	private Consumer<Matrix> updateXImpl;
 
-
-	private VectorFunction(Function fun, Matrix x0,
-			Jacobian jac, FiniteDifferenceMethod jacFD,
-			Hessian hess, FiniteDifferenceMethod hessFD, HessianUpdateStrategy hessStrat,
-			double finiteDiffRelStep, FiniteDifferenceBounds finiteDiffBounds) {
+	private VectorFunction(Function<Matrix, Matrix> fun, Matrix x0,
+			Function<Matrix, Matrix> jac, FiniteDifferenceMethod jacFD, Matrix finiteDiffJacSparsity,
+			BiFunction<Matrix, Matrix, Matrix> hess, FiniteDifferenceMethod hessFD, HessianUpdateStrategy hessStrat,
+			double finiteDiffRelStep, FiniteDifferenceBounds finiteDiffBounds,
+			Optional<Boolean> sparseJacobian) {
 
 		x = Matrix.Factory.copyFromMatrix(x0);
 		n = x.getRowCount();
@@ -279,44 +318,266 @@ public class VectorFunction {
 
 		final FiniteDifferenceOptions options;
 		if (jacFD != null) {
+			final Sparsity jacSparsity;
+			if (finiteDiffJacSparsity != null) {
+				int[] sparsityGroups = NumDiff.groupColumns(finiteDiffJacSparsity);
+				jacSparsity = new Sparsity(finiteDiffJacSparsity, sparsityGroups);
+			} else {
+				jacSparsity = null;
+			}
 			boolean asLinearOperator = false;
 			double[] epsilon = null;
 			options = new FiniteDifferenceOptions(
-					jacFD, finiteDiffRelStep, epsilon, finiteDiffBounds, asLinearOperator);
+					jacFD, finiteDiffRelStep, epsilon, finiteDiffBounds, asLinearOperator, jacSparsity);
 		} else if (hessFD != null) {
 			FiniteDifferenceBounds hessBounds = null;
 			boolean asLinearOperator = true;
 			double[] epsilon = null;
+			Sparsity sparsity = null;
 			options = new FiniteDifferenceOptions(
-					hessFD, finiteDiffRelStep, epsilon, hessBounds, asLinearOperator);
+					hessFD, finiteDiffRelStep, epsilon, hessBounds, asLinearOperator, sparsity);
 		} else {
 			options = null;
 		}
 
+		Function<Matrix, Matrix> funWrapped = (Matrix x) -> {
+			numFunctionEvals++;
+			return fun.apply(x);
+		};
 
+		Runnable updateFun = () -> {
+			f = funWrapped.apply(x);
+		};
+		updateFunImpl = updateFun;
+		updateFun.run();
+		//updateFun(); // TODO: why not updateFun();
+
+		v = Matrix.Factory.zeros(f.getSize());
+		m = v.getRowCount();
+
+		// Jacobian Evaluation
+		final Runnable updateJac;
+		final Function<Matrix, Matrix> jacWrapped;
+		if (jac != null) {
+			J = jac.apply(x);
+			updatedJ = true;
+			numJacobianEvals++;
+
+			if ( (sparseJacobian.isPresent() && sparseJacobian.get()) ||
+					(sparseJacobian.isEmpty() && J.isSparse()) ) {
+				jacWrapped = (Matrix x) -> {
+					numJacobianEvals++;
+					return SparseMatrix.Factory.copyFromMatrix(jac.apply(x));
+				};
+				this.sparseJacobian = true;
+			} else if (J.isSparse()) {
+				// sparseJacobian was set to false, but the Jacobian is sparse,
+				// so need to convert it to a dense matrix
+				jacWrapped = (Matrix x) -> {
+					numJacobianEvals++;
+					return DenseMatrix.Factory.copyFromMatrix(jac.apply(x));
+				};
+				J = DenseMatrix.Factory.copyFromMatrix(J);
+				this.sparseJacobian = false;
+			} else {
+				// dense Jacobian
+				jacWrapped = (Matrix x) -> {
+					numJacobianEvals++;
+					return jac.apply(x);
+				};
+				this.sparseJacobian = false;
+			}
+
+			updateJac = () -> {
+				J = jacWrapped.apply(x);
+			};
+		} else if (jacFD != null) {
+			J = NumDiff.approxDerivative(funWrapped, x, f, options);
+			updatedJ = true;
+
+			if ( (sparseJacobian.isPresent() && sparseJacobian.get()) ||
+					(sparseJacobian.isEmpty() && J.isSparse()) ) {
+				updateJac = () -> {
+					updateFun();
+					J = SparseMatrix.Factory.copyFromMatrix(
+							NumDiff.approxDerivative(funWrapped, x, f, options));
+				};
+				J = SparseMatrix.Factory.copyFromMatrix(J);
+				this.sparseJacobian = true;
+			} else if (J.isSparse()) {
+				// sparseJacobian was set to false, but the Jacobian is sparse,
+				// so need to convert it to a dense matrix
+				updateJac = () -> {
+					updateFun();
+					J = DenseMatrix.Factory.copyFromMatrix(NumDiff.approxDerivative(funWrapped, x, f, options));
+				};
+				J = DenseMatrix.Factory.copyFromMatrix(J);
+				this.sparseJacobian = false;
+			} else {
+				// dense Jacobian
+				updateJac = () -> {
+					updateFun();
+					J = DenseMatrix.Factory.copyFromMatrix(NumDiff.approxDerivative(funWrapped, x, f, options));
+				};
+				J = DenseMatrix.Factory.copyFromMatrix(J);
+				this.sparseJacobian = false;
+			}
+
+			jacWrapped = null;
+		} else {
+			throw new RuntimeException("No way to obtain the Jacobian was found.");
+		}
+		updateJacImpl = updateJac;
+
+		// Define Hessian
+		final Runnable updateHess;
+		if (hess != null) {
+			H = hess.apply(x, v);
+			updatedH = true;
+			numHessianEvals++;
+
+			final BiFunction<Matrix, Matrix, Matrix> hessWrapped;
+			if (H.isSparse()) {
+				hessWrapped = (Matrix x, Matrix v) -> {
+					numHessianEvals++;
+					return SparseMatrix.Factory.copyFromMatrix(hess.apply(x, v));
+				};
+				H = SparseMatrix.Factory.copyFromMatrix(H);
+			} else if (H instanceof LinearOperator) {
+				hessWrapped = (Matrix x, Matrix v) -> {
+					numHessianEvals++;
+					// TODO: map hess.apply to invoking dot product in LinearOperator H
+					return hess.apply(x, v);
+				};
+			} else {
+				hessWrapped = (Matrix x, Matrix v) -> {
+					numHessianEvals++;
+					return hess.apply(x, v);
+				};
+			}
+
+			updateHess = () -> {
+				H = hessWrapped.apply(x, v);
+			};
+		} else if (hessFD != null) {
+			BiFunction<Matrix, Object, Matrix> jacDotV = (Matrix x, Object args) -> {
+				if (!(args instanceof Matrix)) {
+					throw new RuntimeException("jacDotV must be called with Matrix v as second argument.");
+				}
+				Matrix v = (Matrix) args;
+				return jacWrapped.apply(x).transpose().mtimes(v);
+			};
+			updateHess = () -> {
+				updateJac();
+				H = NumDiff.approxDerivative(jacDotV, x,
+						J.transpose().mtimes(v), options, v);
+			};
+			updateHess.run();
+			updatedH = true;
+		} else if (hessStrat != null) {
+			hStrat = hessStrat;
+			hStrat.initialize(n, HessianApproximationType.HESSIAN);
+			updatedH = true;
+			xPrev = null;
+			JPrev = null;
+			updateHess = () -> {
+				updateJac();
+				// When v is updated before x was updated,
+				// then x_prev and J_prev are None and we need this check.
+				if (xPrev != null && JPrev != null) {
+					Matrix deltaX = x.minus(xPrev);
+					Matrix deltaG = (J.transpose().mtimes(v)).minus(JPrev.transpose().mtimes(v));
+					hStrat.update(deltaX, deltaG);
+				}
+			};
+		}
+		else {
+			throw new RuntimeException("No way to obtain the Hessian was found:.");
+		}
+		updateHessImpl = updateHess;
+
+		Consumer<Matrix> updateX;
+		if (hessStrat != null) {
+			updateX = (Matrix x) -> {
+				// need to keep track of position and Jacobian for HessianUpdateStrategy
+				updateJac(); // This is free if the Jacobian is up-to-date.
+				xPrev = this.x;
+				JPrev = this.J;
+
+				// ensure that self.x is a copy of x. Don't store a reference
+                // otherwise the memoization doesn't work properly.
+				this.x = Matrix.Factory.copyFromMatrix(x);
+				updatedF = false;
+				updatedJ = false;
+				updatedH = false;
+				updateHess();
+			};
+		} else {
+			updateX = (Matrix x) -> {
+				// ensure that self.x is a copy of x. Don't store a reference
+                // otherwise the memoization doesn't work properly.
+				this.x = Matrix.Factory.copyFromMatrix(x);
+				updatedF = false;
+				updatedJ = false;
+				updatedH = false;
+			};
+		}
+		updateXImpl = updateX;
 	}
 
+	private void updateV(Matrix v) {
+		if (!this.v.equalsContent(v)) {
+			 this.v = v;
+			 updatedH = false;
+		}
+	}
 
+	private void updateX(Matrix x) {
+		if (!this.x.equalsContent(x)) {
+			 updateXImpl.accept(x);
+		}
+	}
 
+	private void updateFun() {
+		if (!updatedF) {
+			updateFunImpl.run();
+			updatedF = true;
+		}
+	}
 
+	private void updateJac() {
+		if (!updatedJ) {
+			updateJacImpl.run();
+			updatedJ = true;
+		}
+	}
 
+	private void updateHess() {
+		if (!updatedH) {
+			updateHessImpl.run();
+			updatedH = true;
+		}
+	}
 
+	public Matrix fun(Matrix x) {
+		updateX(x);
+		updateFun();
+		return this.f;
+	}
 
+	public Matrix jac(Matrix x) {
+		updateX(x);
+		updateJac();
+		return this.J;
+	}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	public Matrix hess(Matrix x, Matrix v) {
+		// v should be updated before x.
+		updateV(v);
+		updateX(x);
+		updateHess();
+		return this.H;
+	}
 
 	public int numFunctionEvals() {
 		return numFunctionEvals;
@@ -331,19 +592,7 @@ public class VectorFunction {
 	}
 
 	public boolean sparseJacobian() {
-		return false;
-	}
-
-	public Matrix fun(Matrix x) {
-		return null;
-	}
-
-	public Matrix jac(Matrix x) {
-		return null;
-	}
-
-	public Matrix hess(Matrix x, Matrix v) {
-		return null;
+		return sparseJacobian;
 	}
 
 	public Matrix f() {
@@ -358,7 +607,15 @@ public class VectorFunction {
 		return H;
 	}
 
-	public Matrix lastV() {
-		return null;
+	public Matrix v() {
+		return v;
+	}
+
+	/**
+	 * number of function dimensions
+	 * @return
+	 */
+	public long m() {
+		return m;
 	}
 }

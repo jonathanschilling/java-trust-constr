@@ -790,8 +790,57 @@ public class NumDiff {
 	private static Matrix denseDifference(Function<Matrix, Matrix> fun, Matrix x0, Matrix f0,
 			Matrix absStep, boolean[] useOneSided, FiniteDifferenceMethod method) {
 
+		long m = f0.getRowCount();
+		long n = x0.getRowCount();
 
-		return null;
+		Matrix Jt = Matrix.Factory.zeros(n, m);
+		Matrix hVecs = Matrix.Factory.eye(n, n);
+		for (long[] pos: absStep.allCoordinates()) {
+			// set diagonal to absStep
+			hVecs.setAsDouble(absStep.getAsDouble(pos), pos[0], pos[0]);
+		}
+
+		for (long[] pos: absStep.availableCoordinates()) {
+			int i = (int) pos[0];
+			Matrix hI = hVecs.subMatrix(Ret.LINK, 0, i, n-1, i);
+			final double dx;
+			final Matrix df;
+			switch (method) {
+			case TWO_POINT:
+				Matrix x = x0.plus(hI);
+				dx = x.getAsDouble(i, 0) - x0.getAsDouble(i, 0);
+				df = fun.apply(x).minus(f0);
+				break;
+			case THREE_POINT:
+				if (useOneSided[i]) {
+					Matrix x1 = x0.plus(hI);
+					Matrix x2 = x0.plus(hI.times(2.0));
+					dx = x2.getAsDouble(i, 0) - x0.getAsDouble(i, 0);
+					Matrix f1 = fun.apply(x1);
+					Matrix f2 = fun.apply(x2);
+					df = f0.times(-3.0).plus(f1.times(4.0)).minus(f2);
+				} else {
+					Matrix x1 = x0.minus(hI);
+					Matrix x2 = x0.plus(hI);
+					dx = x2.getAsDouble(i, 0) - x1.getAsDouble(i, 0);
+					Matrix f1 = fun.apply(x1);
+					Matrix f2 = fun.apply(x2);
+					df = f2.minus(f1);
+				}
+				break;
+			case COMPLEX_STEP:
+				throw new RuntimeException("not implemented yet");
+			default:
+				throw new RuntimeException("only TWO_POINT, THREE_POINT and COMPLEX_STEP are allowed");
+			}
+
+			for (long[] p2: df.allCoordinates()) {
+				double j = df.getAsDouble(p2) / dx;
+				Jt.setAsDouble(j, pos[0], p2[0]);
+			}
+		}
+
+		return Jt.transpose();
 	}
 
 	private static Matrix sparseDifference(Function<Matrix, Matrix> fun, Matrix x0, Matrix f0,

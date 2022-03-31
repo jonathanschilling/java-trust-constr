@@ -9,6 +9,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.ToDoubleFunction;
 
+import org.netlib.util.floatW;
 import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
 import org.scipy.optimize.minimize.records.AdjustedDifferencingScheme;
 import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
@@ -138,6 +139,96 @@ public class NumDiff {
 
 		return new AdjustedDifferencingScheme(hAdjusted, useOneSided);
 	}
+
+	/**
+	 * Calculates relative EPS step to use for a given data type and numdiff step method.
+     *
+     * Progressively smaller steps are used for larger floating point types.
+     *
+     * The default relative step will be double.
+     * However, if x0 or f0 are smaller floating point types (float),
+     * then the smallest floating point type is chosen.
+     *
+	 * @param x0Type type of parameter vector
+	 * @param f0Type type of function evaluation
+	 * @param method {'2-point', '3-point', 'cs'}
+	 * @return relative step size. May be float or double.
+	 */
+	public static Number epsForMethod(Class<?> x0Type, Class<?> f0Type, FiniteDifferenceMethod method) {
+
+		// the default EPS value
+		Number EPS = Math.ulp((double) 1.0);
+
+		final boolean x0IsFp;
+		final int x0ItemSize;
+		if (x0Type.equals(float.class) || x0Type.equals(Float.class)) {
+			EPS = Math.ulp((float) 1.0);
+			x0ItemSize = Float.BYTES;
+			x0IsFp = true;
+		} else if (x0Type.equals(double.class) || x0Type.equals(Double.class)) {
+			EPS = Math.ulp((double) 1.0);
+			x0ItemSize = Double.BYTES;
+			x0IsFp = true;
+		} else {
+			x0ItemSize = Integer.MAX_VALUE;
+			x0IsFp = false;
+		}
+
+		final boolean f0IsFp;
+		final int f0ItemSize;
+		final Number f0Eps;
+		if (f0Type.equals(float.class) || f0Type.equals(Float.class)) {
+			f0ItemSize = Float.BYTES;
+			f0IsFp = true;
+			f0Eps = Math.ulp((float) 1.0);
+		} else if (f0Type.equals(double.class) || f0Type.equals(Double.class)) {
+			f0ItemSize = Double.BYTES;
+			f0IsFp = true;
+			f0Eps = Math.ulp((double) 1.0);
+		} else {
+			f0ItemSize = Integer.MAX_VALUE;
+			f0IsFp = false;
+			f0Eps = Double.NaN;
+		}
+
+		if (x0IsFp && f0IsFp && f0ItemSize < x0ItemSize) {
+			// choose the smallest itemsize between x0 and f0
+			EPS = f0Eps;
+		}
+
+		switch (method) {
+		case TWO_POINT: // fall-through
+		case COMPLEX_STEP:
+			return NumDiff.sqrt(EPS);
+		case THREE_POINT:
+			return NumDiff.sqrt3(EPS);
+		default:
+			throw new RuntimeException("only implemented for TWO_POINT, COMPLEX_STEP and THREE_POINT");
+		}
+	}
+
+	private static Number sqrt(Number x) {
+		if (x instanceof Float) {
+			return (float) Math.sqrt((float) x);
+		} else if (x instanceof Double) {
+			return Math.sqrt((double) x);
+		} else {
+			throw new RuntimeException("NumDiff#sqrt is only defined for float or double");
+		}
+	}
+
+	private static Number sqrt3(Number x) {
+		if (x instanceof Float) {
+			return (float) Math.pow((float) x, 1.0/3.0);
+		} else if (x instanceof Double) {
+			return Math.pow((double) x, 1.0/3.0);
+		} else {
+			throw new RuntimeException("NumDiff#sqrt3 is only defined for float or double");
+		}
+	}
+
+
+
 
 
 

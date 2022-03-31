@@ -1,25 +1,34 @@
 package de.labathome.optimization;
 
 import java.util.function.BiFunction;
+import java.util.function.DoubleFunction;
+import java.util.function.DoubleUnaryOperator;
+import java.util.function.Function;
 import java.util.function.ToDoubleBiFunction;
+import java.util.function.ToDoubleFunction;
 
 import org.junit.jupiter.api.Test;
+import org.scipy.optimize.minimize.NumDiff;
+import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
+import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
 import org.ujmp.core.Matrix;
+
+import minerva.tests.junit.MinervaAssertions;
 
 class TestApproxDerivativesDense {
 
 	/** scalar function of a scalar argument */
-	ToDoubleBiFunction<Matrix, Object> funScalarScalar = (Matrix x, Object args) -> {
-		return Math.sinh(x.doubleValue());
+	DoubleUnaryOperator funScalarScalar = (double x) -> {
+		return Math.sinh(x);
 	};
 
 	/** Jacobian of the scalar function with scalar argument */
-	BiFunction<Matrix, Object, Matrix> jacScalarScalar = (Matrix x, Object args) -> {
-		return Matrix.Factory.linkToArray(new double[] {Math.cosh(x.doubleValue())});
+	DoubleUnaryOperator jacScalarScalar = (double x) -> {
+		return Math.cosh(x);
 	};
 
 	/** vector-valued function of a scalar argument */
-	BiFunction<Matrix, Object, Matrix> funScalarVector = (Matrix x, Object args) -> {
+	Function<Matrix, Matrix> funScalarVector = (Matrix x) -> {
 		double x0 = x.doubleValue();
 		return Matrix.Factory.linkToArray(new double[] {
 				x0 * x0,
@@ -29,7 +38,7 @@ class TestApproxDerivativesDense {
 	};
 
 	/** Jacobian of the vector-valued function of a scalar argument */
-	BiFunction<Matrix, Object, Matrix> jacScalarVector = (Matrix x, Object args) -> {
+	Function<Matrix, Matrix> jacScalarVector = (Matrix x) -> {
 		double x0 = x.doubleValue();
 		double cosX0 = Math.cos(x0);
 		return Matrix.Factory.linkToArray(new double[] {
@@ -40,7 +49,7 @@ class TestApproxDerivativesDense {
 	};
 
 	/** scalar function of a vector argument */
-	BiFunction<Matrix, Object, Matrix> funVectorScalar = (Matrix x, Object args) -> {
+	Function<Matrix, Matrix> funVectorScalar = (Matrix x) -> {
 		double x0 = x.getAsDouble(0, 0);
 		double x1 = x.getAsDouble(1, 0);
 		return Matrix.Factory.linkToArray(new double[] {
@@ -49,7 +58,7 @@ class TestApproxDerivativesDense {
 	};
 
 	/** Jacobian of the scalar function of a vector argument */
-	BiFunction<Matrix, Object, Matrix> jacVectorScalar = (Matrix x, Object args) -> {
+	Function<Matrix, Matrix> jacVectorScalar = (Matrix x) -> {
 		double x0 = x.getAsDouble(0, 0);
 		double x1 = x.getAsDouble(1, 0);
 		return Matrix.Factory.linkToArray(new double[] {
@@ -59,7 +68,7 @@ class TestApproxDerivativesDense {
 	};
 
 	/** vector-valued function of a vector argument */
-	BiFunction<Matrix, Object, Matrix> funVectorVector = (Matrix x, Object args) -> {
+	Function<Matrix, Matrix> funVectorVector = (Matrix x) -> {
 		double x0 = x.getAsDouble(0, 0);
 		double x1 = x.getAsDouble(1, 0);
 		return Matrix.Factory.linkToArray(new double[] {
@@ -70,7 +79,7 @@ class TestApproxDerivativesDense {
 	};
 
 	/** Jacobian of the vector-valued function of a vector argument */
-	BiFunction<Matrix, Object, Matrix> jacVectorVector = (Matrix x, Object args) -> {
+	Function<Matrix, Matrix> jacVectorVector = (Matrix x) -> {
 		double x0 = x.getAsDouble(0, 0);
 		double x1 = x.getAsDouble(1, 0);
 		return Matrix.Factory.linkToArray(new double[][] {
@@ -81,17 +90,13 @@ class TestApproxDerivativesDense {
 	};
 
 	/** parameterized vector-valued function of a vector argument */
-	BiFunction<Matrix, Object, Matrix> funParameterized = (Matrix x, Object args) -> {
+	BiFunction<Matrix, double[], Matrix> funParameterized = (Matrix x, double[] c) -> {
 		double x0 = x.getAsDouble(0, 0);
 		double x1 = x.getAsDouble(1, 0);
-		double c0 = Double.NaN;
+		double c0 = c[0];
 		double c1 = 1.0;
-		if (args != null && args instanceof double[]) {
-			double[] c = (double[]) args;
-			c0 = c[0];
-			if (c.length > 1) {
-				c1 = c[1];
-			}
+		if (c.length > 1) {
+			c1 = c[1];
 		}
 
 		return Matrix.Factory.linkToArray(new double[] {
@@ -101,17 +106,13 @@ class TestApproxDerivativesDense {
 	};
 
 	/** Jacobian of the parameterized vector-valued function of a vector argument */
-	BiFunction<Matrix, Object, Matrix> jacParameterized = (Matrix x, Object args) -> {
+	BiFunction<Matrix, double[], Matrix> jacParameterized = (Matrix x, double[] c) -> {
 		double x0 = x.getAsDouble(0, 0);
 		double x1 = x.getAsDouble(1, 0);
-		double c0 = Double.NaN;
+		double c0 = c[0];
 		double c1 = 0.1; // dfferent default value to test if all arguments are actually passed
-		if (args != null && args instanceof double[]) {
-			double[] c = (double[]) args;
-			c0 = c[0];
-			if (c.length > 1) {
-				c1 = c[1];
-			}
+		if (c.length > 1) {
+			c1 = c[1];
 		}
 
 		return Matrix.Factory.linkToArray(new double[][] {
@@ -121,7 +122,7 @@ class TestApproxDerivativesDense {
 	};
 
 	/** scalar function of a scalar argument that is only non-NaN in a small region around 0 */
-	ToDoubleBiFunction<Matrix, Object> funWithNaN = (Matrix x, Object args) -> {
+	ToDoubleFunction<Matrix> funWithNaN = (Matrix x) -> {
 		if (Math.abs(x.doubleValue()) <= 1.0e-8) {
 			return x.doubleValue();
 		} else {
@@ -130,7 +131,7 @@ class TestApproxDerivativesDense {
 	};
 
 	/** Jacobian of the scalar function of a scalar argument that is only non-NaN in a small region around 0 */
-	BiFunction<Matrix, Object, Matrix> jacWithNaN = (Matrix x, Object args) -> {
+	Function<Matrix, Matrix> jacWithNaN = (Matrix x) -> {
 		if (Math.abs(x.doubleValue()) <= 1.0e-8) {
 			return Matrix.Factory.ones(1, 1);
 		} else {
@@ -139,7 +140,7 @@ class TestApproxDerivativesDense {
 	};
 
 	/** vector-valued function of a vector argument where the Jacobian can become zero */
-	BiFunction<Matrix, Object, Matrix> funZeroJacobian = (Matrix x, Object args) -> {
+	Function<Matrix, Matrix> funZeroJacobian = (Matrix x) -> {
 		double x0 = x.getAsDouble(0, 0);
 		double x1 = x.getAsDouble(1, 0);
 		return Matrix.Factory.linkToArray(new double[] {
@@ -149,7 +150,7 @@ class TestApproxDerivativesDense {
 	};
 
 	/** Jacobian of the vector-valued function of a vector argument where the Jacobian can become zero */
-	BiFunction<Matrix, Object, Matrix> jacZeroJacobian = (Matrix x, Object args) -> {
+	Function<Matrix, Matrix> jacZeroJacobian = (Matrix x) -> {
 		double x0 = x.getAsDouble(0, 0);
 		double x1 = x.getAsDouble(1, 0);
 		return Matrix.Factory.linkToArray(new double[][] {
@@ -160,10 +161,15 @@ class TestApproxDerivativesDense {
 
 	@Test
 	void testScalarScalar() {
+		final double x0 = 1.0;
 
+		double jacDiff2 = NumDiff.approxDerivative(funScalarScalar, x0, FiniteDifferenceOptions.FACTORY.method(FiniteDifferenceMethod.TWO_POINT).build());
+		double jacDiff3 = NumDiff.approxDerivative(funScalarScalar, x0, FiniteDifferenceOptions.FACTORY.build());
 
+		double jacTrue = jacScalarScalar.applyAsDouble(x0);
 
-
+		MinervaAssertions.assertRelAbsEquals(jacTrue, jacDiff2, 1.0e-6);
+		MinervaAssertions.assertRelAbsEquals(jacTrue, jacDiff3, 1.0e-9);
 	}
 
 

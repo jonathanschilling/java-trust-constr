@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.function.BiFunction;
+import java.util.function.DoubleUnaryOperator;
 import java.util.function.Function;
 import java.util.function.ToDoubleFunction;
 
@@ -531,39 +532,100 @@ public class NumDiff {
 	}
 
 	/**
+	 * Finite-difference gradient of a scalar function of a scalar argument.
+	 *
+	 * Internally, this uses approxDerivative for vector-valued functions.
+	 *
+	 * @param f
+	 * @param x0
+	 * @param f0
+	 * @param options
+	 * @return
+	 */
+	public static double approxDerivative(DoubleUnaryOperator f, double x0, FiniteDifferenceOptions options) {
+		Function<Matrix, Matrix> fVec = (Matrix t) -> {
+			return Matrix.Factory.linkToArray(new double[] { f.applyAsDouble(t.doubleValue()) });
+		};
+		Matrix x0Vec = Matrix.Factory.linkToArray(new double[] { x0 });
+		Matrix f0Vec = null;
+		return approxDerivative(fVec, x0Vec, f0Vec, options).doubleValue();
+	}
+
+	/**
+	 * Finite-difference gradient of a scalar function of a scalar argument.
+	 *
+	 * Internally, this uses approxDerivative for vector-valued functions.
+	 *
+	 * @param f
+	 * @param x0
+	 * @param f0
+	 * @param options
+	 * @return
+	 */
+	public static double approxDerivative(ToDoubleFunction<Matrix> f, double x0, FiniteDifferenceOptions options) {
+		Function<Matrix, Matrix> fVec = (Matrix t) -> {
+			return Matrix.Factory.linkToArray(new double[] { f.applyAsDouble(t) });
+		};
+		Matrix x0Vec = Matrix.Factory.linkToArray(new double[] { x0 });
+		Matrix f0Vec = null;
+		return approxDerivative(fVec, x0Vec, f0Vec, options).doubleValue();
+	}
+
+	/**
+	 * Finite-difference gradient of a scalar function of a scalar argument.
+	 *
+	 * Internally, this uses approxDerivative for vector-valued functions.
+	 *
+	 * @param f
+	 * @param x0
+	 * @param f0
+	 * @param options
+	 * @return
+	 */
+	public static double approxDerivative(ToDoubleFunction<Matrix> f, double x0, double f0, FiniteDifferenceOptions options) {
+		Function<Matrix, Matrix> fVec = (Matrix t) -> {
+			return Matrix.Factory.linkToArray(new double[] { f.applyAsDouble(t) });
+		};
+		Matrix x0Vec = Matrix.Factory.linkToArray(new double[] { x0 });
+		Matrix f0Vec = Matrix.Factory.linkToArray(new double[] { f0 });
+		return approxDerivative(fVec, x0Vec, f0Vec, options).doubleValue();
+	}
+
+
+	/**
 	 * Finite-difference gradient of a real-valued function.
 	 *
 	 * Internally, this uses approxDerivative for vector-valued functions.
 	 *
 	 * @param f
-	 * @param x
+	 * @param x0
 	 * @param f0
 	 * @param options
 	 * @return
 	 */
-	public static Matrix approxDerivative(ToDoubleFunction<Matrix> f, Matrix x, double f0, FiniteDifferenceOptions options) {
+	public static Matrix approxDerivative(ToDoubleFunction<Matrix> f, Matrix x0, double f0, FiniteDifferenceOptions options) {
 		Function<Matrix, Matrix> fVec = (Matrix t) -> {
 			return Matrix.Factory.linkToArray(new double[] { f.applyAsDouble(t) });
 		};
 		Matrix f0Vec = Matrix.Factory.linkToArray(new double[] { f0 });
-		return approxDerivative(fVec, x, f0Vec, options);
+		return approxDerivative(fVec, x0, f0Vec, options);
 	}
 
 	/**
 	 * Finite-difference approximation of the first-order derivative matrix of a vector-valued function.
 	 *
 	 * @param f
-	 * @param x
+	 * @param x0
 	 * @param f0
 	 * @param options
 	 * @return
 	 */
-	public static Matrix approxDerivative(Function<Matrix, Matrix> f, Matrix x, Matrix f0, FiniteDifferenceOptions options) {
+	public static Matrix approxDerivative(Function<Matrix, Matrix> f, Matrix x0, Matrix f0, FiniteDifferenceOptions options) {
 		Object args = null;
 		BiFunction<Matrix, Object, Matrix> fArg =  (Matrix t, Object _args) -> {
 			return f.apply(t);
 		};
-		return approxDerivative(fArg, x, f0, options, args);
+		return approxDerivative(fArg, x0, f0, options, args);
 	}
 
 	/**
@@ -651,6 +713,9 @@ public class NumDiff {
 		if (x0.getSize().length != 2 || x0.getColumnCount() != 1) {
 			throw new RuntimeException("x0 must be of shape (n,1)");
 		}
+
+		// TODO: prepareBounds:
+		// make default infinite bounds if none specified
 
 		if (    options.bounds().lb().getRowCount()    != x0.getRowCount() ||
 				options.bounds().lb().getColumnCount() != x0.getColumnCount() ||

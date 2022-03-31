@@ -23,6 +23,7 @@ class TestAdjustSchemeToBounds {
 		Matrix infLower = Matrix.Factory.ones(x0.getSize()).times(Double.NEGATIVE_INFINITY);
 		Matrix infUpper = Matrix.Factory.ones(x0.getSize()).times(Double.POSITIVE_INFINITY);
 
+		// 1. one-sided, 1 step
 		AdjustedDifferencingScheme ads = NumDiff.adjustSchemeToBounds(x0, h, 1, FiniteDifferenceMethod.ONE_SIDED, infLower, infUpper);
 		Matrix hAdjusted = ads.hAdjusted();
 		boolean[] useOneSided = ads.useOneSided();
@@ -31,5 +32,27 @@ class TestAdjustSchemeToBounds {
 		Arrays.fill(allTrue, true);
 		MinervaAssertions.assertArrayRelAbsEquals(h.toDoubleArray()[0], hAdjusted.toDoubleArray()[0], tolerance);
 		Assertions.assertArrayEquals(allTrue, useOneSided);
+
+		// 2. one-sided, 2 steps
+		ads = NumDiff.adjustSchemeToBounds(x0, h, 2, FiniteDifferenceMethod.ONE_SIDED, infLower, infUpper);
+		hAdjusted = ads.hAdjusted();
+		useOneSided = ads.useOneSided();
+		MinervaAssertions.assertArrayRelAbsEquals(h.toDoubleArray()[0], hAdjusted.toDoubleArray()[0], tolerance);
+		Assertions.assertArrayEquals(allTrue, useOneSided);
+
+		// 3. two-sided, 1 step
+		boolean[] allFalse = new boolean[useOneSided.length];
+		ads = NumDiff.adjustSchemeToBounds(x0, h, 1, FiniteDifferenceMethod.TWO_SIDED, infLower, infUpper);
+		hAdjusted = ads.hAdjusted();
+		useOneSided = ads.useOneSided();
+		MinervaAssertions.assertArrayRelAbsEquals(h.toDoubleArray()[0], hAdjusted.toDoubleArray()[0], tolerance);
+		Assertions.assertArrayEquals(allFalse, useOneSided);
+
+		// 4. two-sided, 2 steps
+		ads = NumDiff.adjustSchemeToBounds(x0, h, 2, FiniteDifferenceMethod.TWO_SIDED, infLower, infUpper);
+		hAdjusted = ads.hAdjusted();
+		useOneSided = ads.useOneSided();
+		MinervaAssertions.assertArrayRelAbsEquals(h.toDoubleArray()[0], hAdjusted.toDoubleArray()[0], tolerance);
+		Assertions.assertArrayEquals(allFalse, useOneSided);
 	}
 }

@@ -9,6 +9,7 @@ import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
 import org.scipy.optimize.minimize.enums.HessianApproximationType;
 import org.scipy.optimize.minimize.interfaces.HessianUpdateStrategy;
 import org.scipy.optimize.minimize.interfaces.LinearOperator;
+import org.scipy.optimize.minimize.records.FiniteDifferenceBounds;
 import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
 import org.scipy.optimize.minimize.records.Sparsity;
 import org.ujmp.core.DenseMatrix;

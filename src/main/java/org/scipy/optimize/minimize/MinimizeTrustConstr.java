@@ -9,6 +9,8 @@ import java.util.function.ToDoubleBiFunction;
 import org.scipy.optimize.minimize.enums.ProjectionMethod;
 import org.scipy.optimize.minimize.interfaces.Constraint;
 import org.scipy.optimize.minimize.records.Bounds;
+import org.scipy.optimize.minimize.records.FiniteDifferenceBounds;
+import org.scipy.optimize.minimize.records.StrictBounds;
 import org.ujmp.core.Matrix;
 
 /** Java port of scipy.optimize.minimize(method='trust-constr') */
@@ -35,7 +37,7 @@ public class MinimizeTrustConstr {
 			state.jac = new Matrix[n];
 		}
 		for (int i = 0; i < preparedConstraints.length; ++i) {
-			VectorFunction c = preparedConstraints[i].fun;
+			VectorFunction c = preparedConstraints[i].fun();
 			state.numConstraintEval[i] = c.numFunctionEvals();
 			state.numConstraintJacobianEval[i] = c.numJacobianEvals();
 			state.numConstraintHessianEval[i] = c.numHessianEvals();
@@ -47,7 +49,7 @@ public class MinimizeTrustConstr {
 			state.grad = objective.g();
 
 			for (int i = 0; i < preparedConstraints.length; ++i) {
-				VectorFunction c = preparedConstraints[i].fun;
+				VectorFunction c = preparedConstraints[i].fun();
 				state.v[i] = c.v();
 				state.constr[i] = c.f();
 				state.jac[i] = c.J();
@@ -57,19 +59,19 @@ public class MinimizeTrustConstr {
 			state.lagrangianGrad = Matrix.Factory.copyFromMatrix(state.grad);
 			for (PreparedConstraint c : preparedConstraints) {
 				state.lagrangianGrad = state.lagrangianGrad
-						.plus(c.fun.J().transpose().mtimes(c.fun.v()));
+						.plus(c.fun().J().transpose().mtimes(c.fun().v()));
 			}
 			state.optimality = state.lagrangianGrad.normInf();
 
 			// Compute maximum constraint violation
 			state.constrViolation = 0.0;
 			for (int i = 0; i < preparedConstraints.length; ++i) {
-				double[] lb = preparedConstraints[i].bounds.lb();
-				double[] ub = preparedConstraints[i].bounds.ub();
+				Matrix lb = preparedConstraints[i].bounds().lb();
+				Matrix ub = preparedConstraints[i].bounds().ub();
 				Matrix c = state.constr[i];
-				for (int j = 0; j < lb.length; ++j) {
-					double lowerViolation = lb[j] - c.getAsDouble(j, 0);
-					double upperViolation = c.getAsDouble(j, 0) - ub[j];
+				for (int j = 0; j < lb.getRowCount(); ++j) {
+					double lowerViolation = lb.getAsDouble(j, 0) - c.getAsDouble(j, 0);
+					double upperViolation = c.getAsDouble(j, 0) - ub.getAsDouble(j, 0);
 					double maxCViol = Math.max(lowerViolation, upperViolation);
 					state.constrViolation = Math.max(state.constrViolation, maxCViol);
 				}
@@ -265,7 +267,7 @@ public class MinimizeTrustConstr {
 
 		FiniteDifferenceBounds finiteDiffBounds;
 		if (bounds != null) {
-			finiteDiffBounds = new StrictBounds(bounds, nVars);
+			finiteDiffBounds = new StrictBounds(bounds);
 		} else {
 			finiteDiffBounds = FiniteDifferenceBounds.unbounded(nVars);
 		}
@@ -298,7 +300,7 @@ public class MinimizeTrustConstr {
 		// Check that all constraints are either sparse or dense.
 		int nSparse = 0;
 		for (PreparedConstraint pc: preparedConstraints) {
-			if (pc.fun.sparseJacobian()) {
+			if (pc.fun().sparseJacobian()) {
 				nSparse++;
 			}
 		}

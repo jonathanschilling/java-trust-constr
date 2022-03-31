@@ -1,6 +1,5 @@
 package org.scipy.optimize.minimize.records;
 
-import org.scipy.optimize.minimize.FiniteDifferenceBounds;
 import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
 import org.ujmp.core.Matrix;
 

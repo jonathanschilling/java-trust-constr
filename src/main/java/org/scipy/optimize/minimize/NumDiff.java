@@ -10,11 +10,14 @@ import java.util.function.Function;
 import java.util.function.ToDoubleFunction;
 
 import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
+import org.scipy.optimize.minimize.interfaces.LinearOperator;
 import org.scipy.optimize.minimize.records.AdjustedDifferencingScheme;
 import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
+import org.scipy.optimize.minimize.records.Sparsity;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix;
 import org.ujmp.core.calculation.Calculation.Ret;
+import org.ujmp.core.enums.ValueType;
 
 public class NumDiff {
 
@@ -563,9 +566,237 @@ public class NumDiff {
 		return approxDerivative(fArg, x, f0, options, args);
 	}
 
-	public static Matrix approxDerivative(BiFunction<Matrix, Object, Matrix> f, Matrix x, Matrix f0, FiniteDifferenceOptions options, Object args) {
+	/**
+	 * Compute finite difference approximation of the derivatives of a vector-valued
+	 * function.
+	 *
+	 * If a function maps from R^n to R^m, its derivatives form m-by-n matrix called
+	 * the Jacobian, where an element (i, j) is a partial derivative of f[i] with
+	 * respect to x[j].
+	 *
+	 * See Also
+	 * -----
+	 * check_derivative : Check correctness of a function computing derivatives.
+     *
+     * Notes
+     * -----
+     * If `rel_step` is not provided, it assigned as ``EPS**(1/s)``, where EPS is
+     * determined from the smallest floating point dtype of `x0` or `fun(x0)`,
+     * ``np.finfo(x0.dtype).eps``, s=2 for '2-point' method and
+     * s=3 for '3-point' method. Such relative step approximately minimizes a sum
+     * of truncation and round-off errors, see [1]_. Relative steps are used by
+     * default. However, absolute steps are used when ``abs_step is not None``.
+     * If any of the absolute or relative steps produces an indistinguishable
+     * difference from the original `x0`, ``(x0 + dx) - x0 == 0``, then a
+     * automatic step size is substituted for that particular entry.
+     *
+     * A finite difference scheme for '3-point' method is selected automatically.
+     * The well-known central difference scheme is used for points sufficiently
+     * far from the boundary, and 3-point forward or backward scheme is used for
+     * points near the boundary. Both schemes have the second-order accuracy in
+     * terms of Taylor expansion. Refer to [2]_ for the formulas of 3-point
+     * forward and backward difference schemes.
+     *
+     * For dense differencing when m=1 Jacobian is returned with a shape (n,),
+     * on the other hand when n=1 Jacobian is returned with a shape (m, 1).
+     * Our motivation is the following: a) It handles a case of gradient
+     * computation (m=1) in a conventional way. b) It clearly separates these two
+     * different cases. b) In all cases np.atleast_2d can be called to get 2-D
+     * Jacobian with correct dimensions.
+     *
+     * References
+     * ----------
+     * .. [1] W. H. Press et. al. "Numerical Recipes. The Art of Scientific
+     *        Computing. 3rd edition", sec. 5.7.
+     *
+     * .. [2] A. Curtis, M. J. D. Powell, and J. Reid, "On the estimation of
+     *        sparse Jacobian matrices", Journal of the Institute of Mathematics
+     *        and its Applications, 13 (1974), pp. 117-120.
+     *
+     * .. [3] B. Fornberg, "Generation of Finite Difference Formulas on
+     *        Arbitrarily Spaced Grids", Mathematics of Computation 51, 1988.
+	 *
+	 * @param fun     Function of which to estimate the derivatives. The argument x
+	 *                passed to this function is ndarray of shape (n,) (never a
+	 *                scalar even if n=1). It must return 1-D array_like of shape
+	 *                (m,) or a scalar.
+	 * @param x0      Point at which to estimate the derivatives. Float will be
+	 *                converted to a 1-D array.
+	 * @param f0      If not None it is assumed to be equal to ``fun(x0)``, in this
+	 *                case the ``fun(x0)`` is not called. Default is None.
+	 * @param options
+	 * @param args    Additional arguments passed to `fun`. Empty by default.
+	 * @return Finite difference approximation of the Jacobian matrix. If
+	 *         `as_linear_operator` is True returns a LinearOperator with shape (m,
+	 *         n). Otherwise it returns a dense array or sparse matrix depending on
+	 *         how `sparsity` is defined. If `sparsity` is None then a ndarray with
+	 *         shape (m, n) is returned. If `sparsity` is not None returns a
+	 *         csr_matrix with shape (m, n). For sparse matrices and linear
+	 *         operators it is always returned as a 2-D structure, for ndarrays, if
+	 *         m=1 it is returned as a 1-D gradient array with shape (n,).
+	 */
+	public static Matrix approxDerivative(BiFunction<Matrix, Object, Matrix> fun, Matrix x0, Matrix f0,
+			FiniteDifferenceOptions options, Object args) {
 
-		// TODO
+		switch(options.method()) {
+		case TWO_POINT: // fall-through
+		case THREE_POINT: // fall-through
+		case COMPLEX_STEP:
+			// ok
+			break;
+		default:
+			throw new RuntimeException("Can only use TWO_POINT, THREE_POINT or COMPLEX_STEP");
+		}
+
+		if (x0.getSize().length != 2 || x0.getColumnCount() != 1) {
+			throw new RuntimeException("x0 must be of shape (n,1)");
+		}
+
+		if (    options.bounds().lb().getRowCount()    != x0.getRowCount() ||
+				options.bounds().lb().getColumnCount() != x0.getColumnCount() ||
+				options.bounds().ub().getRowCount()    != x0.getRowCount() ||
+				options.bounds().ub().getColumnCount() != x0.getColumnCount()) {
+			throw new RuntimeException("Inconsistent shapes between bounds and `x0`.");
+		}
+
+		if (options.asLinearOperator()) {
+			for (long[] pos: x0.allCoordinates()) {
+				double l = options.bounds().lb().getAsDouble(pos);
+				double u = options.bounds().ub().getAsDouble(pos);
+				if (l != Double.NEGATIVE_INFINITY || u != Double.POSITIVE_INFINITY) {
+					throw new RuntimeException("Bounds not supported when `as_linear_operator` is True.");
+				}
+			}
+		}
+
+		if (x0.lt(Ret.LINK, options.bounds().lb()).or(Ret.NEW, x0.gt(Ret.LINK, options.bounds().ub())).toIntMatrix().getValueSum() > 0) {
+			throw new RuntimeException("`x0` violates bound constraints.");
+		}
+
+		Function<Matrix, Matrix> funWrapped = (Matrix x) -> {
+			return fun.apply(x, args);
+		};
+
+		if (f0 == null) {
+			f0 = funWrapped.apply(x0);
+		}
+
+		if (options.asLinearOperator()) {
+			final Matrix relStep;
+			if (options.relStep() == null) {
+				relStep = Matrix.Factory.ones(x0.getSize()).times(epsForMethod(type(x0), type(f0), options.method()));
+			} else {
+				relStep = options.relStep();
+			}
+			return (Matrix) linearOperatorDifference(funWrapped, x0, f0, relStep, options.method());
+		} else {
+			// by default we use rel_step
+			final Matrix absStep;
+			if (options.absStep() == null) {
+				absStep = computeAbsoluteStep(options.relStep(), x0, f0, options.method());
+			} else {
+				// user specifies an absolute step
+				Matrix x0Sign = x0.ge(Ret.LINK, 0).toIntMatrix().times(2.0).minus(1.0);
+				absStep = options.absStep();
+
+				// Cannot have a zero step.
+				// This might happen if x0 is very large or small.
+				// In which case fall back to relative step.
+				Matrix dx = (x0.plus(absStep)).minus(x0);
+				for (long[] pos: absStep.allCoordinates()) {
+					double dxVal = dx.getAsDouble(pos);
+					if (dxVal == 0.0) {
+						double newAbsStep = epsForMethod(type(x0), type(f0), options.method()) *
+								x0Sign.getAsDouble(pos) * Math.max(1.0, Math.abs(x0.getAsDouble(pos)));
+						absStep.setAsDouble(newAbsStep, pos);
+					}
+				}
+			}
+
+			final AdjustedDifferencingScheme ads;
+			switch (options.method()) {
+			case TWO_POINT:
+				ads = adjustSchemeToBounds(x0, absStep, 1, FiniteDifferenceMethod.ONE_SIDED, options.bounds().lb(), options.bounds().ub());
+				break;
+			case THREE_POINT:
+				ads = adjustSchemeToBounds(x0, absStep, 1, FiniteDifferenceMethod.TWO_SIDED, options.bounds().lb(), options.bounds().ub());
+				break;
+			case COMPLEX_STEP:
+				// useOneSided = false
+				throw new RuntimeException("not implemented yet");
+			default:
+				throw new RuntimeException("only TWO_POINT, THREE_POINT and COMPLEX_STEP are allowed");
+			}
+
+			if (options.sparsity() == null) {
+				return denseDifference(funWrapped, x0, f0, absStep, ads.useOneSided(), options.method());
+			} else {
+				return sparseDifference(funWrapped, x0, f0, absStep, ads.useOneSided(), options.sparsity(), options.method());
+			}
+		}
+	}
+
+	private static Class<?> type(Matrix A) {
+		ValueType vt = A.getValueType();
+		switch (vt) {
+		case DOUBLE:
+			return double.class;
+		case FLOAT:
+			return float.class;
+		default:
+			throw new RuntimeException("ValueTypes other that DOUBLE or FLOAT are not supported");
+		}
+	}
+
+	public static LinearOperator linearOperatorDifference(Function<Matrix, Matrix> fun,
+			Matrix x0, Matrix f0, Matrix relStep, FiniteDifferenceMethod method) {
+
+		switch (method) {
+		case TWO_POINT:
+			return (Matrix p) -> {
+				if (p.normInf() == 0.0) {
+					return Matrix.Factory.zeros(f0.getSize());
+				}
+				Matrix dx = relStep.divide(p.norm2());
+				Matrix x = x0.plus(dx.times(relStep));
+				Matrix df = fun.apply(x).minus(f0);
+				return df.divide(dx);
+			};
+		case THREE_POINT:
+			return (Matrix p) -> {
+				if (p.normInf() == 0.0) {
+					return Matrix.Factory.zeros(f0.getSize());
+				}
+				Matrix dx = relStep.times(2.0).divide(p.norm2());
+				Matrix x1 = x0.minus(dx.divide(2.0).times(p));
+				Matrix x2 = x0.plus(dx.divide(2.0).times(p));
+				Matrix f1 = fun.apply(x1);
+				Matrix f2 = fun.apply(x2);
+				Matrix df = f2.minus(f1);
+				return df.divide(dx);
+			};
+		case COMPLEX_STEP:
+			return (Matrix p) -> {
+				if (p.normInf() == 0.0) {
+					return Matrix.Factory.zeros(f0.getSize());
+				}
+				throw new RuntimeException("not implemented yet");
+			};
+		default:
+			throw new RuntimeException("only TWO_POINT, THREE_POINT and COMPLEX_STEP are allowed");
+		}
+	}
+
+	private static Matrix denseDifference(Function<Matrix, Matrix> fun, Matrix x0, Matrix f0,
+			Matrix absStep, boolean[] useOneSided, FiniteDifferenceMethod method) {
+
+
+		return null;
+	}
+
+	private static Matrix sparseDifference(Function<Matrix, Matrix> fun, Matrix x0, Matrix f0,
+			Matrix absStep, boolean[] useOneSided, Sparsity sparsity, FiniteDifferenceMethod method) {
+
 
 		return null;
 	}

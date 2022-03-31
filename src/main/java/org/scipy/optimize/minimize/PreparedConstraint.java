@@ -4,12 +4,13 @@ import java.util.Optional;
 
 import org.scipy.optimize.minimize.interfaces.Constraint;
 import org.scipy.optimize.minimize.records.Bounds;
+import org.scipy.optimize.minimize.records.FiniteDifferenceBounds;
 import org.ujmp.core.Matrix;
 
 public class PreparedConstraint {
 
-	public VectorFunction fun;
-	public Bounds bounds;
+	private VectorFunction fun;
+	private Bounds bounds;
 
 	public PreparedConstraint(Constraint c, Matrix x0, Optional<Boolean> sparseJacobian, FiniteDifferenceBounds finiteDiffBounds) {
 
@@ -18,6 +19,14 @@ public class PreparedConstraint {
 
 	public PreparedConstraint(Bounds bounds, Matrix x0, Optional<Boolean> sparseJacobian) {
 
+	}
+
+	public Bounds bounds() {
+		return bounds;
+	}
+
+	public VectorFunction fun() {
+		return fun;
 	}
 }
 

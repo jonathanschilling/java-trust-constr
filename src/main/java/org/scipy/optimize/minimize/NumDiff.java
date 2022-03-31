@@ -123,7 +123,7 @@ public class NumDiff {
 
 			Matrix minDist = Matrix.Factory.zeros(upperDist.getSize());
 			for (long[] pos: upperDist.allCoordinates()) {
-				minDist.setAsDouble(Math.min(upperDist.getAsDouble(pos), lowerDist.getAsDouble(pos)) / numSteps);
+				minDist.setAsDouble(Math.min(upperDist.getAsDouble(pos), lowerDist.getAsDouble(pos)) / numSteps, pos);
 			}
 			Matrix adjustedCentral = central.not(Ret.LINK).and(Ret.NEW, hAdjusted.abs(Ret.LINK).le(Ret.LINK, minDist));
 			for (long[] pos: adjustedCentral.availableCoordinates()) {

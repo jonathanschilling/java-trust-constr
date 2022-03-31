@@ -8,11 +8,13 @@ import java.util.function.Function;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.scipy.optimize.minimize.LinAlg;
 import org.scipy.optimize.minimize.NumDiff;
 import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
 import org.ujmp.core.DenseMatrix;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix;
+import org.ujmp.core.calculation.Calculation.Ret;
 
 import minerva.tests.junit.MinervaAssertions;
 
@@ -56,7 +58,7 @@ class TestNumDiff {
 
 	@Test
 	void testCorrectFpEps() {
-		final double tolerance = 1.0e-15;
+		final double tolerance = 1.0e-8;
 
 		final FiniteDifferenceMethod[] methods = {
 				FiniteDifferenceMethod.TWO_POINT,
@@ -72,7 +74,7 @@ class TestNumDiff {
 		relativeStepsD.put(FiniteDifferenceMethod.THREE_POINT, Math.pow(EPSd, 1.0/3.0));
 
 		for (FiniteDifferenceMethod method: methods) {
-			double epsForMethod = NumDiff.epsForMethod(double.class, double.class, method).doubleValue();
+			double epsForMethod = NumDiff.epsForMethod(double.class, double.class, method);
 			MinervaAssertions.assertRelAbsEquals(relativeStepsD.get(method), epsForMethod, tolerance);
 		}
 
@@ -84,15 +86,71 @@ class TestNumDiff {
 		relativeStepsF.put(FiniteDifferenceMethod.THREE_POINT, (float) Math.pow(EPSf, 1.0/3.0));
 
 		for (FiniteDifferenceMethod method: methods) {
-			double epsForMethod = NumDiff.epsForMethod(double.class, float.class, method).doubleValue();
+			double epsForMethod = NumDiff.epsForMethod(double.class, float.class, method);
 			MinervaAssertions.assertRelAbsEquals(relativeStepsF.get(method), epsForMethod, tolerance);
 
-			epsForMethod = NumDiff.epsForMethod(float.class, double.class, method).doubleValue();
+			epsForMethod = NumDiff.epsForMethod(float.class, double.class, method);
 			MinervaAssertions.assertRelAbsEquals(relativeStepsF.get(method), epsForMethod, tolerance);
 
-			epsForMethod = NumDiff.epsForMethod(float.class, float.class, method).doubleValue();
+			epsForMethod = NumDiff.epsForMethod(float.class, float.class, method);
 			MinervaAssertions.assertRelAbsEquals(relativeStepsF.get(method), epsForMethod, tolerance);
 		}
+	}
+
+	@Test
+	void testComputeAbsoluteStep() {
+		final double tolerance = 1.0e-15;
+
+		// tests calculation of absolute step from rel_step
+		final FiniteDifferenceMethod[] methods = {
+				FiniteDifferenceMethod.TWO_POINT,
+				FiniteDifferenceMethod.COMPLEX_STEP,
+				FiniteDifferenceMethod.THREE_POINT
+		};
+
+		Matrix x0 = Matrix.Factory.linkToArray(new double[] {1.0e-5, 0.0, 1.0, 1.0e5});
+
+		final double EPS = Math.ulp(1.0);
+		Map<FiniteDifferenceMethod, Double> relativeSteps = new HashMap<>();
+		relativeSteps.put(FiniteDifferenceMethod.TWO_POINT, Math.sqrt(EPS));
+		relativeSteps.put(FiniteDifferenceMethod.COMPLEX_STEP, Math.sqrt(EPS));
+		relativeSteps.put(FiniteDifferenceMethod.THREE_POINT, Math.pow(EPS, 1.0/3.0));
+
+		Matrix f0 = Matrix.Factory.linkToArray(new double[] {1.0});
+
+		for (FiniteDifferenceMethod method: methods) {
+			double relStep = relativeSteps.get(method);
+
+			double[] correctSteps = new double[] {
+				relStep,
+				relStep * 1.0,
+				relStep * 1.0,
+				relStep * Math.abs(x0.getAsDouble(3, 0))
+			};
+
+			Matrix absStep = NumDiff.computeAbsoluteStep(null, x0, f0, method);
+			MinervaAssertions.assertArrayRelAbsEquals(correctSteps, LinAlg.col(absStep), tolerance);
+
+			Matrix signX0 = x0.times(-1).ge(Ret.LINK, 0).toIntMatrix().times(2).minus(1);
+			absStep = NumDiff.computeAbsoluteStep(null, x0.times(-1), f0, method);
+			MinervaAssertions.assertArrayRelAbsEquals(correctSteps, LinAlg.col(absStep.times(signX0)), tolerance);
+		}
+
+		// if a relative step is provided it should be used
+		double[] relSteps = {0.1, 1, 10, 100};
+		double[] correctSteps = {
+				relSteps[0] * x0.getAsDouble(0, 0),
+				relativeSteps.get(FiniteDifferenceMethod.TWO_POINT),
+				relSteps[2] * 1.0,
+				relSteps[3] * Math.abs(x0.getAsDouble(3, 0)),
+		};
+
+		Matrix absStep = NumDiff.computeAbsoluteStep(Matrix.Factory.linkToArray(relSteps), x0, f0, FiniteDifferenceMethod.TWO_POINT);
+		MinervaAssertions.assertArrayRelAbsEquals(correctSteps, LinAlg.col(absStep), tolerance);
+
+		Matrix signX0 = x0.times(-1).ge(Ret.LINK, 0).toIntMatrix().times(2).minus(1);
+		absStep = NumDiff.computeAbsoluteStep(Matrix.Factory.linkToArray(relSteps), x0.times(-1), f0, FiniteDifferenceMethod.TWO_POINT);
+		MinervaAssertions.assertArrayRelAbsEquals(correctSteps, LinAlg.col(absStep.times(signX0)), tolerance);
 	}
 
 }

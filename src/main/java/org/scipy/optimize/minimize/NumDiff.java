@@ -9,7 +9,6 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.ToDoubleFunction;
 
-import org.netlib.util.floatW;
 import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
 import org.scipy.optimize.minimize.records.AdjustedDifferencingScheme;
 import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
@@ -152,12 +151,12 @@ public class NumDiff {
 	 * @param x0Type type of parameter vector
 	 * @param f0Type type of function evaluation
 	 * @param method {'2-point', '3-point', 'cs'}
-	 * @return relative step size. May be float or double.
+	 * @return relative step size to use
 	 */
-	public static Number epsForMethod(Class<?> x0Type, Class<?> f0Type, FiniteDifferenceMethod method) {
+	public static double epsForMethod(Class<?> x0Type, Class<?> f0Type, FiniteDifferenceMethod method) {
 
 		// the default EPS value
-		Number EPS = Math.ulp((double) 1.0);
+		double EPS = Math.ulp((double) 1.0);
 
 		final boolean x0IsFp;
 		final int x0ItemSize;
@@ -176,7 +175,7 @@ public class NumDiff {
 
 		final boolean f0IsFp;
 		final int f0ItemSize;
-		final Number f0Eps;
+		final double f0Eps;
 		if (f0Type.equals(float.class) || f0Type.equals(Float.class)) {
 			f0ItemSize = Float.BYTES;
 			f0IsFp = true;
@@ -199,35 +198,86 @@ public class NumDiff {
 		switch (method) {
 		case TWO_POINT: // fall-through
 		case COMPLEX_STEP:
-			return NumDiff.sqrt(EPS);
+			return Math.sqrt(EPS);
 		case THREE_POINT:
-			return NumDiff.sqrt3(EPS);
+			return Math.pow(EPS, 1.0/3.0);
 		default:
 			throw new RuntimeException("only implemented for TWO_POINT, COMPLEX_STEP and THREE_POINT");
 		}
 	}
 
-	private static Number sqrt(Number x) {
-		if (x instanceof Float) {
-			return (float) Math.sqrt((float) x);
-		} else if (x instanceof Double) {
-			return Math.sqrt((double) x);
-		} else {
-			throw new RuntimeException("NumDiff#sqrt is only defined for float or double");
+	/**
+	 * Computes an absolute step from a relative step for finite difference calculation.
+	 *
+	 * `h` will always be np.float64.
+	 * However, if `x0` or `f0` are smaller floating point dtypes (e.g. np.float32),
+	 * then the absolute step size will be calculated from the smallest floating point size.
+	 *
+	 * @param relStep Relative step for the finite difference calculation
+	 * @param x0 Parameter vector
+	 * @param f0 function value (?)
+	 * @param method {'2-point', '3-point', 'cs'}
+	 * @return The absolute step size
+	 */
+	public static Matrix computeAbsoluteStep(Matrix relStep, Matrix x0, Matrix f0, FiniteDifferenceMethod method) {
+
+		// this is used instead of np.sign(x0) because we need
+	    // sign_x0 to be 1 when x0 == 0.
+		Matrix x0Sign = x0.ge(Ret.LINK, 0).toIntMatrix().times(2.0).minus(1.0);
+
+		final Class<?> x0Type;
+		switch (x0.getValueType()) {
+		case FLOAT:
+			x0Type = float.class;
+			break;
+		case DOUBLE:
+			x0Type = double.class;
+			break;
+		default:
+			throw new RuntimeException("only support DOUBLE and FLOAT value types");
 		}
-	}
 
-	private static Number sqrt3(Number x) {
-		if (x instanceof Float) {
-			return (float) Math.pow((float) x, 1.0/3.0);
-		} else if (x instanceof Double) {
-			return Math.pow((double) x, 1.0/3.0);
-		} else {
-			throw new RuntimeException("NumDiff#sqrt3 is only defined for float or double");
+		final Class<?> f0Type;
+		switch (f0.getValueType()) {
+		case FLOAT:
+			f0Type = float.class;
+			break;
+		case DOUBLE:
+			f0Type = double.class;
+			break;
+		default:
+			throw new RuntimeException("only support DOUBLE and FLOAT value types");
 		}
+
+		double rStep = epsForMethod(x0Type, f0Type, method);
+
+		final Matrix absStep;
+		if (relStep == null) {
+			absStep = Matrix.Factory.zeros(x0Sign.getSize());
+			for (long[] pos: x0Sign.allCoordinates()) {
+				absStep.setAsDouble(rStep * x0Sign.getAsInt(pos) * Math.max(1.0, Math.abs(x0.getAsDouble(pos))), pos);
+			}
+		} else {
+			// User has requested specific relative steps.
+	        // Don't multiply by max(1, abs(x0) because if x0 < 1 then their
+			// requested step is not used.
+			absStep = relStep.times(x0Sign).times(x0.abs(Ret.LINK));
+
+			// however we don't want an abs_step of 0, which can happen if
+	        // rel_step is 0, or x0 is 0. Instead, substitute a realistic step.
+			for (long[] pos: absStep.allCoordinates()) {
+				double x0Val = x0.getAsDouble(pos);
+				double absStepVal = absStep.getAsDouble(pos);
+				double dx = (x0Val + absStepVal) - x0Val;
+				if (dx == 0.0) {
+					double absStepToUse = rStep * x0Sign.getAsInt(pos) * Math.max(1.0, Math.abs(x0.getAsDouble(pos)));
+					absStep.setAsDouble(absStepToUse, pos);
+				}
+			}
+		}
+
+		return absStep;
 	}
-
-
 
 
 

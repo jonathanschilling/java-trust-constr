@@ -50,7 +50,7 @@ public class VectorFunction {
 		private HessianUpdateStrategy hessStrat;
 		private boolean hasHess;
 
-		private double finiteDiffRelStep;
+		private Matrix finiteDiffRelStep;
 		private FiniteDifferenceBounds finiteDiffBounds;
 
 		private VectorFunctionFactory() {
@@ -219,7 +219,7 @@ public class VectorFunction {
 	     * of `h` is ignored. If None then finite_diff_rel_step is selected
 	     * automatically,
 		 */
-		public VectorFunctionFactory finiteDiffRelStep(double finiteDiffRelStep) {
+		public VectorFunctionFactory finiteDiffRelStep(Matrix finiteDiffRelStep) {
 			this.finiteDiffRelStep = finiteDiffRelStep;
 			return this;
 		}
@@ -302,7 +302,7 @@ public class VectorFunction {
 	private VectorFunction(Function<Matrix, Matrix> fun, Matrix x0,
 			Function<Matrix, Matrix> jac, FiniteDifferenceMethod jacFD, Matrix finiteDiffJacSparsity,
 			BiFunction<Matrix, Matrix, Matrix> hess, FiniteDifferenceMethod hessFD, HessianUpdateStrategy hessStrat,
-			double finiteDiffRelStep, FiniteDifferenceBounds finiteDiffBounds,
+			Matrix finiteDiffRelStep, FiniteDifferenceBounds finiteDiffBounds,
 			Optional<Boolean> sparseJacobian) {
 
 		x = Matrix.Factory.copyFromMatrix(x0);
@@ -325,17 +325,17 @@ public class VectorFunction {
 			} else {
 				jacSparsity = null;
 			}
-			boolean asLinearOperator = false;
-			double[] epsilon = null;
-			options = new FiniteDifferenceOptions(
-					jacFD, finiteDiffRelStep, epsilon, finiteDiffBounds, asLinearOperator, jacSparsity);
+			options = FiniteDifferenceOptions.FACTORY
+					.method(jacFD)
+					.relStep(finiteDiffRelStep)
+					.sparsity(jacSparsity)
+					.build();
 		} else if (hessFD != null) {
-			FiniteDifferenceBounds hessBounds = null;
-			boolean asLinearOperator = true;
-			double[] epsilon = null;
-			Sparsity sparsity = null;
-			options = new FiniteDifferenceOptions(
-					hessFD, finiteDiffRelStep, epsilon, hessBounds, asLinearOperator, sparsity);
+			options = FiniteDifferenceOptions.FACTORY
+					.method(hessFD)
+					.relStep(finiteDiffRelStep)
+					.asLinearOperator(true)
+					.build();
 		} else {
 			options = null;
 		}

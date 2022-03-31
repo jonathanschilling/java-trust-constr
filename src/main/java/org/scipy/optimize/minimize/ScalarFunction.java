@@ -10,7 +10,6 @@ import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
 import org.scipy.optimize.minimize.enums.HessianApproximationType;
 import org.scipy.optimize.minimize.interfaces.HessianUpdateStrategy;
 import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
-import org.scipy.optimize.minimize.records.Sparsity;
 import org.ujmp.core.Matrix;
 
 /**
@@ -45,9 +44,9 @@ public class ScalarFunction {
 		private HessianUpdateStrategy hessStrat;
 		private boolean hasHess;
 
-		private double finiteDiffRelStep;
+		private Matrix finiteDiffRelStep;
 		private FiniteDifferenceBounds finiteDiffBounds;
-		private double[] epsilon;
+		private Matrix epsilon;
 
 		private ScalarFunctionFactory() {
 			hasGrad = false;
@@ -214,7 +213,7 @@ public class ScalarFunction {
 	     * of `h` is ignored. If None then finite_diff_rel_step is selected
 	     * automatically,
 		 */
-		public ScalarFunctionFactory finiteDiffRelStep(double finiteDiffRelStep) {
+		public ScalarFunctionFactory finiteDiffRelStep(Matrix finiteDiffRelStep) {
 			this.finiteDiffRelStep = finiteDiffRelStep;
 			return this;
 		}
@@ -236,7 +235,7 @@ public class ScalarFunction {
 	     * relative steps are used, only if ``epsilon is not None`` are absolute
 	     * steps used.
 		 */
-		public ScalarFunctionFactory epsilon(double[] epsilon) {
+		public ScalarFunctionFactory epsilon(Matrix epsilon) {
 			this.epsilon = epsilon;
 			return this;
 		}
@@ -303,7 +302,7 @@ public class ScalarFunction {
 	private ScalarFunction(ToDoubleBiFunction<Matrix, Object> fun, Matrix x0, Object args,
 			BiFunction<Matrix, Object, Matrix> grad, FiniteDifferenceMethod gradFD,
 			BiFunction<Matrix, Object, Matrix> hess, FiniteDifferenceMethod hessFD, HessianUpdateStrategy hessStrat,
-			double finiteDiffRelStep, FiniteDifferenceBounds finiteDiffBounds, double[] epsilon) {
+			Matrix finiteDiffRelStep, FiniteDifferenceBounds finiteDiffBounds, Matrix epsilon) {
 
 		x = Matrix.Factory.copyFromMatrix(x0);
 		n = x.getRowCount();
@@ -321,16 +320,19 @@ public class ScalarFunction {
 
 		final FiniteDifferenceOptions options;
 		if (gradFD != null) {
-			boolean asLinearOperator = false;
-			Sparsity sparsity = null;
-			options = new FiniteDifferenceOptions(
-					gradFD, finiteDiffRelStep, epsilon, finiteDiffBounds, asLinearOperator, sparsity);
+			options = FiniteDifferenceOptions.FACTORY
+					.method(gradFD)
+					.relStep(finiteDiffRelStep)
+					.absStep(epsilon)
+					.bounds(finiteDiffBounds)
+					.build();
 		} else if (hessFD != null) {
-			FiniteDifferenceBounds hessBounds = null;
-			boolean asLinearOperator = true;
-			Sparsity sparsity = null;
-			options = new FiniteDifferenceOptions(
-					hessFD, finiteDiffRelStep, epsilon, hessBounds, asLinearOperator, sparsity);
+			options = FiniteDifferenceOptions.FACTORY
+					.method(hessFD)
+					.relStep(finiteDiffRelStep)
+					.absStep(epsilon)
+					.asLinearOperator(true)
+					.build();
 		} else {
 			options = null;
 		}

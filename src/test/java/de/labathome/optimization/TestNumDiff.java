@@ -152,5 +152,4 @@ class TestNumDiff {
 		absStep = NumDiff.computeAbsoluteStep(Matrix.Factory.linkToArray(relSteps), x0.times(-1), f0, FiniteDifferenceMethod.TWO_POINT);
 		MinervaAssertions.assertArrayRelAbsEquals(correctSteps, LinAlg.col(absStep.times(signX0)), tolerance);
 	}
-
 }

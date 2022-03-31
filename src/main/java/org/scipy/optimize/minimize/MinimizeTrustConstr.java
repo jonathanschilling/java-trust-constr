@@ -4,9 +4,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.function.ToDoubleBiFunction;
-import java.util.function.ToDoubleFunction;
 
 import org.scipy.optimize.minimize.enums.ProjectionMethod;
 import org.scipy.optimize.minimize.interfaces.Constraint;
@@ -245,7 +243,7 @@ public class MinimizeTrustConstr {
 			HessianProduct hessp, Bounds bounds,
 			Object constraints,
 			double xTol, double gTol, double barrierTol, Optional<Boolean> sparseJacobian,
-			Object callback, int maxIter, int verbose, double finiteDifferenceRelStep, double initialConstraintPenalty,
+			Object callback, int maxIter, int verbose, Matrix finiteDifferenceRelStep, double initialConstraintPenalty,
 			double initialTrustRadius, double initialBarrierParameter, double initialBarrierTolerance,
 			ProjectionMethod factorizationMethod, boolean disp) {
 

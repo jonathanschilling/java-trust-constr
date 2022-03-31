@@ -103,23 +103,40 @@ public class NumDiff {
 			}
 
 		} else if (scheme == FiniteDifferenceMethod.TWO_SIDED) {
-
 			Matrix central = lowerDist.ge(Ret.LINK, hTotal).and(Ret.NEW, upperDist.ge(Ret.LINK, hTotal));
 
 			Matrix forward = upperDist.ge(Ret.LINK, lowerDist).and(Ret.NEW, central.not(Ret.LINK));
+			for (long[] pos: forward.availableCoordinates()) {
+				if (forward.getAsBoolean(pos)) {
+					hAdjusted.setAsDouble(Math.min(h.getAsDouble(pos), 0.5 * upperDist.getAsDouble(pos) / numSteps), pos);
+					useOneSided[(int) pos[0]] = true;
+				}
+			}
 
-			// TODO: hAdjusted[forward] ...
+			Matrix backward = upperDist.lt(Ret.LINK, lowerDist).and(Ret.NEW, central.not(Ret.LINK));
+			for (long[] pos: backward.availableCoordinates()) {
+				if (backward.getAsBoolean(pos)) {
+					hAdjusted.setAsDouble(-1.0 * Math.min(h.getAsDouble(pos), 0.5 * lowerDist.getAsDouble(pos) / numSteps), pos);
+					useOneSided[(int) pos[0]] = true;
+				}
+			}
 
-
-
-
-
+			Matrix minDist = Matrix.Factory.zeros(upperDist.getSize());
+			for (long[] pos: upperDist.allCoordinates()) {
+				minDist.setAsDouble(Math.min(upperDist.getAsDouble(pos), lowerDist.getAsDouble(pos)) / numSteps);
+			}
+			Matrix adjustedCentral = central.not(Ret.LINK).and(Ret.NEW, hAdjusted.abs(Ret.LINK).le(Ret.LINK, minDist));
+			for (long[] pos: adjustedCentral.availableCoordinates()) {
+				if (adjustedCentral.getAsBoolean(pos)) {
+					hAdjusted.setAsDouble(minDist.getAsDouble(pos), pos);
+					useOneSided[(int) pos[0]] = false;
+				}
+			}
 		} else {
 			throw new RuntimeException("schema must be either ONE_SIDED or TWO_SIDED");
 		}
 
-
-		return null;
+		return new AdjustedDifferencingScheme(hAdjusted, useOneSided);
 	}
 
 

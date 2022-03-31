@@ -846,9 +846,86 @@ public class NumDiff {
 	private static Matrix sparseDifference(Function<Matrix, Matrix> fun, Matrix x0, Matrix f0,
 			Matrix absStep, boolean[] useOneSided, Sparsity sparsity, FiniteDifferenceMethod method) {
 
+		long m = f0.getRowCount();
+		long n = x0.getRowCount();
 
-		return null;
+		Matrix J = SparseMatrix.Factory.zeros(m, n);
+
+		int[] groups = sparsity.sparsityGroups();
+		int nGroups = Arrays.stream(groups).max().getAsInt() + 1;
+		for (int group = 0; group < nGroups; ++group) {
+			// Perturb variables which are in the same group simultaneously.
+			Matrix e = Matrix.Factory.zeros(n, 1);
+			for (int i=0; i<groups.length; ++i) {
+				if (groups[i] == group) {
+					e.setAsInt(1, i, 0);
+				}
+			}
+
+			Matrix h = absStep.times(e);
+
+			if (method == FiniteDifferenceMethod.TWO_POINT) {
+				Matrix x = x0.plus(h);
+				Matrix dx = x.minus(x0);
+				Matrix df = fun.apply(x).minus(f0);
+				for (long[] pos: sparsity.A().availableCoordinates()) {
+					if (sparsity.A().getAsDouble(pos) != 0.0 && e.getAsInt(pos[0], 0) != 0) {
+						// current coordinate has non-zero Jacobian entry and it has been influenced by e
+						// --> expect a non-zero Jacobian element here
+						J.setAsDouble(df.getAsDouble(pos[0], 0) / dx.getAsDouble(pos[1], 0), pos);
+					}
+				}
+			} else if (method == FiniteDifferenceMethod.THREE_POINT) {
+				// Here we do conceptually the same but separate one-sided and two-sided schemes.
+				Matrix x1 = Matrix.Factory.zeros(n, 1);
+				Matrix x2 = Matrix.Factory.zeros(n, 1);
+				Matrix dx = Matrix.Factory.zeros(n, 1);
+				for (long[] pos: e.availableCoordinates()) {
+					if (e.getAsInt(pos) != 0) {
+						final double x1Val, x2Val;
+						if (useOneSided[(int) pos[0]]) {
+							// These are the ones where one-sided differences have to be used due to proximity to bounds.
+							x1Val = x0.getAsDouble(pos) + 1.0 * h.getAsDouble(pos);
+							x2Val = x0.getAsDouble(pos) + 2.0 * h.getAsDouble(pos);
+						} else {
+							// These are the others, where regular central differencing can be used
+				            // because they are far away enough from the bounds.
+							x1Val = x0.getAsDouble(pos) - h.getAsDouble(pos);
+							x2Val = x0.getAsDouble(pos) + h.getAsDouble(pos);
+						}
+						x1.setAsDouble(x1Val, pos);
+						x2.setAsDouble(x2Val, pos);
+						dx.setAsDouble(x2Val - x1Val, pos);
+					}
+				}
+
+				Matrix f1 = fun.apply(x1);
+				Matrix f2 = fun.apply(x2);
+
+				Matrix df = Matrix.Factory.zeros(m, 1);
+				for (int j=0; j<m; ++j) {
+					final double dfVal;
+					if (useOneSided[j]) {
+						dfVal = -3.0*f0.getAsDouble(j, 0) + 4.0 * f1.getAsDouble(j, 0) - f2.getAsDouble(j, 0);
+					} else {
+						dfVal = f2.getAsDouble(j, 0) - f1.getAsDouble(j, 0);
+					}
+					df.setAsDouble(dfVal, j, 0);
+				}
+
+				for (long[] pos: sparsity.A().availableCoordinates()) {
+					if (sparsity.A().getAsDouble(pos) != 0.0 && e.getAsInt(pos[0], 0) != 0) {
+						// current coordinate has non-zero Jacobian entry and it has been influenced by e
+						// --> expect a non-zero Jacobian element here
+						J.setAsDouble(df.getAsDouble(pos[0], 0) / dx.getAsDouble(pos[1], 0), pos);
+					}
+				}
+			} else if (method == FiniteDifferenceMethod.COMPLEX_STEP) {
+				throw new RuntimeException("not implemented yet");
+			} else {
+				throw new RuntimeException("only TWO_POINT, THREE_POINT and COMPLEX_STEP are allowed");
+			}
+		}
+		return J;
 	}
-
-
 }

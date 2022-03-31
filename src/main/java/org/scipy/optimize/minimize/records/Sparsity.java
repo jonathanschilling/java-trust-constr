@@ -1,5 +1,6 @@
 package org.scipy.optimize.minimize.records;
 
+import org.scipy.optimize.minimize.NumDiff;
 import org.ujmp.core.Matrix;
 
 public final class Sparsity {
@@ -18,5 +19,15 @@ public final class Sparsity {
 
 	public int[] sparsityGroups() {
 		return sparsityGroups;
+	}
+
+	public static Sparsity of(Matrix A) {
+		int[] sparsityGroups = NumDiff.groupColumns(A);
+		return new Sparsity(A, sparsityGroups);
+	}
+
+	public static Sparsity of(Matrix A, int[] order) {
+		int[] sparsityGroups = NumDiff.groupColumns(A, order);
+		return new Sparsity(A, sparsityGroups);
 	}
 }

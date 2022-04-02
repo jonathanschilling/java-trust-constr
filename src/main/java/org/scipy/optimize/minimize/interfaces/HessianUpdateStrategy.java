@@ -1,7 +1,6 @@
 package org.scipy.optimize.minimize.interfaces;
 
 import java.util.function.BiFunction;
-import java.util.function.Function;
 
 import org.scipy.optimize.minimize.enums.HessianApproximationType;
 import org.ujmp.core.Matrix;

@@ -169,8 +169,8 @@ class TestApproxDerivativesDense {
 
 		double jacTrue = jacScalarScalar.applyAsDouble(x0);
 
-		MinervaAssertions.assertRelAbsEquals(jacTrue, jacDiff2, 1.0e-6);
-		MinervaAssertions.assertRelAbsEquals(jacTrue, jacDiff3, 1.0e-9);
+		MinervaAssertions.assertRelAbsEquals(jacTrue, jacDiff2, 1.0e-8);
+		MinervaAssertions.assertRelAbsEquals(jacTrue, jacDiff3, 1.0e-8);
 	}
 
 

@@ -11,11 +11,13 @@ public final class FiniteDifferenceOptions {
 		private Matrix relStep;
 		private Matrix absStep;
 		private FiniteDifferenceBounds bounds;
+		private boolean hasBounds;
 		private boolean asLinearOperator;
 		private Sparsity sparsity;
 
 		private FiniteDifferenceOptionsFactory() {
 			method = FiniteDifferenceMethod.THREE_POINT;
+			hasBounds = false;
 		}
 
 		public FiniteDifferenceOptionsFactory method(FiniteDifferenceMethod method) {
@@ -34,7 +36,12 @@ public final class FiniteDifferenceOptions {
 		}
 
 		public FiniteDifferenceOptionsFactory bounds(FiniteDifferenceBounds bounds) {
-			this.bounds = bounds;
+			if (hasBounds) {
+				throw new RuntimeException("bounds have already been specified");
+			} else {
+				this.bounds = bounds;
+				hasBounds = true;
+			}
 			return this;
 		}
 
@@ -49,6 +56,11 @@ public final class FiniteDifferenceOptions {
 		}
 
 		public FiniteDifferenceOptions build() {
+
+			if (!hasBounds) {
+				bounds = FiniteDifferenceBounds.unbounded(1);
+			}
+
 			return new FiniteDifferenceOptions(method, relStep, absStep, bounds, asLinearOperator, sparsity);
 		}
 	};

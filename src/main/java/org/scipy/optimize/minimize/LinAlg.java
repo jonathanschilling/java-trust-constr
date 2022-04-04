@@ -73,11 +73,6 @@ public class LinAlg {
 	}
 
 	public static LinearOperator op(Matrix A) {
-		return new LinearOperator() {
-			@Override
-			public Matrix apply(Matrix x) {
-				return A.mtimes(x);
-			}
-		};
+	    return A::mtimes;
 	}
 }

@@ -9,6 +9,7 @@ import java.util.function.BiFunction;
 import java.util.function.DoubleUnaryOperator;
 import java.util.function.Function;
 import java.util.function.ToDoubleFunction;
+import java.util.function.UnaryOperator;
 
 import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
 import org.scipy.optimize.minimize.interfaces.LinearOperator;
@@ -408,7 +409,7 @@ public class NumDiff {
 	public static double epsForMethod(Class<?> x0Type, Class<?> f0Type, FiniteDifferenceMethod method) {
 
 		// the default EPS value
-		double EPS = Math.ulp((double) 1.0);
+		double EPS = Math.ulp(1.0);
 
 		final boolean x0IsFp;
 		final int x0ItemSize;
@@ -543,7 +544,7 @@ public class NumDiff {
 	 * @return
 	 */
 	public static double approxDerivative(DoubleUnaryOperator f, double x0, FiniteDifferenceOptions options) {
-		Function<Matrix, Matrix> fVec = (Matrix t) -> {
+	    UnaryOperator<Matrix> fVec = (Matrix t) -> {
 			return Matrix.Factory.linkToArray(new double[] { f.applyAsDouble(t.doubleValue()) });
 		};
 		Matrix x0Vec = Matrix.Factory.linkToArray(new double[] { x0 });
@@ -563,7 +564,7 @@ public class NumDiff {
 	 * @return
 	 */
 	public static double approxDerivative(ToDoubleFunction<Matrix> f, double x0, FiniteDifferenceOptions options) {
-		Function<Matrix, Matrix> fVec = (Matrix t) -> {
+		UnaryOperator<Matrix> fVec = (Matrix t) -> {
 			return Matrix.Factory.linkToArray(new double[] { f.applyAsDouble(t) });
 		};
 		Matrix x0Vec = Matrix.Factory.linkToArray(new double[] { x0 });
@@ -738,9 +739,7 @@ public class NumDiff {
 			throw new RuntimeException("`x0` violates bound constraints.");
 		}
 
-		Function<Matrix, Matrix> funWrapped = (Matrix x) -> {
-			return fun.apply(x, args);
-		};
+		UnaryOperator<Matrix> funWrapped = x -> fun.apply(x, args);
 
 		if (f0 == null) {
 			f0 = funWrapped.apply(x0);

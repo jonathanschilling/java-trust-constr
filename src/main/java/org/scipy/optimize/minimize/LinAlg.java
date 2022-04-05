@@ -4,7 +4,13 @@ import org.scipy.optimize.minimize.interfaces.LinearOperator;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix;
 
-/** linear algebra helper class */
+/**
+ * linear algebra helper class
+ *
+ *  TODO: This class should not exist.
+ *  It is a temporary workaround until this project migrates from UJMP to ojAlgo,
+ *  because ojAlgo is better interfaced against primitive arrays than UJMP.
+ */
 public class LinAlg {
 
 	/**

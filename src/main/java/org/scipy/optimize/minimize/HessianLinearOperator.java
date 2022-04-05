@@ -2,6 +2,7 @@ package org.scipy.optimize.minimize;
 
 import java.util.function.BiFunction;
 
+import org.scipy.optimize.minimize.interfaces.HessianProduct;
 import org.ujmp.core.Matrix;
 
 public class HessianLinearOperator implements BiFunction<Matrix, Object, Matrix> {

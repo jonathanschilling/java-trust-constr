@@ -5,6 +5,7 @@ import java.util.LinkedList;
 
 import org.scipy.optimize.minimize.enums.PCGStoppingCondition;
 import org.scipy.optimize.minimize.interfaces.LinearOperator;
+import org.scipy.optimize.minimize.records.CGInfo;
 import org.scipy.optimize.minimize.records.IntersectionResult;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix;

@@ -1,7 +1,7 @@
 package org.scipy.optimize.minimize.interfaces;
 
-import org.scipy.optimize.minimize.CGInfo;
-import org.scipy.optimize.minimize.State;
+import org.scipy.optimize.minimize.records.CGInfo;
+import org.scipy.optimize.minimize.records.State;
 import org.ujmp.core.Matrix;
 
 public interface StoppingCriterion {

@@ -2,12 +2,12 @@ package de.labathome.optimization;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.CGInfo;
 import org.scipy.optimize.minimize.LinAlg;
 import org.scipy.optimize.minimize.Projections;
 import org.scipy.optimize.minimize.QPSubproblem;
 import org.scipy.optimize.minimize.enums.PCGStoppingCondition;
 import org.scipy.optimize.minimize.interfaces.LinearOperator;
+import org.scipy.optimize.minimize.records.CGInfo;
 import org.ujmp.core.Matrix;
 
 import minerva.tests.junit.MinervaAssertions;

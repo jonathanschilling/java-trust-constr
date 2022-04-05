@@ -8,8 +8,13 @@ import java.util.function.ToDoubleBiFunction;
 
 import org.scipy.optimize.minimize.enums.ProjectionMethod;
 import org.scipy.optimize.minimize.interfaces.Constraint;
+import org.scipy.optimize.minimize.interfaces.HessianProduct;
 import org.scipy.optimize.minimize.records.Bounds;
+import org.scipy.optimize.minimize.records.CGInfo;
 import org.scipy.optimize.minimize.records.FiniteDifferenceBounds;
+import org.scipy.optimize.minimize.records.PreparedConstraint;
+import org.scipy.optimize.minimize.records.State;
+import org.scipy.optimize.minimize.records.StateIP;
 import org.scipy.optimize.minimize.records.StrictBounds;
 import org.ujmp.core.Matrix;
 

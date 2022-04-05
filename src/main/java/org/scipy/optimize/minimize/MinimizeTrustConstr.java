@@ -12,6 +12,7 @@ import org.scipy.optimize.minimize.interfaces.HessianProduct;
 import org.scipy.optimize.minimize.records.Bounds;
 import org.scipy.optimize.minimize.records.CGInfo;
 import org.scipy.optimize.minimize.records.FiniteDifferenceBounds;
+import org.scipy.optimize.minimize.records.OptimizeResult;
 import org.scipy.optimize.minimize.records.PreparedConstraint;
 import org.scipy.optimize.minimize.records.State;
 import org.scipy.optimize.minimize.records.StateIP;

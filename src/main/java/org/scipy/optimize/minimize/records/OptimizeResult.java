@@ -1,4 +1,4 @@
-package org.scipy.optimize.minimize;
+package org.scipy.optimize.minimize.records;
 
 import org.scipy.optimize.minimize.enums.PCGStoppingCondition;
 import org.scipy.optimize.minimize.enums.TrustConstrMethod;

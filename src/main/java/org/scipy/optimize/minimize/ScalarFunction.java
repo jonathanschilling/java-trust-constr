@@ -54,7 +54,7 @@ public class ScalarFunction {
 			hasHess = false;
 		}
 
-		/** Set the objective funciton to optimize. */
+		/** Set the objective function to optimize. */
 		public ScalarFunctionFactory fun(ToDoubleBiFunction<Matrix, Object> fun) {
 			this.fun = fun;
 			return this;

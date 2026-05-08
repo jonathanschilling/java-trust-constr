@@ -11,6 +11,7 @@ import org.scipy.optimize.minimize.enums.ProjectionMethod;
 import org.scipy.optimize.minimize.enums.TrustConstrMethod;
 import org.scipy.optimize.minimize.interfaces.Constraint;
 import org.scipy.optimize.minimize.interfaces.HessianProduct;
+import org.scipy.optimize.minimize.interfaces.GlobalStoppingCriteria;
 import org.scipy.optimize.minimize.interfaces.IFunctionAndConstraint;
 import org.scipy.optimize.minimize.interfaces.IGradientAndJacobian;
 import org.scipy.optimize.minimize.interfaces.Jacobian;
@@ -269,6 +270,153 @@ public class MinimizeTrustConstr {
 		r.constraintPenalty = state.constraintPenalty;
 		r.executionTime = state.executionTime;
 		// Status: 1 = gtol satisfied, 2 = xtol satisfied, 0 = max iterations
+		if (state.optimality < gtol && state.constrViolation < gtol) {
+			r.status = 1;
+			r.message = "`gtol` termination condition is satisfied.";
+		} else if (state.trustRadius < xtol) {
+			r.status = 2;
+			r.message = "`xtol` termination condition is satisfied.";
+		} else {
+			r.status = 0;
+			r.message = "The maximum number of function evaluations is exceeded.";
+		}
+		return r;
+	}
+
+	/**
+	 * General-purpose entry point: routes to
+	 * {@link #minimizeEqualityConstrained} when the constraint has only equality
+	 * rows, and to a {@code TrustRegionInteriorPoint}-driven path when any
+	 * inequality rows are present. Pure unconstrained problems route through
+	 * the equality path with an empty constraint set.
+	 *
+	 * <p>Like {@link #minimizeEqualityConstrained}, this is a focused subset of
+	 * the full {@code scipy.optimize.minimize(method='trust-constr')} API: a
+	 * single {@link LinearConstraint} or {@link NonlinearConstraint} (or
+	 * {@code null}), no {@link Bounds}, no callback, no finite-difference
+	 * Hessians/Jacobians.
+	 */
+	public static <C extends Constraint & Jacobian> OptimizeResult minimize(
+			java.util.function.Function<Matrix, Double> fun,
+			java.util.function.Function<Matrix, Matrix> grad,
+			java.util.function.Function<Matrix, Matrix> hess,
+			Matrix x0, C constraint,
+			int maxIter, double xtol, double gtol) {
+		int nIneq = 0;
+		if (constraint instanceof LinearConstraint) {
+			nIneq = ((LinearConstraint) constraint).nIneq();
+		} else if (constraint instanceof NonlinearConstraint) {
+			nIneq = ((NonlinearConstraint) constraint).nIneq();
+		}
+		if (nIneq == 0) {
+			return minimizeEqualityConstrained(fun, grad, hess, x0, constraint, maxIter, xtol, gtol);
+		}
+		return minimizeInequalityConstrained(fun, grad, hess, x0, constraint, maxIter, xtol, gtol);
+	}
+
+	/**
+	 * Inequality-constrained dispatch: invokes
+	 * {@link TrustRegionInteriorPoint#trustRegionInteriorPoint} with the
+	 * constraint's eq + ineq rows, mirroring the {@code 'tr_interior_point'}
+	 * branch of scipy's {@code _minimize_trustregion_constr}. Equality rows
+	 * are passed through alongside the inequalities; this means a constraint
+	 * with both kinds of rows still works.
+	 */
+	private static <C extends Constraint & Jacobian> OptimizeResult minimizeInequalityConstrained(
+			java.util.function.Function<Matrix, Double> fun,
+			java.util.function.Function<Matrix, Matrix> grad,
+			java.util.function.Function<Matrix, Matrix> hess,
+			Matrix x0, C constraint,
+			int maxIter, double xtol, double gtol) {
+		final int nVars = (int) x0.getRowCount();
+		final int nIneq;
+		final int nEq;
+		if (constraint instanceof LinearConstraint) {
+			nIneq = ((LinearConstraint) constraint).nIneq();
+			nEq = ((LinearConstraint) constraint).nEq();
+		} else if (constraint instanceof NonlinearConstraint) {
+			nIneq = ((NonlinearConstraint) constraint).nIneq();
+			nEq = ((NonlinearConstraint) constraint).nEq();
+		} else {
+			throw new UnsupportedOperationException("Unsupported constraint type: "
+					+ (constraint == null ? "null" : constraint.getClass().getName()));
+		}
+
+		// Wrap fun/grad with a no-op args parameter to match the inner method's BiFunction shape.
+		final ToDoubleBiFunction<Matrix, Object> funBi = (x, args) -> fun.apply(x);
+		final BiFunction<Matrix, Object, Matrix> gradBi = (x, args) -> grad.apply(x);
+
+		// Lagrangian Hessian: linear-constraint rows have zero Hessian, so the Lagrangian
+		// reduces to the objective Hessian. For nonlinear constraints without an analytic
+		// Hessian-of-Lagrangian this is an approximation — see the equality-constrained
+		// path for the same tradeoff.
+		LagrangeHessian lagrHess = (x, v) -> {
+			Matrix H = hess.apply(x);
+			return p -> H.mtimes(p);
+		};
+
+		// Initial values
+		double f0 = fun.apply(x0);
+		Matrix g0 = grad.apply(x0);
+		Matrix cIneq0 = constraint.constrIneq(x0);
+		Matrix jIneq0 = constraint.jacIneq(x0);
+		Matrix cEq0 = nEq > 0 ? constraint.constrEq(x0) : Matrix.Factory.zeros(0, 1);
+		Matrix jEq0 = nEq > 0 ? constraint.jacEq(x0) : Matrix.Factory.zeros(0, nVars);
+
+		// Initial state
+		State state = new State();
+		state.numConstraintEval = new int[1];
+		state.numConstraintJacobianEval = new int[1];
+		state.numConstraintHessianEval = new int[1];
+		state.v = new Matrix[1];
+		state.constr = new Matrix[1];
+		state.jac = new Matrix[1];
+
+		final long startTime = System.nanoTime();
+		GlobalStoppingCriteria stop = (s, x, lastIterFailed, optimality, constrViolation,
+				trustRadius, penalty, cgInfo, barrierParameter, barrierTolerance) -> {
+			s.nIter++;
+			s.executionTime = System.nanoTime() - startTime;
+			s.optimality = optimality;
+			s.constrViolation = constrViolation;
+			s.trustRadius = trustRadius;
+			s.constraintPenalty = penalty;
+			s.cgNIter += cgInfo.niter;
+			s.cgStopCond = cgInfo.stopCond;
+			s.x = x;
+			if (optimality < gtol && constrViolation < gtol) return true;
+			if (trustRadius < xtol && barrierParameter < gtol) return true;
+			if (s.nIter >= maxIter) return true;
+			return false;
+		};
+
+		StatefulResult sr = TrustRegionInteriorPoint.trustRegionInteriorPoint(
+				funBi, gradBi, lagrHess,
+				nVars, nIneq, nEq,
+				constraint, constraint,
+				x0, f0, g0,
+				cIneq0, jIneq0, cEq0, jEq0,
+				stop,
+				new boolean[nIneq],
+				xtol, state, 0.1, 0.1,
+				1.0, 1.0,
+				ProjectionMethod.AUGMENTED_SYSTEM);
+
+		// Populate result
+		OptimizeResult r = new OptimizeResult();
+		r.x = sr.x();
+		r.fun = fun.apply(sr.x());
+		r.grad = grad.apply(sr.x());
+		r.lagrangianGrad = state.lagrangianGrad;
+		r.optimality = state.optimality;
+		r.constraintViolation = state.constrViolation;
+		r.nIter = state.nIter;
+		r.cgIter = state.cgNIter;
+		r.cgStopCond = state.cgStopCond == null ? PCGStoppingCondition.NOT_EVALUATED : state.cgStopCond;
+		r.method = TrustConstrMethod.TRUST_REGION_INTERIOR_POINT;
+		r.trustRadius = state.trustRadius;
+		r.constraintPenalty = state.constraintPenalty;
+		r.executionTime = state.executionTime;
 		if (state.optimality < gtol && state.constrViolation < gtol) {
 			r.status = 1;
 			r.message = "`gtol` termination condition is satisfied.";

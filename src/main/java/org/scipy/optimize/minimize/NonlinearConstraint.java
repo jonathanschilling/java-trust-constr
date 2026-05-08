@@ -24,9 +24,8 @@ import org.ujmp.core.Matrix;
  * are added by passing a {@code BFGS}/{@code SR1} update strategy through the
  * top-level {@code MinimizeTrustConstr.minimizeTrustConstr(...)} call.
  *
- * <p>Eq/ineq classification follows the same rule as
- * {@link LinearConstraint}; see that class for the convention. Two-sided
- * interval bounds throw {@link UnsupportedOperationException}.
+ * <p>Eq/ineq classification follows the same rule as {@link LinearConstraint},
+ * including the two-sided interval split.
  */
 public class NonlinearConstraint implements Constraint, Jacobian {
 
@@ -65,12 +64,10 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 			boolean ubFinite = !Double.isInfinite(ub[i]);
 			if (lbFinite && ubFinite && lb[i] == ub[i]) {
 				++nEq;
-			} else if (lbFinite ^ ubFinite) {
+			} else if (lbFinite && ubFinite) {
+				nIneq += 2;
+			} else if (lbFinite || ubFinite) {
 				++nIneq;
-			} else if (lbFinite) {
-				throw new UnsupportedOperationException(
-						"Two-sided interval constraint at row " + i +
-						" is not yet supported; split into separate one-sided rows.");
 			}
 		}
 		this.eqRows = new int[nEq];
@@ -84,12 +81,21 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 			boolean ubFinite = !Double.isInfinite(ub[i]);
 			if (lbFinite && ubFinite && lb[i] == ub[i]) {
 				eqRows[eqIdx++] = i;
-			} else if (lbFinite && !ubFinite) {
+			} else if (lbFinite && ubFinite) {
+				ineqRows[ineqIdx] = i;
+				ineqSign[ineqIdx] = +1;
+				ineqTarget[ineqIdx] = ub[i];
+				++ineqIdx;
 				ineqRows[ineqIdx] = i;
 				ineqSign[ineqIdx] = -1;
 				ineqTarget[ineqIdx] = lb[i];
 				++ineqIdx;
-			} else if (!lbFinite && ubFinite) {
+			} else if (lbFinite) {
+				ineqRows[ineqIdx] = i;
+				ineqSign[ineqIdx] = -1;
+				ineqTarget[ineqIdx] = lb[i];
+				++ineqIdx;
+			} else if (ubFinite) {
 				ineqRows[ineqIdx] = i;
 				ineqSign[ineqIdx] = +1;
 				ineqTarget[ineqIdx] = ub[i];

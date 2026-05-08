@@ -20,16 +20,30 @@ public final class UjmpBridge {
 	/**
 	 * Convert a UJMP {@link Matrix} (dense or sparse) to a {@link CSRMatrix}.
 	 * Materialises through {@code toDoubleArray()} first; zeros are dropped.
+	 *
+	 * <p>Empty {@code 0 x cols} or {@code rows x 0} matrices are preserved with
+	 * their column/row count intact — UJMP's {@code toDoubleArray()} returns a
+	 * zero-length outer array in those cases, so we read the dimensions from
+	 * the source matrix directly.
 	 */
 	public static CSRMatrix toCSR(Matrix m) {
-		double[][] dense = m.toDoubleArray();
-		return CSRMatrix.fromDense(dense);
+		int rows = (int) m.getRowCount();
+		int cols = (int) m.getColumnCount();
+		if (rows == 0 || cols == 0) {
+			return SparseAssembly.zeros(rows, cols);
+		}
+		return CSRMatrix.fromDense(m.toDoubleArray());
 	}
 
 	/** Convert a UJMP {@link Matrix} to a {@link CSCMatrix}. */
 	public static CSCMatrix toCSC(Matrix m) {
-		double[][] dense = m.toDoubleArray();
-		return CSCMatrix.fromDense(dense);
+		int rows = (int) m.getRowCount();
+		int cols = (int) m.getColumnCount();
+		if (rows == 0 || cols == 0) {
+			int[] indptr = new int[cols + 1];
+			return new CSCMatrix(rows, cols, indptr, new int[0], new double[0]);
+		}
+		return CSCMatrix.fromDense(m.toDoubleArray());
 	}
 
 	/**

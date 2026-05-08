@@ -142,14 +142,16 @@ public class BarrierSubproblem {
 	 */
 	public Matrix getScaling(Matrix z) {
 		Matrix s = getSlack(z);
-		Matrix diagElements = SparseMatrix.Factory.zeros(nVars + s.getRowCount(), nVars + s.getColumnCount());
-		for (int i=0; i<nVars; ++i) {
+		// Square diagonal of size (n_vars + n_ineq): identity on the variable rows,
+		// the current slack values on the slack rows.
+		long total = nVars + s.getRowCount();
+		Matrix diagElements = SparseMatrix.Factory.zeros(total, total);
+		for (int i = 0; i < nVars; ++i) {
 			diagElements.setAsDouble(1.0, i, i);
 		}
-		for (long[] pos: s.allCoordinates()) {
-			diagElements.setAsDouble(s.getAsDouble(pos), pos[0], pos[0]);
+		for (int i = 0; i < s.getRowCount(); ++i) {
+			diagElements.setAsDouble(s.getAsDouble(i, 0), nVars + i, nVars + i);
 		}
-
 		return diagElements;
 	}
 

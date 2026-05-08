@@ -55,10 +55,20 @@ class TestNonlinearConstraint {
 	}
 
 	@Test
-	void testTwoSidedRejected() {
+	void testTwoSidedSplitsIntoUpperAndLowerRows() {
+		// fun(x) = x[0]; bound: 0 <= x[0] <= 1
 		java.util.function.Function<Matrix, Matrix> fun = x ->
 				Matrix.Factory.linkToArray(new double[] { x.getAsDouble(0, 0) });
-		Assertions.assertThrows(UnsupportedOperationException.class,
-				() -> new NonlinearConstraint(fun, fun, new double[] {0.0}, new double[] {1.0}));
+		java.util.function.Function<Matrix, Matrix> jac = x ->
+				Matrix.Factory.linkToArray(new double[][] { { 1.0 } });
+		NonlinearConstraint c = new NonlinearConstraint(fun, jac,
+				new double[] {0.0}, new double[] {1.0});
+		Assertions.assertEquals(0, c.nEq());
+		Assertions.assertEquals(2, c.nIneq());
+
+		Matrix x = Matrix.Factory.linkToArray(new double[] {0.5});
+		// constrIneq = [+1*(0.5 - 1), -1*(0.5 - 0)] = [-0.5, -0.5]
+		MinervaAssertions.assertArrayRelAbsEquals(new double[] {-0.5, -0.5},
+				LinAlg.col(c.constrIneq(x)), TOL);
 	}
 }

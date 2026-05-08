@@ -77,9 +77,24 @@ class TestLinearConstraint {
 	}
 
 	@Test
-	void testTwoSidedRejected() {
+	void testTwoSidedSplitsIntoUpperAndLowerRows() {
+		// A x = scalar a; constraint 0 <= a <= 2. Internally splits into
+		// a - 2 <= 0  (upper)  and  -a + 0 <= 0  (lower).
 		Matrix A = Matrix.Factory.linkToArray(new double[][] { {1, 1} });
-		Assertions.assertThrows(UnsupportedOperationException.class,
-				() -> new LinearConstraint(A, new double[] {0}, new double[] {2}));
+		LinearConstraint c = new LinearConstraint(A, new double[] {0}, new double[] {2});
+		Assertions.assertEquals(0, c.nEq());
+		Assertions.assertEquals(2, c.nIneq());
+
+		// At x=(1,1), A x = 2 — the upper bound is exactly tight.
+		Matrix x = Matrix.Factory.linkToArray(new double[] {1.0, 1.0});
+		MinervaAssertions.assertArrayRelAbsEquals(
+				new double[] {0.0, -2.0},
+				LinAlg.col(c.constrIneq(x)),
+				TOL);
+		// jacIneq rows: +A (upper) and -A (lower).
+		MinervaAssertions.assertArrayRelAbsEquals(
+				new double[][] { {1, 1}, {-1, -1} },
+				c.jacIneq(x).toDoubleArray(),
+				TOL);
 	}
 }

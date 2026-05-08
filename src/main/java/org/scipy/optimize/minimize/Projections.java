@@ -120,27 +120,17 @@ public class Projections {
 	 */
 	public static LinearOperator[] projections(Matrix A, ProjectionMethod method, double orthTol, int maxRefine, double tolerance)  {
 
-		// Check Argument
-		if (A.isSparse()) {
-			// assign default if method is not set
-			if (method == null) {
-				method = ProjectionMethod.AUGMENTED_SYSTEM;
-			}
-
-			// check that method is applicable for sparse A
-			if (method != ProjectionMethod.AUGMENTED_SYSTEM && method != ProjectionMethod.NORMAL_EQUATION) {
-				throw new RuntimeException("Method not allowed for sparse matrix.");
-			}
-		} else {
-			// assign default if method is not set
-			if (method == null) {
-				method = ProjectionMethod.QR_FACTORIZATION;
-			}
-
-			// check that method is applicable for dense A
-			if (method != ProjectionMethod.QR_FACTORIZATION && method != ProjectionMethod.SVD_FACTORIZATION) {
-				throw new RuntimeException("Method not allowed for dense matrix.");
-			}
+		// Pick a default method if the caller hasn't. Prefer QR for dense and
+		// AugmentedSystem for sparse. Note: since the AugmentedSystem path now
+		// goes through the in-tree CSR module (regardless of whether A is a
+		// UJMP dense or sparse Matrix), AugmentedSystem and SVD/QR are
+		// interchangeable for any A — the historical sparse-only / dense-only
+		// gates from scipy don't apply to this port and are no longer
+		// enforced here.
+		if (method == null) {
+			method = A.isSparse()
+					? ProjectionMethod.AUGMENTED_SYSTEM
+					: ProjectionMethod.QR_FACTORIZATION;
 		}
 
 		switch (method) {

@@ -32,13 +32,12 @@ import org.ujmp.core.Matrix;
  *       flipped so the convention {@code constrIneq(x) <= 0} holds.</li>
  *   <li>Upper-only if {@code lb[i] == -∞}. Contributes one row to
  *       {@code constrIneq} / {@code jacIneq}: {@code A[i,:] x - ub[i]}.</li>
+ *   <li>Two-sided interval ({@code lb[i] < ub[i]}, both finite). Contributes
+ *       <em>two</em> rows to {@code constrIneq} / {@code jacIneq}: an
+ *       upper-side row {@code A[i,:] x - ub[i]} and a lower-side row
+ *       {@code lb[i] - A[i,:] x}. Mirrors scipy's
+ *       {@code _canonical_constraints} row split.</li>
  * </ul>
- *
- * <p>Two-sided interval constraints (both {@code lb[i]} and {@code ub[i]}
- * finite with {@code lb[i] != ub[i]}) are not yet supported and throw
- * {@link UnsupportedOperationException}. scipy handles these by emitting two
- * inequality rows per source row in {@code _canonical_constraints} — porting
- * that splitter is the obvious next step.
  */
 public class LinearConstraint implements Constraint, Jacobian {
 
@@ -76,14 +75,11 @@ public class LinearConstraint implements Constraint, Jacobian {
 			boolean ubFinite = !Double.isInfinite(ub[i]);
 			if (lbFinite && ubFinite && lb[i] == ub[i]) {
 				++nEq;
-			} else if (lbFinite && !ubFinite) {
-				++nIneq;
-			} else if (!lbFinite && ubFinite) {
-				++nIneq;
 			} else if (lbFinite && ubFinite) {
-				throw new UnsupportedOperationException(
-						"Two-sided interval constraints (lb < ub, both finite) at row " + i +
-						" are not yet supported. Split the constraint into separate lower-only and upper-only rows.");
+				// Two-sided interval: emits two ineq rows (upper, lower).
+				nIneq += 2;
+			} else if (lbFinite || ubFinite) {
+				++nIneq;
 			}
 			// both infinite: no constraint, drop
 		}
@@ -98,12 +94,22 @@ public class LinearConstraint implements Constraint, Jacobian {
 			boolean ubFinite = !Double.isInfinite(ub[i]);
 			if (lbFinite && ubFinite && lb[i] == ub[i]) {
 				eqRows[eqIdx++] = i;
-			} else if (lbFinite && !ubFinite) {
+			} else if (lbFinite && ubFinite) {
+				// Two-sided: emit upper-side row, then lower-side row.
+				ineqRows[ineqIdx] = i;
+				ineqSign[ineqIdx] = +1;
+				ineqTarget[ineqIdx] = ub[i];
+				++ineqIdx;
 				ineqRows[ineqIdx] = i;
 				ineqSign[ineqIdx] = -1;
 				ineqTarget[ineqIdx] = lb[i];
 				++ineqIdx;
-			} else if (!lbFinite && ubFinite) {
+			} else if (lbFinite) {
+				ineqRows[ineqIdx] = i;
+				ineqSign[ineqIdx] = -1;
+				ineqTarget[ineqIdx] = lb[i];
+				++ineqIdx;
+			} else if (ubFinite) {
 				ineqRows[ineqIdx] = i;
 				ineqSign[ineqIdx] = +1;
 				ineqTarget[ineqIdx] = ub[i];

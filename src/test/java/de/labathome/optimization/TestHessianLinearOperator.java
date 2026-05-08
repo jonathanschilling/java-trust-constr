@@ -1,0 +1,48 @@
+package de.labathome.optimization;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.scipy.optimize.minimize.HessianLinearOperator;
+import org.scipy.optimize.minimize.interfaces.HessianProduct;
+import org.ujmp.core.Matrix;
+
+import minerva.tests.junit.MinervaAssertions;
+
+class TestHessianLinearOperator {
+
+	private static final double TOL = 1.0e-14;
+
+	@Test
+	void testIdentityHessian() {
+		// hessp(x, p) = p  ->  the wrapper should materialise H = I_n.
+		HessianProduct hessp = (x, p, args) -> p;
+		HessianLinearOperator op = new HessianLinearOperator(hessp, 3);
+		Matrix h = op.apply(Matrix.Factory.linkToArray(new double[] {0.0, 0.0, 0.0}), null);
+		Assertions.assertEquals(3, h.getRowCount());
+		Assertions.assertEquals(3, h.getColumnCount());
+		double[][] expected = { {1, 0, 0}, {0, 1, 0}, {0, 0, 1} };
+		MinervaAssertions.assertArrayRelAbsEquals(expected, h.toDoubleArray(), TOL);
+	}
+
+	@Test
+	void testKnownDenseHessian() {
+		// H = [[2, -1, 0], [-1, 2, -1], [0, -1, 2]]   (1D Laplacian)
+		final double[][] hData = {
+				{ 2, -1,  0 },
+				{ -1, 2, -1 },
+				{ 0, -1,  2 },
+		};
+		HessianProduct hessp = (x, p, args) -> {
+			double[] r = new double[3];
+			for (int i = 0; i < 3; ++i) {
+				for (int j = 0; j < 3; ++j) {
+					r[i] += hData[i][j] * p.getAsDouble(j, 0);
+				}
+			}
+			return Matrix.Factory.linkToArray(r);
+		};
+		HessianLinearOperator op = new HessianLinearOperator(hessp, 3);
+		Matrix h = op.apply(Matrix.Factory.linkToArray(new double[3]), null);
+		MinervaAssertions.assertArrayRelAbsEquals(hData, h.toDoubleArray(), TOL);
+	}
+}

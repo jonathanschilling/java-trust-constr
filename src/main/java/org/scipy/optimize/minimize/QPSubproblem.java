@@ -7,9 +7,11 @@ import org.scipy.optimize.minimize.enums.PCGStoppingCondition;
 import org.scipy.optimize.minimize.interfaces.LinearOperator;
 import org.scipy.optimize.minimize.records.CGInfo;
 import org.scipy.optimize.minimize.records.IntersectionResult;
+import org.scipy.optimize.minimize.sparse.CSRMatrix;
+import org.scipy.optimize.minimize.sparse.DenseSolve;
+import org.scipy.optimize.minimize.sparse.SparseAssembly;
+import org.scipy.optimize.minimize.sparse.UjmpBridge;
 import org.ujmp.core.Matrix;
-import org.ujmp.core.SparseMatrix;
-import org.ujmp.core.doublematrix.calculation.general.decomposition.LU.LUMatrix;
 
 public class QPSubproblem {
 
@@ -40,59 +42,44 @@ public class QPSubproblem {
 	 */
 	public static Matrix[] eqpKktFact(Matrix H, Matrix c, Matrix A, Matrix b) {
 
-		long n = H.getRowCount();
-		long m = A.getRowCount();
+		int n = (int) H.getRowCount();
+		int m = (int) A.getRowCount();
 
-		// 1. build explicit KKT matrix:
+		// 1. build explicit KKT matrix in CSR form using sparse-aware block assembly:
 		// [ G A^T ]
 		// [ A  0  ]
-		Matrix kkt = SparseMatrix.Factory.zeros(n+m, n+m);
+		CSRMatrix hCsr = UjmpBridge.toCSR(H);
+		CSRMatrix aCsr = UjmpBridge.toCSR(A);
+		CSRMatrix aTCsr = aCsr.transpose().toCSR();
+		CSRMatrix kkt = SparseAssembly.blockArray(new CSRMatrix[][] {
+				{ hCsr, aTCsr },
+				{ aCsr, null  },
+		});
 
-		// copy G into top left block of KKT matrix
-		for (long[] pos: H.availableCoordinates()) {
-			kkt.setAsDouble(H.getAsDouble(pos), pos);
+		// 2. build RHS vector [ -c; -b ]
+		double[] rhs = new double[n + m];
+		for (int i = 0; i < n; ++i) {
+			rhs[i] = -c.getAsDouble(i, 0);
+		}
+		for (int i = 0; i < m; ++i) {
+			rhs[n + i] = -b.getAsDouble(i, 0);
 		}
 
-		for (long[] pos: A.availableCoordinates()) {
-			double aVal = A.getAsDouble(pos);
-
-			// copy A into bottom left block of KKT matrix
-			kkt.setAsDouble(aVal, n+pos[0], pos[1]);
-
-			// copy A^T into top right block of KKT matrix
-			kkt.setAsDouble(aVal, pos[1], n+pos[0]);
-		}
-
-		// 2. build RHS vector
-		// [ -c ]
-		// [ -b ]
-		Matrix rhs = Matrix.Factory.zeros(n+m, 1);
-		for (long[] pos: c.availableCoordinates()) {
-			rhs.setAsDouble(-c.getAsDouble(pos), pos);
-		}
-		for (long[] pos: b.availableCoordinates()) {
-			// TODO: change to b for consistency with book --> also in API!
-			rhs.setAsDouble(-b.getAsDouble(pos), n + pos[0], pos[1]);
-		}
-
+		// 3. solve via dense LU on the assembled KKT.
+		// TODO: When the project ships a sparse direct solver this is the only call site
+		//       that needs to switch — the KKT matrix above is already CSR.
 		// TODO: Use a symmetric indefinite factorization
 		//       to solve the system twice as fast (because of the symmetry).
+		double[] sln = DenseSolve.solveLU(kkt.toDense(), rhs);
 
-		// 3. obtain LU factorization of KKT matrix
-		LUMatrix lu = new LUMatrix(kkt);
-
-		// 4. solve
-		Matrix sln = lu.solve(rhs);
-
-		// 5. copy solution back into appropriate vectors
+		// 4. copy solution back into UJMP column vectors.
 		Matrix x = Matrix.Factory.zeros(n, 1);
-		for (long[] pos: x.allCoordinates()) {
-			x.setAsDouble(sln.getAsDouble(pos), pos);
+		for (int i = 0; i < n; ++i) {
+			x.setAsDouble(sln[i], i, 0);
 		}
-
 		Matrix lambda = Matrix.Factory.zeros(m, 1);
-		for (long[] pos: lambda.allCoordinates()) {
-			lambda.setAsDouble(-sln.getAsDouble(n + pos[0], pos[1]), pos);
+		for (int i = 0; i < m; ++i) {
+			lambda.setAsDouble(-sln[n + i], i, 0);
 		}
 
 		return new Matrix[] {x, lambda};

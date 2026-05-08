@@ -1,0 +1,85 @@
+package de.labathome.optimization;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.scipy.optimize.minimize.LinAlg;
+import org.scipy.optimize.minimize.LinearConstraint;
+import org.ujmp.core.Matrix;
+
+import minerva.tests.junit.MinervaAssertions;
+
+class TestLinearConstraint {
+
+	private static final double TOL = 1.0e-14;
+	private static final double NEG_INF = Double.NEGATIVE_INFINITY;
+	private static final double POS_INF = Double.POSITIVE_INFINITY;
+
+	@Test
+	void testEqualityOnly() {
+		// A = [[1, 2], [3, 4]], lb == ub == [5, 6] (pure equality)
+		Matrix A = Matrix.Factory.linkToArray(new double[][] { {1, 2}, {3, 4} });
+		LinearConstraint c = new LinearConstraint(A, new double[] {5, 6}, new double[] {5, 6});
+		Assertions.assertEquals(2, c.nEq());
+		Assertions.assertEquals(0, c.nIneq());
+
+		Matrix x = Matrix.Factory.linkToArray(new double[] {1.0, 2.0});
+		// A x = [1+4, 3+8] = [5, 11];  constrEq = A x - lb = [0, 5]
+		MinervaAssertions.assertArrayRelAbsEquals(new double[] {0.0, 5.0}, LinAlg.col(c.constrEq(x)), TOL);
+		MinervaAssertions.assertArrayRelAbsEquals(new double[][] { {1, 2}, {3, 4} }, c.jacEq(x).toDoubleArray(), TOL);
+	}
+
+	@Test
+	void testOneSidedUpper() {
+		// A x <= [3, 7]
+		Matrix A = Matrix.Factory.linkToArray(new double[][] { {1, 0}, {0, 1} });
+		LinearConstraint c = new LinearConstraint(A, new double[] {NEG_INF, NEG_INF}, new double[] {3, 7});
+		Assertions.assertEquals(0, c.nEq());
+		Assertions.assertEquals(2, c.nIneq());
+
+		Matrix x = Matrix.Factory.linkToArray(new double[] {2.0, 9.0});
+		// constrIneq[i] = +1 * (A[i] x - ub[i]) = [-1, 2]
+		MinervaAssertions.assertArrayRelAbsEquals(new double[] {-1.0, 2.0}, LinAlg.col(c.constrIneq(x)), TOL);
+		// jacIneq = +1 * A
+		MinervaAssertions.assertArrayRelAbsEquals(new double[][] { {1, 0}, {0, 1} }, c.jacIneq(x).toDoubleArray(), TOL);
+	}
+
+	@Test
+	void testOneSidedLower() {
+		// A x >= [1, 1]   ==   -(A x) <= -[1,1]   ==   constrIneq = -(A x - lb) = lb - A x
+		Matrix A = Matrix.Factory.linkToArray(new double[][] { {1, 0}, {0, 1} });
+		LinearConstraint c = new LinearConstraint(A, new double[] {1, 1}, new double[] {POS_INF, POS_INF});
+		Assertions.assertEquals(0, c.nEq());
+		Assertions.assertEquals(2, c.nIneq());
+
+		Matrix x = Matrix.Factory.linkToArray(new double[] {2.0, 0.5});
+		// constrIneq[i] = -1 * (A[i] x - lb[i]) = [-(2-1), -(0.5-1)] = [-1, 0.5]
+		MinervaAssertions.assertArrayRelAbsEquals(new double[] {-1.0, 0.5}, LinAlg.col(c.constrIneq(x)), TOL);
+		MinervaAssertions.assertArrayRelAbsEquals(new double[][] { {-1, 0}, {0, -1} }, c.jacIneq(x).toDoubleArray(), TOL);
+	}
+
+	@Test
+	void testMixedEqAndIneqAndDropped() {
+		Matrix A = Matrix.Factory.linkToArray(new double[][] {
+				{1, 0, 0},
+				{0, 1, 0},
+				{0, 0, 1},
+				{1, 1, 0},
+		});
+		// row 0: equality   (lb=ub=5)
+		// row 1: upper      (lb=-inf, ub=2)
+		// row 2: lower      (lb=-3, ub=+inf)
+		// row 3: dropped    (lb=-inf, ub=+inf)
+		LinearConstraint c = new LinearConstraint(A,
+				new double[] {5, NEG_INF, -3, NEG_INF},
+				new double[] {5, 2, POS_INF, POS_INF});
+		Assertions.assertEquals(1, c.nEq());
+		Assertions.assertEquals(2, c.nIneq());
+	}
+
+	@Test
+	void testTwoSidedRejected() {
+		Matrix A = Matrix.Factory.linkToArray(new double[][] { {1, 1} });
+		Assertions.assertThrows(UnsupportedOperationException.class,
+				() -> new LinearConstraint(A, new double[] {0}, new double[] {2}));
+	}
+}

@@ -12,6 +12,9 @@ import org.scipy.optimize.minimize.records.CGInfo;
 import org.scipy.optimize.minimize.records.FunctionAndConstraint;
 import org.scipy.optimize.minimize.records.GradientAndJacobian;
 import org.scipy.optimize.minimize.records.State;
+import org.scipy.optimize.minimize.sparse.CSRMatrix;
+import org.scipy.optimize.minimize.sparse.SparseAssembly;
+import org.scipy.optimize.minimize.sparse.UjmpBridge;
 import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix;
 import org.ujmp.core.calculation.Calculation.Ret;
@@ -357,52 +360,24 @@ public class BarrierSubproblem {
 		return Matrix.Factory.vertCat(cEq, cIneq.plus(s));
 	}
 
+	/**
+	 * Assemble the augmented Jacobian {@code [[J_eq, 0], [J_ineq, diag(s)]]} for
+	 * the barrier subproblem ({@code tr_interior_point.py:_assemble_sparse_jacobian}).
+	 *
+	 * The block is assembled directly in CSR via
+	 * {@link SparseAssembly#assembleJacobianWithSlacks} — this is the optimised
+	 * counterpart of the generic {@code block_array} call that scipy comments
+	 * about. The output is converted back to a UJMP {@link Matrix} so existing
+	 * callers see the same type they always have.
+	 */
 	private Matrix computeJacobian(Matrix jEq, Matrix jIneq, Matrix s) {
 		if (nIneq == 0) {
 			return jEq;
-		} else {
-//			if (jEq.isSparse() || jIneq.isSparse()) {
-//				 // It is expected that J_eq and J_ineq
-//	             // are already `csr_matrix` because of
-//	             // the way ``BoxConstraint``, ``NonlinearConstraint``
-//	             // and ``LinearConstraint`` are defined.
-//				return assembleSparseJacobian(jEq, jIneq, s);
-//			} else {
-				Matrix S = SparseMatrix.Factory.zeros(s.getRowCount(), s.getRowCount());
-				for (long[] pos: s.allCoordinates()) {
-					S.setAsDouble(s.getAsDouble(pos), pos[0], pos[0]);
-				}
-				Matrix zeros = Matrix.Factory.zeros(nEq, nIneq);
-
-				return Matrix.Factory.vertCat(
-						Matrix.Factory.horCat(jEq, zeros),
-						Matrix.Factory.horCat(jIneq, S));
-//			}
 		}
+		CSRMatrix jEqCsr = UjmpBridge.toCSR(jEq);
+		CSRMatrix jIneqCsr = UjmpBridge.toCSR(jIneq);
+		double[] sArr = UjmpBridge.colToArray(s);
+		CSRMatrix combined = SparseAssembly.assembleJacobianWithSlacks(jEqCsr, jIneqCsr, sArr);
+		return UjmpBridge.toUjmp(combined);
 	}
-
-//	/**
-//	 * Assemble sparse Jacobian given its components.
-//     *
-//     * Given {@code J_eq}, {@code J_ineq} and {@code s} returns:
-//     * <pre>
-//     *     jacobian = [ J_eq,     0     ]
-//     *                [ J_ineq, diag(s) ]
-//     * </pre>
-//     * It is equivalent to:
-//     * <pre>
-//     *     sps.bmat([[ J_eq,   None    ],
-//     *               [ J_ineq, diag(s) ]], "csr")
-//     * </pre>
-//     * but significantly more efficient for this given structure.
-//     *
-//	 * @param jEq
-//	 * @param jIneq
-//	 * @param s
-//	 * @return
-//	 */
-//	private Matrix assembleSparseJacobian(Matrix jEq, Matrix jIneq, Matrix s) {
-//		// special case optimization from SciPy not applicable here
-//		return null;
-//	}
 }

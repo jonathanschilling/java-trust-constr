@@ -1,12 +1,16 @@
 package org.scipy.optimize.minimize;
 
+import java.util.Arrays;
+
 import org.scipy.optimize.minimize.enums.ProjectionMethod;
 import org.scipy.optimize.minimize.interfaces.LinearOperator;
+import org.scipy.optimize.minimize.sparse.CSRMatrix;
+import org.scipy.optimize.minimize.sparse.DenseSolve;
+import org.scipy.optimize.minimize.sparse.SparseAssembly;
+import org.scipy.optimize.minimize.sparse.UjmpBridge;
 import org.ujmp.core.Matrix;
-import org.ujmp.core.SparseMatrix2D;
 import org.ujmp.core.calculation.Calculation.Ret;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.Chol.CholMatrix;
-import org.ujmp.core.doublematrix.calculation.general.decomposition.LU.LUMatrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.QR.QRMatrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.SVD.SVDMatrix;
 
@@ -226,20 +230,30 @@ public class Projections {
 	 */
 	private static LinearOperator[] augmentedSystemProjections(Matrix A, double orthTol, int maxRefine, double tolerance) {
 
-		// Form augmented system:
-		// [ 1 A^T ]
-		// [ A  0  ]
-		Matrix firstRowK = SparseMatrix2D.Factory.horCat(SparseMatrix2D.Factory.eye(A.getColumnCount(), A.getColumnCount()), A.transpose());
-		Matrix secondRowK = SparseMatrix2D.Factory.horCat(A, SparseMatrix2D.Factory.zeros(A.getRowCount(), A.getRowCount()));
-		Matrix K = SparseMatrix2D.Factory.vertCat(firstRowK, secondRowK);
+		final int n = (int) A.getColumnCount();
+		final int m = (int) A.getRowCount();
 
-		// LU factorization
-		// TODO: Use a symmetric indefinite factorization
-		//       to solve the system twice as fast (because of the symmetry).
-		LUMatrix luK = new LUMatrix(K);
-		if (!luK.isNonsingular()) {
-			System.out.println("Singular Jacobian matrix. Using dense SVD decomposition to \n" +
-					           "perform the factorizations.");
+		// Form augmented KKT system in CSR via the new sparse-aware block constructor:
+		// [ I  A^T ]
+		// [ A   0  ]
+		CSRMatrix aCsr = UjmpBridge.toCSR(A);
+		CSRMatrix aTCsr = aCsr.transpose().toCSR();
+		final CSRMatrix kkt = SparseAssembly.blockArray(new CSRMatrix[][] {
+				{ CSRMatrix.eye(n), aTCsr },
+				{ aCsr,             null  },
+		});
+
+		// Factor the assembled KKT. Currently we materialise to dense and call LAPACK
+		// dgetrf via dev.ludovic.netlib; when the project ships a true sparse direct
+		// solver this is the single call site that needs to switch.
+		// TODO: Use a symmetric indefinite factorization to solve the system twice
+		//       as fast (because of the symmetry).
+		final DenseSolve.LUFactor lu;
+		try {
+			lu = DenseSolve.factor(kkt.toDense());
+		} catch (ArithmeticException ex) {
+			System.out.println("Singular Jacobian matrix. Using dense SVD decomposition to \n"
+					+ "perform the factorizations.");
 			return svdFactorizationProjections(A, orthTol, maxRefine, tolerance);
 		}
 
@@ -253,46 +267,37 @@ public class Projections {
 		 */
 		LinearOperator nullSpace = new LinearOperator() {
 			@Override
-			public Matrix apply(Matrix x) {
-				// v = [x]
-			    //     [0]
-				Matrix v = Matrix.Factory.zeros(x.getRowCount() + A.getRowCount(), 1);
-				for (long[] pos: x.allCoordinates()) {
-					v.setAsDouble(x.getAsDouble(pos), pos);
-				}
+			public Matrix apply(Matrix xMat) {
+				double[] x = UjmpBridge.colToArray(xMat);
+				// v = [x; 0]
+				double[] v = new double[n + m];
+				System.arraycopy(x, 0, v, 0, n);
 
-				// lu_sol = [ z ]
-		        //          [aux]
-				Matrix luSol = luK.solve(v);
-				Matrix z = luSol.subMatrix(Ret.LINK, 0, 0, x.getRowCount()-1, 0);
+				// lu_sol = [ z; aux ]
+				double[] luSol = lu.solve(v);
+				double[] z = Arrays.copyOfRange(luSol, 0, n);
 
-				// Iterative refinement to improve roundoff
-				// errors described in [2]_, algorithm 5.2.
+				// Iterative refinement to improve roundoff errors
+				// (Bjorck "Numerical Methods for Least Squares Problems" 1996, alg. 5.2).
 				int k = 0;
-				while (orthogonality(A, z) > orthTol) {
+				while (orthogonality(A, UjmpBridge.arrayToCol(z)) > orthTol) {
 					if (k >= maxRefine) {
 						break;
 					}
-
-					// new_v = [x] - [I A.T] * [ z ]
-		            //         [0]   [A  O ]   [aux]
-					Matrix newV = v.minus(K.mtimes(luSol));
-
-					// [I A.T] * [delta  z ] = new_v
-		            // [A  O ]   [delta aux]
-					Matrix luUpdate = luK.solve(newV);
-
-					// [ z ] += [delta  z ]
-		            // [aux]    [delta aux]
-					luSol = luSol.plus(luUpdate);
-					z = luSol.subMatrix(Ret.LINK, 0, 0, x.getRowCount()-1, 0);
-					// TODO: need to re-link each time?
-					// --> in-place addition possible?
-
+					// new_v = v - K * lu_sol
+					double[] kx = kkt.matvec(luSol);
+					double[] newV = new double[n + m];
+					for (int i = 0; i < n + m; ++i) {
+						newV[i] = v[i] - kx[i];
+					}
+					double[] luUpdate = lu.solve(newV);
+					for (int i = 0; i < n + m; ++i) {
+						luSol[i] += luUpdate[i];
+					}
+					z = Arrays.copyOfRange(luSol, 0, n);
 					k++;
 				}
-
-				return z;
+				return UjmpBridge.arrayToCol(z);
 			}
 		};
 
@@ -304,20 +309,13 @@ public class Projections {
 		 */
 		LinearOperator leastSquares = new LinearOperator() {
 			@Override
-			public Matrix apply(Matrix x) {
-				// v = [x]
-			    //     [0]
-				Matrix v = Matrix.Factory.zeros(x.getRowCount() + A.getRowCount(), 1);
-				for (long[] pos: x.allCoordinates()) {
-					v.setAsDouble(x.getAsDouble(pos), pos);
-				}
-
-				// lu_sol = [aux]
-		        //          [ z ]
-				Matrix luSol = luK.solve(v);
-
-				// return z = inv(A A.T) A x
-				return luSol.subMatrix(Ret.NEW, x.getRowCount(), 0, luSol.getRowCount()-1, 0);
+			public Matrix apply(Matrix xMat) {
+				double[] x = UjmpBridge.colToArray(xMat);
+				// v = [x; 0]
+				double[] v = new double[n + m];
+				System.arraycopy(x, 0, v, 0, n);
+				double[] luSol = lu.solve(v);
+				return UjmpBridge.arrayToCol(Arrays.copyOfRange(luSol, n, n + m));
 			}
 		};
 
@@ -329,22 +327,13 @@ public class Projections {
 		 */
 		LinearOperator rowSpace = new LinearOperator() {
 			@Override
-			public Matrix apply(Matrix x) {
-				// v = [0]
-		        //     [x]
-				long rowsA = A.getColumnCount();
-				Matrix v = Matrix.Factory.zeros(rowsA + x.getRowCount(), 1);
-				for (long[] pos: x.allCoordinates()) {
-					v.setAsDouble(x.getAsDouble(pos), rowsA + pos[0], pos[1]);
-				}
-
-				// lu_sol = [ z ]
-		        //          [aux]
-				Matrix luSol = luK.solve(v);
-
-				// return z = A.T inv(A A.T) x
-				Matrix z = luSol.subMatrix(Ret.NEW, 0, 0, rowsA-1, 0);
-				return z;
+			public Matrix apply(Matrix xMat) {
+				double[] x = UjmpBridge.colToArray(xMat);
+				// v = [0; x]
+				double[] v = new double[n + m];
+				System.arraycopy(x, 0, v, n, m);
+				double[] luSol = lu.solve(v);
+				return UjmpBridge.arrayToCol(Arrays.copyOfRange(luSol, 0, n));
 			}
 		};
 

@@ -323,7 +323,7 @@ class TestProjectedCG {
 		Assertions.assertEquals(PCGStoppingCondition.ITER_LIMIT_REACHED, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
 
-		MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(b.times(-1)), LinAlg.col(A.mtimes(r.x.transpose())), tolerance);
+		MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(b.times(-1)), LinAlg.col(A.mtimes(r.x)), tolerance);
 		MinervaAssertions.assertRelAbsEquals(0.8, r.x.getAsDouble(0, 0), tolerance);
 	}
 
@@ -363,7 +363,7 @@ class TestProjectedCG {
 		Assertions.assertEquals(PCGStoppingCondition.TRUST_REGION_BOUNDARY_REACHED, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
 
-		MinervaAssertions.assertRelAbsEquals(1.6, r.x.getAsDouble(0, 2), tolerance);
+		MinervaAssertions.assertRelAbsEquals(1.6, r.x.getAsDouble(2, 0), tolerance);
 	}
 
 	/**
@@ -402,7 +402,7 @@ class TestProjectedCG {
 		Assertions.assertEquals(PCGStoppingCondition.TRUST_REGION_BOUNDARY_REACHED, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
 
-		MinervaAssertions.assertRelAbsEquals(0.1, r.x.getAsDouble(0, 1), tolerance);
+		MinervaAssertions.assertRelAbsEquals(0.1, r.x.getAsDouble(1, 0), tolerance);
 	}
 
 	/**
@@ -440,6 +440,6 @@ class TestProjectedCG {
 		CGInfo r = QPSubproblem.projectedCG(LinAlg.op(H), c, Z, Y, b, trustRadius, lb, ub, tol);
 		Assertions.assertEquals(PCGStoppingCondition.NEGATIVE_CURVATURE, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
-		MinervaAssertions.assertRelAbsEquals(100.0, r.x.getAsDouble(0, 2), tolerance);
+		MinervaAssertions.assertRelAbsEquals(100.0, r.x.getAsDouble(2, 0), tolerance);
 	}
 }

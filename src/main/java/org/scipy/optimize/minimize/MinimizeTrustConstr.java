@@ -6,16 +6,27 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.ToDoubleBiFunction;
 
+import org.scipy.optimize.minimize.enums.PCGStoppingCondition;
 import org.scipy.optimize.minimize.enums.ProjectionMethod;
+import org.scipy.optimize.minimize.enums.TrustConstrMethod;
 import org.scipy.optimize.minimize.interfaces.Constraint;
 import org.scipy.optimize.minimize.interfaces.HessianProduct;
+import org.scipy.optimize.minimize.interfaces.IFunctionAndConstraint;
+import org.scipy.optimize.minimize.interfaces.IGradientAndJacobian;
+import org.scipy.optimize.minimize.interfaces.Jacobian;
+import org.scipy.optimize.minimize.interfaces.LagrangeHessian;
+import org.scipy.optimize.minimize.interfaces.LinearOperator;
+import org.scipy.optimize.minimize.interfaces.StoppingCriterion;
 import org.scipy.optimize.minimize.records.Bounds;
 import org.scipy.optimize.minimize.records.CGInfo;
 import org.scipy.optimize.minimize.records.FiniteDifferenceBounds;
+import org.scipy.optimize.minimize.records.FunctionAndConstraint;
+import org.scipy.optimize.minimize.records.GradientAndJacobian;
 import org.scipy.optimize.minimize.records.OptimizeResult;
 import org.scipy.optimize.minimize.records.PreparedConstraint;
 import org.scipy.optimize.minimize.records.State;
 import org.scipy.optimize.minimize.records.StateIP;
+import org.scipy.optimize.minimize.records.StatefulResult;
 import org.scipy.optimize.minimize.records.StrictBounds;
 import org.ujmp.core.Matrix;
 
@@ -106,6 +117,169 @@ public class MinimizeTrustConstr {
 		state.barrierTolerance = barrierTolerance;
 
 		return state;
+	}
+
+	/**
+	 * Convenience entry point covering the equality-constrained slice of the
+	 * trust-constr API: a scalar objective with an explicit gradient and Hessian,
+	 * subject to optional pure-equality constraints from a single
+	 * {@link LinearConstraint} or {@link NonlinearConstraint}.
+	 *
+	 * <p>This is a focused subset of {@code scipy.optimize.minimize(method='trust-constr')}
+	 * intended for problems where every constraint row is an equality
+	 * ({@code lb[i] == ub[i]}). It dispatches to {@link EqualityConstrainedSQP#eqSQP}
+	 * directly without the full canonical-form constraint pipeline. Callers with
+	 * inequalities, {@link Bounds}, multiple constraints, or finite-difference
+	 * Hessians/Jacobians should wait for the full {@link #minimizeTrustConstr}
+	 * orchestrator.
+	 *
+	 * @param fun objective function {@code f : R^n -> R}
+	 * @param grad analytic gradient {@code g : R^n -> R^n}
+	 * @param hess analytic Hessian {@code H : R^n -> R^{n x n}}
+	 * @param x0   initial point as a column vector (n x 1)
+	 * @param eq   equality constraint, or {@code null} for unconstrained problems
+	 *             (the constraint object must satisfy {@code nIneq() == 0})
+	 * @param maxIter maximum number of outer iterations
+	 * @param xtol stop when {@code trustRadius < xtol}
+	 * @param gtol stop when {@code optimality < gtol} and {@code constrViolation < gtol}
+	 * @return populated {@link OptimizeResult}
+	 */
+	public static <C extends Constraint & Jacobian> OptimizeResult minimizeEqualityConstrained(
+			java.util.function.Function<Matrix, Double> fun,
+			java.util.function.Function<Matrix, Matrix> grad,
+			java.util.function.Function<Matrix, Matrix> hess,
+			Matrix x0, C eq,
+			int maxIter, double xtol, double gtol) {
+		final int nVars = (int) x0.getRowCount();
+		if (eq != null && eq instanceof LinearConstraint && ((LinearConstraint) eq).nIneq() != 0) {
+			throw new UnsupportedOperationException("Inequality constraints not supported by minimizeEqualityConstrained");
+		}
+		if (eq != null && eq instanceof NonlinearConstraint && ((NonlinearConstraint) eq).nIneq() != 0) {
+			throw new UnsupportedOperationException("Inequality constraints not supported by minimizeEqualityConstrained");
+		}
+
+		// Wrap objective in ScalarFunction for the existing fun/grad/hess infrastructure.
+		// Note: ScalarFunction.FACTORY is a shared static singleton that retains state
+		// across calls, so we explicitly construct a fresh factory to avoid leaking
+		// settings between successive minimize() invocations.
+		ScalarFunction objective = new ScalarFunction.ScalarFunctionFactory()
+				.fun((x, args) -> fun.apply(x))
+				.x0(x0)
+				.args(null)
+				.grad((x, args) -> grad.apply(x))
+				.hess((x, args) -> hess.apply(x))
+				.finiteDiffBounds(FiniteDifferenceBounds.unbounded(nVars))
+				.build();
+
+		// Initial values from the objective and (optional) constraint.
+		double f0 = objective.f();
+		Matrix g0 = objective.g();
+		final int nEq = eq == null ? 0 : (eq instanceof LinearConstraint ? ((LinearConstraint) eq).nEq() : ((NonlinearConstraint) eq).nEq());
+		final Matrix c0;
+		final Matrix j0;
+		if (eq == null || nEq == 0) {
+			c0 = Matrix.Factory.zeros(0, 1);
+			j0 = Matrix.Factory.zeros(0, nVars);
+		} else {
+			c0 = eq.constrEq(x0);
+			j0 = eq.jacEq(x0);
+		}
+
+		// Build the (fun, c_eq) and (grad, J_eq) closures the SQP expects.
+		final Constraint cFinal = eq;
+		final Jacobian jFinal = eq;
+		IFunctionAndConstraint funAndConstr = x -> {
+			double f = fun.apply(x);
+			Matrix c = (cFinal == null || nEq == 0) ? c0 : cFinal.constrEq(x);
+			return new FunctionAndConstraint(f, c);
+		};
+		IGradientAndJacobian gradAndJac = x -> {
+			Matrix g = grad.apply(x);
+			Matrix J = (jFinal == null || nEq == 0) ? j0 : jFinal.jacEq(x);
+			return new GradientAndJacobian(g, J);
+		};
+
+		// Lagrangian Hessian: linear-constraint Hessian is zero, so we just delegate to
+		// the objective Hessian. For nonlinear constraints without an analytic
+		// constraint Hessian this is an approximation — the nonlinear case may want
+		// a quasi-Newton update strategy in a future iteration.
+		LagrangeHessian lagrHess = (x, v) -> {
+			Matrix H = hess.apply(x);
+			return p -> H.mtimes(p);
+		};
+
+		// Initial state and trivial stopping criterion (gtol / xtol / maxIter).
+		State state = new State();
+		state.numConstraintEval = new int[0];
+		state.numConstraintJacobianEval = new int[0];
+		state.numConstraintHessianEval = new int[0];
+		state.v = new Matrix[0];
+		state.constr = new Matrix[0];
+		state.jac = new Matrix[0];
+
+		final long startTime = System.nanoTime();
+		StoppingCriterion stop = (s, x, lastIterFailed, optimality, constrViolation,
+				trustRadius, penalty, cgInfo) -> {
+			s.nIter++;
+			s.executionTime = System.nanoTime() - startTime;
+			s.optimality = optimality;
+			s.constrViolation = constrViolation;
+			s.trustRadius = trustRadius;
+			s.constraintPenalty = penalty;
+			s.cgNIter += cgInfo.niter;
+			s.cgStopCond = cgInfo.stopCond;
+			s.x = x;
+			if (optimality < gtol && constrViolation < gtol) return true;
+			if (trustRadius < xtol) return true;
+			if (s.nIter >= maxIter) return true;
+			return false;
+		};
+
+		// Run the SQP loop.
+		LinearOperator scaling = EqualityConstrainedSQP.defaultScaling(nVars);
+		StatefulResult sr = EqualityConstrainedSQP.eqSQP(
+				funAndConstr, gradAndJac, lagrHess,
+				x0, f0, g0, c0, j0,
+				stop, state,
+				1.0,                         // initial penalty
+				1.0,                         // initial trust radius
+				ProjectionMethod.QR_FACTORIZATION,
+				null, null,                  // trustLb/Ub: unconstrained
+				scaling);
+
+		// Populate OptimizeResult — re-evaluate the objective at the final x to
+		// keep r.fun and r.grad consistent with r.x. (ScalarFunction internal
+		// state is only tracked for evaluations the SQP routes through it; our
+		// closures bypass that.)
+		OptimizeResult r = new OptimizeResult();
+		r.x = sr.x();
+		r.fun = fun.apply(sr.x());
+		r.grad = grad.apply(sr.x());
+		r.lagrangianGrad = state.lagrangianGrad;
+		r.optimality = state.optimality;
+		r.constraintViolation = state.constrViolation;
+		r.nIter = state.nIter;
+		r.numFunctionEval = objective.numFunctionEvals();
+		r.numJacobianEval = objective.numGradientEvals();
+		r.numHessianEval = objective.numHessianEvals();
+		r.cgIter = state.cgNIter;
+		r.cgStopCond = state.cgStopCond == null ? PCGStoppingCondition.NOT_EVALUATED : state.cgStopCond;
+		r.method = TrustConstrMethod.EQUALITY_CONSTRAINED_SQP;
+		r.trustRadius = state.trustRadius;
+		r.constraintPenalty = state.constraintPenalty;
+		r.executionTime = state.executionTime;
+		// Status: 1 = gtol satisfied, 2 = xtol satisfied, 0 = max iterations
+		if (state.optimality < gtol && state.constrViolation < gtol) {
+			r.status = 1;
+			r.message = "`gtol` termination condition is satisfied.";
+		} else if (state.trustRadius < xtol) {
+			r.status = 2;
+			r.message = "`xtol` termination condition is satisfied.";
+		} else {
+			r.status = 0;
+			r.message = "The maximum number of function evaluations is exceeded.";
+		}
+		return r;
 	}
 
 	/**

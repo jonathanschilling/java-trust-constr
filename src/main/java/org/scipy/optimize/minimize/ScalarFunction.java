@@ -49,7 +49,7 @@ public class ScalarFunction {
 		private FiniteDifferenceBounds finiteDiffBounds;
 		private Matrix epsilon;
 
-		private ScalarFunctionFactory() {
+		public ScalarFunctionFactory() {
 			hasGrad = false;
 			hasHess = false;
 		}

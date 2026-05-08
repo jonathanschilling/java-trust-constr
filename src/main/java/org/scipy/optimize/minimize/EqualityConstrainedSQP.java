@@ -45,11 +45,14 @@ public class EqualityConstrainedSQP {
 	static final double BOX_FACTOR = 0.5;
 
 	public static final LinearOperator defaultScaling(long n) {
+		// "No scaling" means S = I_n: the SQP step is applied unscaled
+		// (S.mtimes(d) == d). Mirrors scipy's default_scaling, which returns
+		// scipy.sparse.eye(n).
+		final Matrix identity = Matrix.Factory.eye(n, n);
 		return new LinearOperator() {
 			@Override
 			public Matrix apply(Matrix x) {
-				// default: no scaling
-				return Matrix.Factory.copyFromMatrix(x);
+				return identity;
 			}
 		};
 	}
@@ -94,7 +97,7 @@ public class EqualityConstrainedSQP {
 			trustLb = Matrix.Factory.zeros(n, 1).fill(Ret.ORIG, Double.NEGATIVE_INFINITY);
 		}
 		if (trustUb == null) {
-			trustUb = Matrix.Factory.zeros(n, 1).fill(Ret.ORIG, Double.NEGATIVE_INFINITY);
+			trustUb = Matrix.Factory.zeros(n, 1).fill(Ret.ORIG, Double.POSITIVE_INFINITY);
 		}
 
 		// Initial values

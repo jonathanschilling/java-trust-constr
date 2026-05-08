@@ -736,7 +736,7 @@ public class QPSubproblem {
 
 					// Reinforce variables are inside box constraints.
 	                // This is only necessary because of roundoff errors.
-					result.x = Matrix.Factory.importFromArray(reinforceBoxBoundaries(LinAlg.col(result.x), lb, ub));
+					result.x = UjmpBridge.arrayToCol(reinforceBoxBoundaries(LinAlg.col(result.x), lb, ub));
 
 					// Attribute information
 					result.stopCond = PCGStoppingCondition.NEGATIVE_CURVATURE;
@@ -762,7 +762,7 @@ public class QPSubproblem {
 
 				// Reinforce variables are inside box constraints.
                 // This is only necessary because of roundoff errors.
-				result.x = Matrix.Factory.importFromArray(reinforceBoxBoundaries(LinAlg.col(result.x), lb, ub));
+				result.x = UjmpBridge.arrayToCol(reinforceBoxBoundaries(LinAlg.col(result.x), lb, ub));
 
 				// Attribute information
 				result.stopCond = PCGStoppingCondition.TRUST_REGION_BOUNDARY_REACHED;
@@ -787,7 +787,7 @@ public class QPSubproblem {
 
 					// Reinforce variables are inside box constraints.
 	                // This is only necessary because of roundoff errors.
-					lastFeasibleX = Matrix.Factory.importFromArray(reinforceBoxBoundaries(LinAlg.col(lastFeasibleX), lb, ub));
+					lastFeasibleX = UjmpBridge.arrayToCol(reinforceBoxBoundaries(LinAlg.col(lastFeasibleX), lb, ub));
 
 					counter = 0;
 				}

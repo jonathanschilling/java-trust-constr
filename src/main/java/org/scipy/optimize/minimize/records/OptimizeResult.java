@@ -7,46 +7,46 @@ import org.ujmp.core.Matrix;
 public class OptimizeResult {
 
 	/** [n] Solution found. */
-	Matrix x;
+	public Matrix x;
 
 	/** Infinity norm of the Lagrangian gradient at the solution. */
-	double optimality;
+	public double optimality;
 
 	/** Maximum constraint violation at the solution. */
-	double constraintViolation;
+	public double constraintViolation;
 
 	/** Objective function at the solution. */
-	double fun;
+	public double fun;
 
 	/** [n] Gradient of the objective function at the solution. */
-	Matrix grad;
+	public Matrix grad;
 
 	/** [n] Gradient of the Lagrangian function at the solution. */
-	Matrix lagrangianGrad;
+	public Matrix lagrangianGrad;
 
 	/** Total number of iterations. */
-	int nIter;
+	public int nIter;
 
 	/** Number of the objective function evaluations. */
-	int numFunctionEval;
+	public int numFunctionEval;
 
 	/** Number of the objective function gradient evaluations. */
-	int numJacobianEval;
+	public int numJacobianEval;
 
 	/** Number of the objective function Hessian evaluations. */
-	int numHessianEval;
+	public int numHessianEval;
 
 	/** Total number of the conjugate gradient method iterations. */
-	int cgIter;
+	public int cgIter;
 
 	/** Optimization method used. */
-	TrustConstrMethod method;
+	public TrustConstrMethod method;
 
 	/** List of constraint values at the solution. */
-	Matrix[] constr;
+	public Matrix[] constr;
 
 	/** List of the Jacobian matrices of the constraints at the solution. */
-	Matrix[] jac;
+	public Matrix[] jac;
 
 	/**
 	 * List of the Lagrange multipliers for the constraints at the solution. For an
@@ -54,40 +54,40 @@ public class OptimizeResult {
 	 * active, a negative multiplier means that the lower bound is active and if a
 	 * multiplier is zero it means the constraint is not active.
 	 */
-	Matrix[] v;
+	public Matrix[] v;
 
 	/** Number of constraint evaluations for each of the constraints. */
-	int[] numConstraintEval;
+	public int[] numConstraintEval;
 
 	/** Number of Jacobian matrix evaluations for each of the constraints. */
-	int[] numConstraintJacobianEval;
+	public int[] numConstraintJacobianEval;
 
 	/** Number of Hessian evaluations for each of the constraints. */
-	int[] numConstraintHessianEval;
+	public int[] numConstraintHessianEval;
 
 	/** Radius of the trust region at the last iteration. */
-	double trustRadius;
+	public double trustRadius;
 
 	/** Penalty parameter at the last iteration, see `initial_constr_penalty`. */
-	double constraintPenalty;
+	public double constraintPenalty;
 
 	/**
 	 * Tolerance for the barrier subproblem at the last iteration.
 	 * Only for problems with inequality constraints.
 	 */
-	double barrierTolerance;
+	public double barrierTolerance;
 
 	/**
 	 * Barrier parameter at the last iteration.
 	 * Only for problems with inequality constraints.
 	 */
-	double barrierParameter;
+	public double barrierParameter;
 
 	/** Total execution time in nanoseconds. */
-	long executionTime;
+	public long executionTime;
 
 	/** Termination message. */
-	String message;
+	public String message;
 
 	/**
 	 * {0, 1, 2, 3}: Termination status:
@@ -97,7 +97,7 @@ public class OptimizeResult {
 	 * 2 : `xtol` termination condition is satisfied.
 	 * 3 : `callback` function requested termination.
 	 */
-	int status;
+	public int status;
 
 	/**
 	 * Reason for CG subproblem termination at the last iteration:
@@ -108,6 +108,6 @@ public class OptimizeResult {
 	 * 3 : Negative curvature detected.
 	 * 4 : Tolerance was satisfied.
 	 */
-	PCGStoppingCondition cgStopCond;
+	public PCGStoppingCondition cgStopCond;
 
 }

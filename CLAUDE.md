@@ -50,8 +50,23 @@ UJMP is being incrementally retired in favour of an in-tree sparse module at **`
 - Keep Javadoc references to the scipy paper citations and equation numbers — they're load-bearing for cross-referencing the algorithm.
 - The development cadence (see `git log`) is "port one scipy function, write a parity test, commit." Match that — don't bulk-port without tests.
 
+## Public entry points
+
+- `MinimizeTrustConstr.minimizeEqualityConstrained(fun, grad, hess, x0, eq, maxIter, xtol, gtol)` — focused entry point covering the equality-constrained slice (no constraints, or a single `LinearConstraint` / `NonlinearConstraint` whose rows are all equalities). Dispatches to `EqualityConstrainedSQP.eqSQP` directly. Used by `src/test/java/de/labathome/optimization/integration/`.
+- `MinimizeTrustConstr.minimizeTrustConstr(...)` — the full scipy-shaped API. **Body still incomplete past the prepared-constraint step**: canonical-form concatenation, Lagrangian Hessian assembly, and the inequality-method dispatch are TODO.
+
 ## Known gaps (work-in-progress)
 
-- **`MinimizeTrustConstr.minimizeTrustConstr` body** is incomplete past line ~329: canonical-form constraint concatenation, Lagrangian Hessian assembly, method dispatch (`TrustRegionInteriorPoint` vs `EqualityConstrainedSQP`), and the iteration/callback loop are still TODO. Inner methods (`TrustRegionInteriorPoint`, `EqualityConstrainedSQP`, `BarrierSubproblem`) are runnable; the orchestrator that wires them up is not.
+- **`MinimizeTrustConstr.minimizeTrustConstr` body** is incomplete past line ~329: canonical-form constraint concatenation, Lagrangian Hessian assembly, method dispatch (`TrustRegionInteriorPoint` vs `EqualityConstrainedSQP`), and the iteration/callback loop are still TODO. Inner methods (`TrustRegionInteriorPoint`, `EqualityConstrainedSQP`, `BarrierSubproblem`) are runnable; the full orchestrator that wires them up is not. The narrower `minimizeEqualityConstrained` covers the equality-constrained subset.
 - **`LinearConstraint`/`NonlinearConstraint`** support pure-equality and one-sided inequality only. Two-sided interval constraints (`lb < ub`, both finite) throw `UnsupportedOperationException` and need scipy's canonical-form row-splitting (`canonical_constraint.py`) ported.
-- **Scipy test-suite parity**: `test_canonical_constraint.py`, `test_projections.py`, `test_qp_subproblem.py`, `test_nested_minimize.py`, and selected cases from `test_minimize_constrained.py` are not yet translated.
+- **Inequality-constrained optimization** (which goes through `TrustRegionInteriorPoint` + `BarrierSubproblem`) is not yet wired up by an orchestrator entry point. The pieces are in place; the final dispatch is not.
+- **Scipy test-suite parity**: `test_canonical_constraint.py`, `test_projections.py`, `test_qp_subproblem.py`, `test_nested_minimize.py`, and selected cases from `test_minimize_constrained.py` are not yet translated. New scipy-reference values for Java integration tests live in `src/test/python/regenerate_references.py`.
+
+## Bug fixes that landed alongside the orchestrator
+
+A few latent bugs surfaced when wiring `EqualityConstrainedSQP` into a runnable orchestrator and were fixed:
+
+- `EqualityConstrainedSQP.defaultScaling(n)` returned the input vector instead of the identity (the comment said "no scaling" but the body returned `x`). Now returns `Matrix.Factory.eye(n, n)`.
+- `EqualityConstrainedSQP.eqSQP(...)` defaulted `trustUb` to `NEGATIVE_INFINITY` (typo). Now `POSITIVE_INFINITY`.
+- `QPSubproblem.projectedCG`'s `reinforceBoxBoundaries` path went through `Matrix.Factory.importFromArray(double[])`, which produced a 1×n row matrix and silently broke shape consistency for downstream `dn + dt`. Now uses `UjmpBridge.arrayToCol(...)` which preserves the n×1 column convention. Four `TestProjectedCG` assertions had been written against the buggy row-shape; they were updated to column indexing.
+- `ScalarFunction.ScalarFunctionFactory` constructor was private with a single shared `FACTORY` static instance whose state leaked between calls. Constructor is now `public` so callers can build a fresh factory per `minimize` invocation.

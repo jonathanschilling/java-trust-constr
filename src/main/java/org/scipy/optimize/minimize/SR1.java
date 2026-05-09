@@ -1,5 +1,7 @@
 package org.scipy.optimize.minimize;
 
+import dev.ludovic.netlib.blas.BLAS;
+
 import org.ujmp.core.Matrix;
 
 /**
@@ -55,6 +57,8 @@ public class SR1 extends FullHessianUpdateStrategy {
 		FACTORY = new SR1Factory();
 	}
 
+	private static final BLAS BLAS_INSTANCE = BLAS.getInstance();
+
 	private final double minDenominator;
 
 	protected SR1(boolean initialScaleAuto, double initialScale, double minDenominator) {
@@ -93,18 +97,60 @@ public class SR1 extends FullHessianUpdateStrategy {
 			return;
 		}
 
-		// Update matrix
+		// Update matrix via BLAS dsyr: M += (1/denominator) * (z - Mw)(z - Mw)^T.
+		int N = (int) n;
+		double[] zmwArr = colVectorToArray(zMinusMw, N);
 		switch (approxType) {
-		case HESSIAN:
-			// TODO: use _syr from BLAS
-			B = B.plus( zMinusMw.mtimes(zMinusMw.transpose()).times(1/denominator) );
+		case HESSIAN: {
+			double[] flat = symMatrixToFlat(B, N);
+			BLAS_INSTANCE.dsyr("U", N, 1.0 / denominator, zmwArr, 1, flat, N);
+			mirrorSymmetric(flat, N);
+			B = flatToMatrix(flat, N);
 			break;
-		case INV_HESSIAN:
-			// TODO: use _syr from BLAS
-			H = H.plus( zMinusMw.mtimes(zMinusMw.transpose()).times(1/denominator) );
+		}
+		case INV_HESSIAN: {
+			double[] flat = symMatrixToFlat(H, N);
+			BLAS_INSTANCE.dsyr("U", N, 1.0 / denominator, zmwArr, 1, flat, N);
+			mirrorSymmetric(flat, N);
+			H = flatToMatrix(flat, N);
 			break;
+		}
 		default:
 			throw new RuntimeException("not implemented");
 		}
+	}
+
+	private static double[] colVectorToArray(Matrix v, int n) {
+		double[] out = new double[n];
+		for (int i = 0; i < n; ++i) {
+			out[i] = v.getAsDouble(i, 0);
+		}
+		return out;
+	}
+
+	private static double[] symMatrixToFlat(Matrix m, int n) {
+		double[] flat = new double[n * n];
+		for (int i = 0; i < n; ++i) {
+			for (int j = 0; j < n; ++j) {
+				flat[i * n + j] = m.getAsDouble(i, j);
+			}
+		}
+		return flat;
+	}
+
+	private static void mirrorSymmetric(double[] flat, int n) {
+		for (int i = 0; i < n; ++i) {
+			for (int j = i + 1; j < n; ++j) {
+				flat[i * n + j] = flat[j * n + i];
+			}
+		}
+	}
+
+	private static Matrix flatToMatrix(double[] flat, int n) {
+		double[][] arr = new double[n][n];
+		for (int i = 0; i < n; ++i) {
+			System.arraycopy(flat, i * n, arr[i], 0, n);
+		}
+		return Matrix.Factory.linkToArray(arr);
 	}
 }

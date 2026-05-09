@@ -10,7 +10,6 @@ import org.scipy.optimize.minimize.LinearConstraint;
 import org.scipy.optimize.minimize.NonlinearConstraint;
 import org.ujmp.core.Matrix;
 
-import minerva.tests.junit.MinervaAssertions;
 
 /**
  * Java translation of scipy
@@ -23,11 +22,9 @@ import minerva.tests.junit.MinervaAssertions;
  * {@link CombinedConstraint#lagrangianContribution} slices the multipliers
  * per source before delegating to each source's Hessian.
  *
- * <p>Note: our row ordering is row-major (per source), not scipy's "uppers
- * grouped then lowers grouped" 4-block ordering — the algorithm is row-permu-
- * tation-invariant so this divergence is internal-only. Where scipy's
- * reference values would assume the 4-block order, we re-derive the per-row
- * expected values explicitly.
+ * <p>Each source emits inequality rows in scipy's 4-block order (less,
+ * greater, interval-upper, interval-lower). {@link CombinedConstraint} then
+ * stacks all eqs source-by-source, then all ineqs source-by-source.
  */
 class TestCombinedConstraint {
 
@@ -37,12 +34,12 @@ class TestCombinedConstraint {
 
 	@Test
 	void concatenateLinearAndNonlinear() {
-		// Source 1: linear, identity Jacobian; bounds chosen to give 1 eq + 2 ineq:
-		//   row 0: [-1, 1] interval -> 2 ineq (ub then lb in our row-major order)
+		// Source 1: linear, identity Jacobian; bounds chosen to give 1 eq + 3 ineq:
+		//   row 0: [-1, 1] interval  -> 2 ineq (interval-upper, interval-lower)
 		//   row 1: free (-inf, inf)
-		//   row 2: [-2, inf] lower -> 1 ineq
-		//   row 3: [3, 3] equality -> 1 eq
-		// nEq = 1, nIneq = 3.
+		//   row 2: [-2, inf] lower   -> 1 ineq (greater)
+		//   row 3: [3, 3] equality   -> 1 eq
+		// nEq = 1, nIneq = 3 emitted in scipy 4-block order: [row2 greater, row0 ub, row0 lb].
 		Matrix A1 = Matrix.Factory.eye(4, 4);
 		LinearConstraint c1 = new LinearConstraint(A1,
 				new double[] {-1, NEG_INF, -2, 3},
@@ -115,36 +112,42 @@ class TestCombinedConstraint {
 
 		// constrEq concatenates [c1.eq, c2.eq] with c1.eq from row 3 = (x[3] - 3)
 		// = (0.2 - 3) = -2.8, and c2.eq from row 1 = f2[1] - 3 = (0.4 + 0.3) - 3 = -2.3.
-		MinervaAssertions.assertArrayRelAbsEquals(
+		RelAbsAssertions.assertArrayRelAbsEquals(
 				new double[] {-2.8, -2.3},
 				LinAlgArr(cc.constrEq(x0)), TOL);
 
 		// constrIneq concatenates [c1.ineq, c2.ineq]:
-		//   c1: row 0 ub: x[0] - 1 = -0.5;  row 0 lb: -1*(x[0] - (-1)) = -1.5;
-		//        row 2 lb: -1*(x[2] - (-2)) = -2.3.
-		//   c2: row 0 ub: f2[0] - 10 = (0.25 + 0.4) - 10 = -9.35;
-		//        row 0 lb: -1*(f2[0] - (-10)) = -10.65;
-		//        row 3 ub: f2[3] - 5 = (0.04 + 0.4) - 5 = -4.56;
-		//        row 4 lb: -1*(f2[4] - (-5)) = -1*((0.5 + 0.2) + 5) = -5.7.
-		MinervaAssertions.assertArrayRelAbsEquals(
-				new double[] {-0.5, -1.5, -2.3, -9.35, -10.65, -4.56, -5.7},
+		//   c1 in scipy 4-block order [greater, interval-upper, interval-lower]:
+		//        row 2 lb (greater):  -1*(x[2] - (-2)) = -2.3
+		//        row 0 ub (interval): x[0] - 1 = -0.5
+		//        row 0 lb (interval): -1*(x[0] - (-1)) = -1.5
+		//   c2 in scipy 4-block order [less, greater, interval-upper, interval-lower]:
+		//        row 3 ub (less):     f2[3] - 5 = (0.04 + 0.4) - 5 = -4.56
+		//        row 4 lb (greater):  -1*(f2[4] - (-5)) = -1*((0.5 + 0.2) + 5) = -5.7
+		//        row 0 ub (interval): f2[0] - 10 = (0.25 + 0.4) - 10 = -9.35
+		//        row 0 lb (interval): -1*(f2[0] - (-10)) = -10.65
+		RelAbsAssertions.assertArrayRelAbsEquals(
+				new double[] {-2.3, -0.5, -1.5, -4.56, -5.7, -9.35, -10.65},
 				LinAlgArr(cc.constrIneq(x0)), TOL);
 
 		// Hessian-of-Lagrangian: sum over c1.contribution (zero, linear) and
-		// c2.contribution (vEq[1] · diag(0,0,0,0) for row1 + sliced ineq for rows 0,3).
-		// Pick simple vEq = [0.7, 0.9], vIneq = [0,0,0, 0.5, 0.0, 0.0, 0.4].
+		// c2.contribution. Pick vEq = [0.7, 0.9] and vIneq sized 7 in the
+		// combined ineq order [c1: row2 greater, row0 ub, row0 lb;
+		//                      c2: row3 less, row4 greater, row0 ub, row0 lb].
+		// Set c2's row0 ub mult = 0.5 (combined index 5) and c2's row4 greater
+		// mult = 0.4 (combined index 4); the rest are 0.
 		// c1 contributes zero (linear). c2's slice: vEqSlice = [0.9],
-		// vIneqSlice = [0.5, 0.0, 0.0, 0.4]. Pack into m=5 multiplier vector
-		// per scipy mapping: v[1] += 0.9 (eq), v[0] += +1*0.5 (row 0 ub) + (-1)*0 (row 0 lb)
-		// = 0.5, v[3] += +1*0 = 0, v[4] += (-1)*0.4 = -0.4.
-		// Hessian = sum_i v[i] · H_{c_i} = 0.5*H_0 + 0.9*H_1 + 0*H_2 + 0*H_3 + (-0.4)*H_4
-		// = 0.5 · diag(2,0,0,0) + 0 (rows with zero Hessians)
+		// vIneqSlice = [0, 0.4, 0.5, 0]. Pack into m=5 multiplier vector per
+		// scipy mapping: v[1] += 0.9 (eq), v[3] += +1*0 (row 3 less),
+		// v[4] += -1*0.4 = -0.4 (row 4 greater), v[0] += +1*0.5 (row 0 ub) +
+		// (-1)*0 (row 0 lb) = 0.5.
+		// Hessian = 0.5*H_0 + 0.9*H_1 + 0*H_3 + (-0.4)*H_4 = 0.5*diag(2,0,0,0)
 		// = diag(1, 0, 0, 0).
 		double[] vEq = {0.7, 0.9};
-		double[] vIneq = {0, 0, 0, 0.5, 0.0, 0.0, 0.4};
+		double[] vIneq = {0, 0, 0, 0, 0.4, 0.5, 0};
 		Matrix HLag = cc.lagrangianContribution(x0, vEq, vIneq);
 		Assertions.assertNotNull(HLag);
-		MinervaAssertions.assertArrayRelAbsEquals(
+		RelAbsAssertions.assertArrayRelAbsEquals(
 				new double[][] {
 						{1.0, 0, 0, 0},
 						{0,   0, 0, 0},

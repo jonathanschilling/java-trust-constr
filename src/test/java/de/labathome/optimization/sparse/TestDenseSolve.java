@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.scipy.optimize.minimize.sparse.DenseSolve;
 
-import minerva.tests.junit.MinervaAssertions;
+import de.labathome.optimization.RelAbsAssertions;
 
 class TestDenseSolve {
 
@@ -21,7 +21,7 @@ class TestDenseSolve {
 		};
 		double[] b = { 4.0, 5.0, 6.0 };
 		double[] x = DenseSolve.solveLU(a, b);
-		MinervaAssertions.assertArrayRelAbsEquals(new double[] {6.0, 15.0, -23.0}, x, TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {6.0, 15.0, -23.0}, x, TOL);
 	}
 
 	@Test
@@ -35,8 +35,8 @@ class TestDenseSolve {
 		double[] col0 = lu.solve(new double[] {1.0, 0.0});
 		double[] col1 = lu.solve(new double[] {0.0, 1.0});
 		// A^{-1} = [[-0.5, 0.5], [1, -2/3]]
-		MinervaAssertions.assertArrayRelAbsEquals(new double[] {-0.5, 1.0}, col0, TOL);
-		MinervaAssertions.assertArrayRelAbsEquals(new double[] {0.5, -2.0 / 3.0}, col1, TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {-0.5, 1.0}, col0, TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.5, -2.0 / 3.0}, col1, TOL);
 	}
 
 	@Test

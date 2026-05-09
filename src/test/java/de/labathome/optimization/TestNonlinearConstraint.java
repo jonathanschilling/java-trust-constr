@@ -6,7 +6,6 @@ import org.scipy.optimize.minimize.LinAlg;
 import org.scipy.optimize.minimize.NonlinearConstraint;
 import org.ujmp.core.Matrix;
 
-import minerva.tests.junit.MinervaAssertions;
 
 class TestNonlinearConstraint {
 
@@ -33,9 +32,9 @@ class TestNonlinearConstraint {
 
 		Matrix x = Matrix.Factory.linkToArray(new double[] {0.6, 0.8});
 		// f(x) = 0.36 + 0.64 = 1; constrEq = 1 - 1 = 0
-		MinervaAssertions.assertArrayRelAbsEquals(new double[] {0.0}, LinAlg.col(c.constrEq(x)), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.0}, LinAlg.col(c.constrEq(x)), TOL);
 		// jacEq = [2*0.6, 2*0.8] = [1.2, 1.6]
-		MinervaAssertions.assertArrayRelAbsEquals(new double[][] { {1.2, 1.6} }, c.jacEq(x).toDoubleArray(), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[][] { {1.2, 1.6} }, c.jacEq(x).toDoubleArray(), TOL);
 	}
 
 	@Test
@@ -51,7 +50,7 @@ class TestNonlinearConstraint {
 
 		Matrix x = Matrix.Factory.linkToArray(new double[] {7.0});
 		// constrIneq = +1*(7 - 5) = 2  (positive => violated)
-		MinervaAssertions.assertArrayRelAbsEquals(new double[] {2.0}, LinAlg.col(c.constrIneq(x)), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {2.0}, LinAlg.col(c.constrIneq(x)), TOL);
 	}
 
 	@Test
@@ -85,15 +84,15 @@ class TestNonlinearConstraint {
 		Matrix x0 = Matrix.Factory.linkToArray(new double[] {4.0});
 
 		// constrEq = (fx[1] - lb[1],) = (4 - 3,) = (1,)
-		MinervaAssertions.assertArrayRelAbsEquals(new double[] {1.0},
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {1.0},
 				LinAlg.col(c.constrEq(x0)), TOL);
 
-		// constrIneq order (by source-row index):
-		//   row 0 upper:  +1 * (4 - 10) = -6
-		//   row 0 lower:  -1 * (4 - (-10)) = -14
-		//   row 3 upper:  +1 * (4 - 3) = 1
-		//   row 4 lower:  -1 * (4 - (-5)) = -9
-		MinervaAssertions.assertArrayRelAbsEquals(new double[] {-6.0, -14.0, 1.0, -9.0},
+		// constrIneq order (scipy 4-block: less, greater, interval-upper, interval-lower):
+		//   row 3 upper (less):     +1 * (4 - 3) = 1
+		//   row 4 lower (greater):  -1 * (4 - (-5)) = -9
+		//   row 0 upper (interval): +1 * (4 - 10) = -6
+		//   row 0 lower (interval): -1 * (4 - (-10)) = -14
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {1.0, -9.0, -6.0, -14.0},
 				LinAlg.col(c.constrIneq(x0)), TOL);
 	}
 
@@ -111,7 +110,7 @@ class TestNonlinearConstraint {
 
 		Matrix x = Matrix.Factory.linkToArray(new double[] {0.5});
 		// constrIneq = [+1*(0.5 - 1), -1*(0.5 - 0)] = [-0.5, -0.5]
-		MinervaAssertions.assertArrayRelAbsEquals(new double[] {-0.5, -0.5},
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {-0.5, -0.5},
 				LinAlg.col(c.constrIneq(x)), TOL);
 	}
 
@@ -125,11 +124,12 @@ class TestNonlinearConstraint {
 		// before being passed to the user's hess(x, v).
 		//
 		// Five rows, lb = [-10, 3, -inf, -inf, -5], ub = [10, 3, inf, 3, inf]:
-		//   row 0: interval -> 2 ineq (ub then lb in our row-major order)
+		//   row 0: interval -> 2 ineq
 		//   row 1: equality -> 1 eq
 		//   row 2: free (dropped)
-		//   row 3: upper -> 1 ineq
-		//   row 4: lower -> 1 ineq
+		//   row 3: upper-only (less) -> 1 ineq
+		//   row 4: lower-only (greater) -> 1 ineq
+		// vIneq order (scipy 4-block): [row3 less, row4 greater, row0 ub, row0 lb].
 		// hess(x, v) gets the row-multiplier-packed v of length m=5.
 		java.util.function.Function<Matrix, Matrix> fun = x -> {
 			double a = x.getAsDouble(0, 0);
@@ -153,15 +153,15 @@ class TestNonlinearConstraint {
 		Matrix x0 = Matrix.Factory.linkToArray(new double[] {1.0});
 
 		// vEq[0] -> v[1]; ignored by our hess (row 1 has no curvature).
-		// vIneq order: [row0_ub, row0_lb, row3_ub, row4_lb].
-		//   v[0] += +1*vIneq[0] + (-1)*vIneq[1] = 0.7 - 0.2 = 0.5
-		//   v[3] += +1*vIneq[2] = 0.3
-		//   v[4] += (-1)*vIneq[3] = -0.1 (no curvature contribution)
+		// vIneq order (scipy 4-block): [row3_ub (less), row4_lb (greater), row0_ub, row0_lb].
+		//   v[3] += +1*vIneq[0] = 0.3
+		//   v[4] += (-1)*vIneq[1] = -0.1 (no curvature contribution)
+		//   v[0] += +1*vIneq[2] + (-1)*vIneq[3] = 0.7 - 0.2 = 0.5
 		// hess total = 2*0.5 + 4*0.3 = 2.2.
 		double[] vEq = {0.5};
-		double[] vIneq = {0.7, 0.2, 0.3, 0.1};
+		double[] vIneq = {0.3, 0.1, 0.7, 0.2};
 		Matrix H = c.lagrangianContribution(x0, vEq, vIneq);
 		Assertions.assertNotNull(H);
-		MinervaAssertions.assertRelAbsEquals(2.2, H.getAsDouble(0, 0), TOL);
+		RelAbsAssertions.assertRelAbsEquals(2.2, H.getAsDouble(0, 0), TOL);
 	}
 }

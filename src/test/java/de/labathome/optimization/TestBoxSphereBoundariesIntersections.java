@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.scipy.optimize.minimize.QPSubproblem;
 import org.scipy.optimize.minimize.records.IntersectionResult;
 
-import minerva.tests.junit.MinervaAssertions;
 
 class TestBoxSphereBoundariesIntersections {
 
@@ -19,8 +18,8 @@ class TestBoxSphereBoundariesIntersections {
 				new double[] {-2.0, 2.0},
 				new double[] {-1.0, -2.0},
 				new double[] { 1.0,  2.0}, 2.0);
-		MinervaAssertions.assertRelAbsEquals(0.0, r1.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(0.5, r1.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.0, r1.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.5, r1.tB(), tolerance);
 		Assertions.assertTrue(r1.intersect());
 
 		// None of the constraints are active
@@ -29,8 +28,8 @@ class TestBoxSphereBoundariesIntersections {
 				new double[] {-1.0, 1.0},
 				new double[] {-1.0, -3.0},
 				new double[] { 1.0,  3.0}, 10.0);
-		MinervaAssertions.assertRelAbsEquals(0.0, r2.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(1.0, r2.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.0, r2.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(1.0, r2.tB(), tolerance);
 		Assertions.assertTrue(r2.intersect());
 
 		// Box constraints are active
@@ -39,8 +38,8 @@ class TestBoxSphereBoundariesIntersections {
 				new double[] {-4.0, 4.0},
 				new double[] {-1.0, -3.0},
 				new double[] { 1.0,  3.0}, 10.0);
-		MinervaAssertions.assertRelAbsEquals(0.0, r3.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(0.5, r3.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.0, r3.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.5, r3.tB(), tolerance);
 		Assertions.assertTrue(r3.intersect());
 
 		// Spherical constraints are active
@@ -49,8 +48,8 @@ class TestBoxSphereBoundariesIntersections {
 				new double[] {-4.0, 4.0},
 				new double[] {-1.0, -3.0},
 				new double[] { 1.0,  3.0}, 2.0);
-		MinervaAssertions.assertRelAbsEquals(0.0, r4.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(0.25, r4.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.0, r4.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.25, r4.tB(), tolerance);
 		Assertions.assertTrue(r4.intersect());
 
 		// Infeasible problems
@@ -79,8 +78,8 @@ class TestBoxSphereBoundariesIntersections {
 				new double[] {-2.0, 2.0},
 				new double[] {-1.0, -2.0},
 				new double[] { 1.0,  2.0}, 2.0, true);
-		MinervaAssertions.assertRelAbsEquals(0.0, r1.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(0.5, r1.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.0, r1.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.5, r1.tB(), tolerance);
 		Assertions.assertTrue(r1.intersect());
 
 		// None of the constraints are active
@@ -89,8 +88,8 @@ class TestBoxSphereBoundariesIntersections {
 				new double[] {-1.0, 1.0},
 				new double[] {-1.0, -3.0},
 				new double[] { 1.0,  3.0}, 10.0, true);
-		MinervaAssertions.assertRelAbsEquals(0.0, r2.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(2.0, r2.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.0, r2.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(2.0, r2.tB(), tolerance);
 		Assertions.assertTrue(r2.intersect());
 
 		// Box constraints are active
@@ -99,8 +98,8 @@ class TestBoxSphereBoundariesIntersections {
 				new double[] {-4.0, 4.0},
 				new double[] {-1.0, -3.0},
 				new double[] { 1.0,  3.0}, 10.0, true);
-		MinervaAssertions.assertRelAbsEquals(0.0, r3.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(0.5, r3.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.0, r3.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.5, r3.tB(), tolerance);
 		Assertions.assertTrue(r3.intersect());
 
 		// Spherical constraints are active
@@ -109,8 +108,8 @@ class TestBoxSphereBoundariesIntersections {
 				new double[] {-4.0, 4.0},
 				new double[] {-1.0, -3.0},
 				new double[] { 1.0,  3.0}, 2.0, true);
-		MinervaAssertions.assertRelAbsEquals(0.0, r4.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(0.25, r4.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.0, r4.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.25, r4.tB(), tolerance);
 		Assertions.assertTrue(r4.intersect());
 
 		// Infeasible problems

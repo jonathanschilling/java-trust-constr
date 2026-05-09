@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 import org.scipy.optimize.minimize.QPSubproblem;
 import org.ujmp.core.Matrix;
 
-import minerva.tests.junit.MinervaAssertions;
 
 class TestEQPDirectFactorization {
 
@@ -44,8 +43,8 @@ class TestEQPDirectFactorization {
 
 		final double[] expectedX = { 2.0, -1.0, 1.0 };
 		final double[] expectedLambda = { 3.0, -2.0 };
-		MinervaAssertions.assertArrayRelAbsEquals(expectedX, x, tolerance);
-		MinervaAssertions.assertArrayRelAbsEquals(expectedLambda, lambda, tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(expectedX, x, tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(expectedLambda, lambda, tolerance);
 	}
 
 }

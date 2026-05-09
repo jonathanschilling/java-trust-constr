@@ -12,7 +12,6 @@ import org.ujmp.core.SparseMatrix;
 import org.ujmp.core.doublematrix.calculation.general.decomposition.QR.QRMatrix;
 import org.ujmp.core.util.MathUtil;
 
-import minerva.tests.junit.MinervaAssertions;
 
 class TestProjections {
 
@@ -55,16 +54,16 @@ class TestProjections {
 				// Test if x is in the null_space
 				Matrix x = Z.apply(z);
 				double[] r = LinAlg.col(A.mtimes(x));
-				MinervaAssertions.assertArrayRelAbsEquals(new double[r.length], r, tolerance);
+				RelAbsAssertions.assertArrayRelAbsEquals(new double[r.length], r, tolerance);
 
 				// Test orthogonality
-				MinervaAssertions.assertRelAbsEquals(0.0, Projections.orthogonality(A, x), tolerance);
+				RelAbsAssertions.assertRelAbsEquals(0.0, Projections.orthogonality(A, x), tolerance);
 
 				// Test if x is the least square solution
 				x = LS.apply(z);
 				QRMatrix qrA = new QRMatrix(A.transpose());
 				Matrix x2 = qrA.solve(z);
-				MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(x2), LinAlg.col(x), tolerance);
+				RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(x2), LinAlg.col(x), tolerance);
 			}
 		}
 	}
@@ -100,10 +99,10 @@ class TestProjections {
 				// Test if x is in the null_space
 				Matrix x = Z.apply(z);
 				double aTol = 1.0e-13 * x.normInf();
-				MinervaAssertions.assertArrayRelAbsEquals(new double[(int) A.getRowCount()], LinAlg.col(A.mtimes(x)), aTol);
+				RelAbsAssertions.assertArrayRelAbsEquals(new double[(int) A.getRowCount()], LinAlg.col(A.mtimes(x)), aTol);
 
 				// Test orthogonality
-				MinervaAssertions.assertRelAbsEquals(0.0, Projections.orthogonality(A, x), 1.0e-13);
+				RelAbsAssertions.assertRelAbsEquals(0.0, Projections.orthogonality(A, x), 1.0e-13);
 			}
 		}
 	}
@@ -135,7 +134,7 @@ class TestProjections {
 
 				// Test if x is solution of A x = z
 				Matrix x = Y.apply(z);
-				MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(z), LinAlg.col(A.mtimes(x)), tolerance);
+				RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(z), LinAlg.col(A.mtimes(x)), tolerance);
 
 				// Test if x is in the return row space of A
 				long n = A.getRowCount();
@@ -178,16 +177,16 @@ class TestProjections {
 				// Test if x is in the null_space
 				Matrix x = Z.apply(z);
 				double[] r = LinAlg.col(A.mtimes(x));
-				MinervaAssertions.assertArrayRelAbsEquals(new double[r.length], r, tolerance);
+				RelAbsAssertions.assertArrayRelAbsEquals(new double[r.length], r, tolerance);
 
 				// Test orthogonality
-				MinervaAssertions.assertRelAbsEquals(0.0, Projections.orthogonality(A, x), tolerance);
+				RelAbsAssertions.assertRelAbsEquals(0.0, Projections.orthogonality(A, x), tolerance);
 
 				// Test if x is the least square solution
 				x = LS.apply(z);
 				QRMatrix qrA = new QRMatrix(A.transpose());
 				Matrix x2 = qrA.solve(z);
-				MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(x2), LinAlg.col(x), tolerance);
+				RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(x2), LinAlg.col(x), tolerance);
 			}
 		}
 	}
@@ -230,11 +229,11 @@ class TestProjections {
 		int numRepetitions = 1;
 		for (int i=0; i<numRepetitions; ++i) {
 			Matrix z = Matrix.Factory.randn(4*n, 1);
-			MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(denseZ.apply(z)), LinAlg.col(sparseZ.apply(z)), tolerance);
-			MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(denseLS.apply(z)), LinAlg.col(sparseLS.apply(z)), tolerance);
+			RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(denseZ.apply(z)), LinAlg.col(sparseZ.apply(z)), tolerance);
+			RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(denseLS.apply(z)), LinAlg.col(sparseLS.apply(z)), tolerance);
 
 			Matrix x = Matrix.Factory.randn(n, 1);
-			MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(denseY.apply(x)), LinAlg.col(sparseY.apply(x)), tolerance);
+			RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(denseY.apply(x)), LinAlg.col(sparseY.apply(x)), tolerance);
 		}
 	}
 
@@ -274,11 +273,11 @@ class TestProjections {
 		int numRepetitions = 1;
 		for (int i=0; i<numRepetitions; ++i) {
 			Matrix z = Matrix.Factory.randn(9, 1);
-			MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(denseZ.apply(z)), LinAlg.col(sparseZ.apply(z)), tolerance);
-			MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(denseLS.apply(z)), LinAlg.col(sparseLS.apply(z)), tolerance);
+			RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(denseZ.apply(z)), LinAlg.col(sparseZ.apply(z)), tolerance);
+			RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(denseLS.apply(z)), LinAlg.col(sparseLS.apply(z)), tolerance);
 
 			Matrix x = Matrix.Factory.randn(3, 1);
-			MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(denseY.apply(x)), LinAlg.col(sparseY.apply(x)), tolerance);
+			RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(denseY.apply(x)), LinAlg.col(sparseY.apply(x)), tolerance);
 		}
 	}
 
@@ -309,10 +308,10 @@ class TestProjections {
 
 				// Test if x is in the null_space
 				Matrix x = Z.apply(z);
-				MinervaAssertions.assertArrayRelAbsEquals(new double[(int) A.getRowCount()], LinAlg.col(A.mtimes(x)), 2.5e-14);
+				RelAbsAssertions.assertArrayRelAbsEquals(new double[(int) A.getRowCount()], LinAlg.col(A.mtimes(x)), 2.5e-14);
 
 				// Test orthogonality
-				MinervaAssertions.assertRelAbsEquals(0.0, Projections.orthogonality(A, x), 5.0e-16);
+				RelAbsAssertions.assertRelAbsEquals(0.0, Projections.orthogonality(A, x), 5.0e-16);
 			}
 		}
 	}
@@ -342,7 +341,7 @@ class TestProjections {
 
 				// Test if x is solution of A x = z
 				Matrix x = Y.apply(z);
-				MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(z), LinAlg.col(A.mtimes(x)), tolerance);
+				RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(z), LinAlg.col(A.mtimes(x)), tolerance);
 
 				// Test if x is in the return row space of A
 				long n = A.getRowCount();

@@ -29,11 +29,6 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>javaOneLineUtils</groupId>
-			<artifactId>JavaOneLineUtils</artifactId>
-			<version>1.5.0</version>
-		</dependency>
-		<dependency>
 			<groupId>org.ujmp</groupId>
 			<artifactId>ujmp-core</artifactId>
 			<version>0.3.0</version>

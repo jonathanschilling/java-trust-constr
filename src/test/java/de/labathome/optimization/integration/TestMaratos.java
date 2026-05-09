@@ -9,7 +9,7 @@ import org.scipy.optimize.minimize.NonlinearConstraint;
 import org.scipy.optimize.minimize.records.OptimizeResult;
 import org.ujmp.core.Matrix;
 
-import minerva.tests.junit.MinervaAssertions;
+import de.labathome.optimization.RelAbsAssertions;
 
 /**
  * Maratos test problem (Nocedal &amp; Wright, problem 15.4) — the canonical
@@ -74,6 +74,6 @@ class TestMaratos {
 
 		Assertions.assertEquals(1.0, r.x.getAsDouble(0, 0), TOL);
 		Assertions.assertEquals(0.0, r.x.getAsDouble(1, 0), TOL);
-		MinervaAssertions.assertRelAbsEquals(-1.0, r.fun, TOL);
+		RelAbsAssertions.assertRelAbsEquals(-1.0, r.fun, TOL);
 	}
 }

@@ -6,7 +6,7 @@ import org.scipy.optimize.minimize.MinimizeTrustConstr;
 import org.scipy.optimize.minimize.records.OptimizeResult;
 import org.ujmp.core.Matrix;
 
-import minerva.tests.junit.MinervaAssertions;
+import de.labathome.optimization.RelAbsAssertions;
 
 /**
  * End-to-end smoke tests for {@link MinimizeTrustConstr#minimizeEqualityConstrained}.
@@ -66,9 +66,9 @@ class TestEqualityConstrainedRosenbrock {
 		OptimizeResult r = MinimizeTrustConstr.minimizeEqualityConstrained(
 				q, qg, qh, x0, eq, 100, 1.0e-10, 1.0e-10);
 
-		MinervaAssertions.assertArrayRelAbsEquals(new double[] {1.0, 1.0},
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {1.0, 1.0},
 				new double[] {r.x.getAsDouble(0, 0), r.x.getAsDouble(1, 0)}, TIGHT_TOL);
-		MinervaAssertions.assertRelAbsEquals(2.0, r.fun, TIGHT_TOL);
+		RelAbsAssertions.assertRelAbsEquals(2.0, r.fun, TIGHT_TOL);
 		// scipy converges in 3 iterations.
 		org.junit.jupiter.api.Assertions.assertEquals(3, r.nIter);
 		// Lagrangian gradient at the optimum should be tiny.
@@ -99,11 +99,11 @@ class TestEqualityConstrainedRosenbrock {
 				x0, eq,
 				1000, 1.0e-10, 1.0e-10);
 
-		MinervaAssertions.assertArrayRelAbsEquals(
+		RelAbsAssertions.assertArrayRelAbsEquals(
 				new double[] {1.0, 1.0},
 				new double[] {r.x.getAsDouble(0, 0), r.x.getAsDouble(1, 0)},
 				TIGHT_TOL);
-		MinervaAssertions.assertRelAbsEquals(0.0, r.fun, TIGHT_TOL);
+		RelAbsAssertions.assertRelAbsEquals(0.0, r.fun, TIGHT_TOL);
 		// scipy converges in 7 iterations from this start; we should match.
 		org.junit.jupiter.api.Assertions.assertEquals(7, r.nIter,
 				"Expected scipy-parity iteration count (7) but got " + r.nIter);

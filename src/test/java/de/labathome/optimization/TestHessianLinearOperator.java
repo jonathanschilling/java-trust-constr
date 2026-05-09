@@ -6,7 +6,6 @@ import org.scipy.optimize.minimize.HessianLinearOperator;
 import org.scipy.optimize.minimize.interfaces.HessianProduct;
 import org.ujmp.core.Matrix;
 
-import minerva.tests.junit.MinervaAssertions;
 
 class TestHessianLinearOperator {
 
@@ -21,7 +20,7 @@ class TestHessianLinearOperator {
 		Assertions.assertEquals(3, h.getRowCount());
 		Assertions.assertEquals(3, h.getColumnCount());
 		double[][] expected = { {1, 0, 0}, {0, 1, 0}, {0, 0, 1} };
-		MinervaAssertions.assertArrayRelAbsEquals(expected, h.toDoubleArray(), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(expected, h.toDoubleArray(), TOL);
 	}
 
 	@Test
@@ -43,6 +42,6 @@ class TestHessianLinearOperator {
 		};
 		HessianLinearOperator op = new HessianLinearOperator(hessp, 3);
 		Matrix h = op.apply(Matrix.Factory.linkToArray(new double[3]), null);
-		MinervaAssertions.assertArrayRelAbsEquals(hData, h.toDoubleArray(), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(hData, h.toDoubleArray(), TOL);
 	}
 }

@@ -16,7 +16,6 @@ import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix;
 import org.ujmp.core.calculation.Calculation.Ret;
 
-import minerva.tests.junit.MinervaAssertions;
 
 class TestNumDiff {
 
@@ -75,7 +74,7 @@ class TestNumDiff {
 
 		for (FiniteDifferenceMethod method: methods) {
 			double epsForMethod = NumDiff.epsForMethod(double.class, double.class, method);
-			MinervaAssertions.assertRelAbsEquals(relativeStepsD.get(method), epsForMethod, tolerance);
+			RelAbsAssertions.assertRelAbsEquals(relativeStepsD.get(method), epsForMethod, tolerance);
 		}
 
 		// check another FP size
@@ -87,13 +86,13 @@ class TestNumDiff {
 
 		for (FiniteDifferenceMethod method: methods) {
 			double epsForMethod = NumDiff.epsForMethod(double.class, float.class, method);
-			MinervaAssertions.assertRelAbsEquals(relativeStepsF.get(method), epsForMethod, tolerance);
+			RelAbsAssertions.assertRelAbsEquals(relativeStepsF.get(method), epsForMethod, tolerance);
 
 			epsForMethod = NumDiff.epsForMethod(float.class, double.class, method);
-			MinervaAssertions.assertRelAbsEquals(relativeStepsF.get(method), epsForMethod, tolerance);
+			RelAbsAssertions.assertRelAbsEquals(relativeStepsF.get(method), epsForMethod, tolerance);
 
 			epsForMethod = NumDiff.epsForMethod(float.class, float.class, method);
-			MinervaAssertions.assertRelAbsEquals(relativeStepsF.get(method), epsForMethod, tolerance);
+			RelAbsAssertions.assertRelAbsEquals(relativeStepsF.get(method), epsForMethod, tolerance);
 		}
 	}
 
@@ -129,11 +128,11 @@ class TestNumDiff {
 			};
 
 			Matrix absStep = NumDiff.computeAbsoluteStep(null, x0, f0, method);
-			MinervaAssertions.assertArrayRelAbsEquals(correctSteps, LinAlg.col(absStep), tolerance);
+			RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, LinAlg.col(absStep), tolerance);
 
 			Matrix signX0 = x0.times(-1).ge(Ret.LINK, 0).toIntMatrix().times(2).minus(1);
 			absStep = NumDiff.computeAbsoluteStep(null, x0.times(-1), f0, method);
-			MinervaAssertions.assertArrayRelAbsEquals(correctSteps, LinAlg.col(absStep.times(signX0)), tolerance);
+			RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, LinAlg.col(absStep.times(signX0)), tolerance);
 		}
 
 		// if a relative step is provided it should be used
@@ -146,10 +145,10 @@ class TestNumDiff {
 		};
 
 		Matrix absStep = NumDiff.computeAbsoluteStep(Matrix.Factory.linkToArray(relSteps), x0, f0, FiniteDifferenceMethod.TWO_POINT);
-		MinervaAssertions.assertArrayRelAbsEquals(correctSteps, LinAlg.col(absStep), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, LinAlg.col(absStep), tolerance);
 
 		Matrix signX0 = x0.times(-1).ge(Ret.LINK, 0).toIntMatrix().times(2).minus(1);
 		absStep = NumDiff.computeAbsoluteStep(Matrix.Factory.linkToArray(relSteps), x0.times(-1), f0, FiniteDifferenceMethod.TWO_POINT);
-		MinervaAssertions.assertArrayRelAbsEquals(correctSteps, LinAlg.col(absStep.times(signX0)), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, LinAlg.col(absStep.times(signX0)), tolerance);
 	}
 }

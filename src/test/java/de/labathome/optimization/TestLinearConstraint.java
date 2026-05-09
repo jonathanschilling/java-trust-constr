@@ -6,7 +6,6 @@ import org.scipy.optimize.minimize.LinAlg;
 import org.scipy.optimize.minimize.LinearConstraint;
 import org.ujmp.core.Matrix;
 
-import minerva.tests.junit.MinervaAssertions;
 
 class TestLinearConstraint {
 
@@ -24,8 +23,8 @@ class TestLinearConstraint {
 
 		Matrix x = Matrix.Factory.linkToArray(new double[] {1.0, 2.0});
 		// A x = [1+4, 3+8] = [5, 11];  constrEq = A x - lb = [0, 5]
-		MinervaAssertions.assertArrayRelAbsEquals(new double[] {0.0, 5.0}, LinAlg.col(c.constrEq(x)), TOL);
-		MinervaAssertions.assertArrayRelAbsEquals(new double[][] { {1, 2}, {3, 4} }, c.jacEq(x).toDoubleArray(), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.0, 5.0}, LinAlg.col(c.constrEq(x)), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[][] { {1, 2}, {3, 4} }, c.jacEq(x).toDoubleArray(), TOL);
 	}
 
 	@Test
@@ -38,9 +37,9 @@ class TestLinearConstraint {
 
 		Matrix x = Matrix.Factory.linkToArray(new double[] {2.0, 9.0});
 		// constrIneq[i] = +1 * (A[i] x - ub[i]) = [-1, 2]
-		MinervaAssertions.assertArrayRelAbsEquals(new double[] {-1.0, 2.0}, LinAlg.col(c.constrIneq(x)), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {-1.0, 2.0}, LinAlg.col(c.constrIneq(x)), TOL);
 		// jacIneq = +1 * A
-		MinervaAssertions.assertArrayRelAbsEquals(new double[][] { {1, 0}, {0, 1} }, c.jacIneq(x).toDoubleArray(), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[][] { {1, 0}, {0, 1} }, c.jacIneq(x).toDoubleArray(), TOL);
 	}
 
 	@Test
@@ -53,8 +52,8 @@ class TestLinearConstraint {
 
 		Matrix x = Matrix.Factory.linkToArray(new double[] {2.0, 0.5});
 		// constrIneq[i] = -1 * (A[i] x - lb[i]) = [-(2-1), -(0.5-1)] = [-1, 0.5]
-		MinervaAssertions.assertArrayRelAbsEquals(new double[] {-1.0, 0.5}, LinAlg.col(c.constrIneq(x)), TOL);
-		MinervaAssertions.assertArrayRelAbsEquals(new double[][] { {-1, 0}, {0, -1} }, c.jacIneq(x).toDoubleArray(), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {-1.0, 0.5}, LinAlg.col(c.constrIneq(x)), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[][] { {-1, 0}, {0, -1} }, c.jacIneq(x).toDoubleArray(), TOL);
 	}
 
 	@Test
@@ -87,12 +86,12 @@ class TestLinearConstraint {
 
 		// At x=(1,1), A x = 2 — the upper bound is exactly tight.
 		Matrix x = Matrix.Factory.linkToArray(new double[] {1.0, 1.0});
-		MinervaAssertions.assertArrayRelAbsEquals(
+		RelAbsAssertions.assertArrayRelAbsEquals(
 				new double[] {0.0, -2.0},
 				LinAlg.col(c.constrIneq(x)),
 				TOL);
 		// jacIneq rows: +A (upper) and -A (lower).
-		MinervaAssertions.assertArrayRelAbsEquals(
+		RelAbsAssertions.assertArrayRelAbsEquals(
 				new double[][] { {1, 1}, {-1, -1} },
 				c.jacIneq(x).toDoubleArray(),
 				TOL);

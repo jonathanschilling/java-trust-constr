@@ -29,7 +29,8 @@ import org.ujmp.core.Matrix;
  * constraint curvature matters at the optimum (e.g. Maratos).
  *
  * <p>Eq/ineq classification follows the same rule as {@link LinearConstraint},
- * including the two-sided interval split.
+ * including the two-sided interval split. Inequality rows are emitted in
+ * scipy's 4-block order (less, greater, interval-upper, interval-lower).
  */
 public class NonlinearConstraint implements Constraint, Jacobian {
 
@@ -81,6 +82,7 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 		this.ineqRows = new int[nIneq];
 		this.ineqSign = new int[nIneq];
 		this.ineqTarget = new double[nIneq];
+		// Scipy 4-block order: equal | less | greater | interval-upper | interval-lower.
 		int eqIdx = 0;
 		int ineqIdx = 0;
 		for (int i = 0; i < m; ++i) {
@@ -88,24 +90,45 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 			boolean ubFinite = !Double.isInfinite(ub[i]);
 			if (lbFinite && ubFinite && lb[i] == ub[i]) {
 				eqRows[eqIdx++] = i;
-			} else if (lbFinite && ubFinite) {
+			}
+		}
+		for (int i = 0; i < m; ++i) {
+			boolean lbFinite = !Double.isInfinite(lb[i]);
+			boolean ubFinite = !Double.isInfinite(ub[i]);
+			if (!lbFinite && ubFinite) {
 				ineqRows[ineqIdx] = i;
 				ineqSign[ineqIdx] = +1;
 				ineqTarget[ineqIdx] = ub[i];
 				++ineqIdx;
+			}
+		}
+		for (int i = 0; i < m; ++i) {
+			boolean lbFinite = !Double.isInfinite(lb[i]);
+			boolean ubFinite = !Double.isInfinite(ub[i]);
+			if (lbFinite && !ubFinite) {
 				ineqRows[ineqIdx] = i;
 				ineqSign[ineqIdx] = -1;
 				ineqTarget[ineqIdx] = lb[i];
 				++ineqIdx;
-			} else if (lbFinite) {
-				ineqRows[ineqIdx] = i;
-				ineqSign[ineqIdx] = -1;
-				ineqTarget[ineqIdx] = lb[i];
-				++ineqIdx;
-			} else if (ubFinite) {
+			}
+		}
+		for (int i = 0; i < m; ++i) {
+			boolean lbFinite = !Double.isInfinite(lb[i]);
+			boolean ubFinite = !Double.isInfinite(ub[i]);
+			if (lbFinite && ubFinite && lb[i] != ub[i]) {
 				ineqRows[ineqIdx] = i;
 				ineqSign[ineqIdx] = +1;
 				ineqTarget[ineqIdx] = ub[i];
+				++ineqIdx;
+			}
+		}
+		for (int i = 0; i < m; ++i) {
+			boolean lbFinite = !Double.isInfinite(lb[i]);
+			boolean ubFinite = !Double.isInfinite(ub[i]);
+			if (lbFinite && ubFinite && lb[i] != ub[i]) {
+				ineqRows[ineqIdx] = i;
+				ineqSign[ineqIdx] = -1;
+				ineqTarget[ineqIdx] = lb[i];
 				++ineqIdx;
 			}
 		}

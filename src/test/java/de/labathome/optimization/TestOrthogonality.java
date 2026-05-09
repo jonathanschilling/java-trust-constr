@@ -5,7 +5,6 @@ import org.scipy.optimize.minimize.LinAlg;
 import org.scipy.optimize.minimize.Projections;
 import org.ujmp.core.Matrix;
 
-import minerva.tests.junit.MinervaAssertions;
 
 class TestOrthogonality {
 
@@ -34,7 +33,7 @@ class TestOrthogonality {
 		for (int i=0; i<testVectors.length; ++i) {
 			Matrix g = Matrix.Factory.importFromArray(testVectors[i]).transpose();
 			double orth = Projections.orthogonality(A, g);
-			MinervaAssertions.assertRelAbsEquals(expOrth[i], orth, tolerance);
+			RelAbsAssertions.assertRelAbsEquals(expOrth[i], orth, tolerance);
 		}
 	}
 
@@ -66,7 +65,7 @@ class TestOrthogonality {
 		for (int i=0; i<testVectors.length; ++i) {
 			Matrix g = Matrix.Factory.importFromArray(testVectors[i]).transpose();
 			double orth = Projections.orthogonality(sparseA, g);
-			MinervaAssertions.assertRelAbsEquals(expOrth[i], orth, tolerance);
+			RelAbsAssertions.assertRelAbsEquals(expOrth[i], orth, tolerance);
 		}
 	}
 }

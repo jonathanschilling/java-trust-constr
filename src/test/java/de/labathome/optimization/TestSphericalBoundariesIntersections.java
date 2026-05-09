@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.scipy.optimize.minimize.QPSubproblem;
 import org.scipy.optimize.minimize.records.IntersectionResult;
 
-import minerva.tests.junit.MinervaAssertions;
 
 class TestSphericalBoundariesIntersections {
 
@@ -18,8 +17,8 @@ class TestSphericalBoundariesIntersections {
 				new double[] {0.0, 0.0},
 				new double[] {1.0, 0.0}, 0.5);
 
-		MinervaAssertions.assertRelAbsEquals(0.0, r1.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(0.5, r1.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.0, r1.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.5, r1.tB(), tolerance);
 		Assertions.assertTrue(r1.intersect());
 
 		// No intersection between line and circle
@@ -39,8 +38,8 @@ class TestSphericalBoundariesIntersections {
 				new double[] { 2.0, 0.0},
 				new double[] {-1.0, 0.0}, 1.5);
 
-		MinervaAssertions.assertRelAbsEquals(0.5, r4.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(1.0, r4.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.5, r4.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(1.0, r4.tB(), tolerance);
 		Assertions.assertTrue(r4.intersect());
 
 		// Initial point on the boundary
@@ -48,8 +47,8 @@ class TestSphericalBoundariesIntersections {
 				new double[] {2.0, 0.0},
 				new double[] {1.0, 0.0}, 2.0);
 
-		MinervaAssertions.assertRelAbsEquals(0.0, r5.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(0.0, r5.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.0, r5.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.0, r5.tB(), tolerance);
 		Assertions.assertTrue(r5.intersect());
 	}
 
@@ -61,8 +60,8 @@ class TestSphericalBoundariesIntersections {
 		IntersectionResult r1 = QPSubproblem.sphereIntersections(
 				new double[] {0.0, 0.0},
 				new double[] {1.0, 0.0}, 0.5, true);
-		MinervaAssertions.assertRelAbsEquals(-0.5, r1.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals( 0.5, r1.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(-0.5, r1.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals( 0.5, r1.tB(), tolerance);
 		Assertions.assertTrue(r1.intersect());
 
 		// No intersection between line and circle
@@ -75,24 +74,24 @@ class TestSphericalBoundariesIntersections {
 		IntersectionResult r3 = QPSubproblem.sphereIntersections(
 				new double[] {2.0, 0.0},
 				new double[] {1.0, 0.0}, 1.0, true);
-		MinervaAssertions.assertRelAbsEquals(-3.0, r3.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(-1.0, r3.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(-3.0, r3.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(-1.0, r3.tB(), tolerance);
 		Assertions.assertTrue(r3.intersect());
 
 		// Outside initial point pointing toward inside the circle
 		IntersectionResult r4 = QPSubproblem.sphereIntersections(
 				new double[] { 2.0, 0.0},
 				new double[] {-1.0, 0.0}, 1.5, true);
-		MinervaAssertions.assertRelAbsEquals(0.5, r4.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(3.5, r4.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.5, r4.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(3.5, r4.tB(), tolerance);
 		Assertions.assertTrue(r4.intersect());
 
 		// Initial point on the boundary
 		IntersectionResult r5 = QPSubproblem.sphereIntersections(
 				new double[] {2.0, 0.0},
 				new double[] {1.0, 0.0}, 2.0, true);
-		MinervaAssertions.assertRelAbsEquals(-4.0, r5.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals( 0.0, r5.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(-4.0, r5.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals( 0.0, r5.tB(), tolerance);
 		Assertions.assertTrue(r5.intersect());
 	}
 }

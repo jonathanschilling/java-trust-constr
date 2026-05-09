@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.scipy.optimize.minimize.sparse.CSCMatrix;
 import org.scipy.optimize.minimize.sparse.CSRMatrix;
 
-import minerva.tests.junit.MinervaAssertions;
+import de.labathome.optimization.RelAbsAssertions;
 
 class TestCSCMatrix {
 
@@ -27,14 +27,14 @@ class TestCSCMatrix {
 		CSCMatrix a = CSCMatrix.fromDense(dense);
 		Assertions.assertArrayEquals(new int[] {0, 2, 3, 5}, a.indptr());
 		Assertions.assertArrayEquals(new int[] {0, 2, 2, 0, 1}, a.indices());
-		MinervaAssertions.assertArrayRelAbsEquals(new double[] {1.0, 4.0, 5.0, 2.0, 3.0}, a.data(), TOL);
-		MinervaAssertions.assertArrayRelAbsEquals(dense, a.toDense(), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {1.0, 4.0, 5.0, 2.0, 3.0}, a.data(), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(dense, a.toDense(), TOL);
 	}
 
 	@Test
 	void testEye() {
 		double[][] expected = { {1, 0, 0}, {0, 1, 0}, {0, 0, 1} };
-		MinervaAssertions.assertArrayRelAbsEquals(expected, CSCMatrix.eye(3).toDense(), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(expected, CSCMatrix.eye(3).toDense(), TOL);
 	}
 
 	@Test
@@ -46,7 +46,7 @@ class TestCSCMatrix {
 		};
 		CSCMatrix a = CSCMatrix.fromDense(dense);
 		double[] x = {2.0, 3.0, 5.0};
-		MinervaAssertions.assertArrayRelAbsEquals(new double[] {12.0, 15.0, 23.0}, a.matvec(x), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {12.0, 15.0, 23.0}, a.matvec(x), TOL);
 	}
 
 	@Test
@@ -58,7 +58,7 @@ class TestCSCMatrix {
 		};
 		CSCMatrix a = CSCMatrix.fromDense(dense);
 		double[] x = {1.0, 2.0, 3.0};
-		MinervaAssertions.assertArrayRelAbsEquals(new double[] {13.0, 15.0, 8.0}, a.rmatvec(x), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {13.0, 15.0, 8.0}, a.rmatvec(x), TOL);
 	}
 
 	@Test
@@ -78,10 +78,10 @@ class TestCSCMatrix {
 				{ 2.0, 3.0, 0.0 },
 				{ 7.0, 0.0, 8.0 },
 		};
-		MinervaAssertions.assertArrayRelAbsEquals(expected, at.toDense(), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(expected, at.toDense(), TOL);
 
 		CSRMatrix asCsr = a.toCSR();
-		MinervaAssertions.assertArrayRelAbsEquals(dense, asCsr.toDense(), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(dense, asCsr.toDense(), TOL);
 	}
 
 	@Test

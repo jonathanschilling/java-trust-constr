@@ -10,7 +10,6 @@ import org.scipy.optimize.minimize.interfaces.LinearOperator;
 import org.scipy.optimize.minimize.records.CGInfo;
 import org.ujmp.core.Matrix;
 
-import minerva.tests.junit.MinervaAssertions;
 
 class TestProjectedCG {
 
@@ -41,7 +40,7 @@ class TestProjectedCG {
 		CGInfo r = QPSubproblem.projectedCG(LinAlg.op(H), c, Z, Y, b);
 		Assertions.assertEquals(PCGStoppingCondition.TOLERANCE_SATISFIED, r.stopCond);
 		Assertions.assertEquals(false, r.hitsBoundary);
-		MinervaAssertions.assertArrayRelAbsEquals(new double[] {2, -1, 1}, LinAlg.col(r.x), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {2, -1, 1}, LinAlg.col(r.x), tolerance);
 	}
 
 	@Test
@@ -77,7 +76,7 @@ class TestProjectedCG {
 		Assertions.assertEquals(false, r1.hitsBoundary);
 
 		Matrix[] r2 = QPSubproblem.eqpKktFact(H, c, A, b);
-		MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(r2[0]), LinAlg.col(r1.x), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(r2[0]), LinAlg.col(r1.x), tolerance);
 	}
 
 	@Test
@@ -144,8 +143,8 @@ class TestProjectedCG {
 
 		Assertions.assertEquals(PCGStoppingCondition.TRUST_REGION_BOUNDARY_REACHED, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
-		MinervaAssertions.assertRelAbsEquals(trustRadius, r.x.norm2(), tolerance);
-		MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(Y.apply(b).times(-1)), LinAlg.col(r.x), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(trustRadius, r.x.norm2(), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(Y.apply(b).times(-1)), LinAlg.col(r.x), tolerance);
 	}
 
 	@Test
@@ -179,7 +178,7 @@ class TestProjectedCG {
 		CGInfo r = QPSubproblem.projectedCG(LinAlg.op(H), c, Z, Y, b, trustRadius, lb, ub, tol);
 		Assertions.assertEquals(PCGStoppingCondition.TRUST_REGION_BOUNDARY_REACHED, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
-		MinervaAssertions.assertRelAbsEquals(trustRadius, r.x.norm2(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(trustRadius, r.x.norm2(), tolerance);
 	}
 
 	@Test
@@ -244,7 +243,7 @@ class TestProjectedCG {
 		CGInfo r = QPSubproblem.projectedCG(LinAlg.op(H), c, Z, Y, b, trustRadius, lb, ub, tol);
 		Assertions.assertEquals(PCGStoppingCondition.NEGATIVE_CURVATURE, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
-		MinervaAssertions.assertRelAbsEquals(trustRadius, r.x.norm2(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(trustRadius, r.x.norm2(), tolerance);
 	}
 
 	/**
@@ -284,7 +283,7 @@ class TestProjectedCG {
 		Assertions.assertEquals(false, r.hitsBoundary);
 
 		Matrix[] r2 = QPSubproblem.eqpKktFact(H, c, A, b);
-		MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(r2[0]), LinAlg.col(r.x), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(r2[0]), LinAlg.col(r.x), tolerance);
 	}
 
 	/**
@@ -323,8 +322,8 @@ class TestProjectedCG {
 		Assertions.assertEquals(PCGStoppingCondition.ITER_LIMIT_REACHED, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
 
-		MinervaAssertions.assertArrayRelAbsEquals(LinAlg.col(b.times(-1)), LinAlg.col(A.mtimes(r.x)), tolerance);
-		MinervaAssertions.assertRelAbsEquals(0.8, r.x.getAsDouble(0, 0), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(b.times(-1)), LinAlg.col(A.mtimes(r.x)), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.8, r.x.getAsDouble(0, 0), tolerance);
 	}
 
 	/**
@@ -363,7 +362,7 @@ class TestProjectedCG {
 		Assertions.assertEquals(PCGStoppingCondition.TRUST_REGION_BOUNDARY_REACHED, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
 
-		MinervaAssertions.assertRelAbsEquals(1.6, r.x.getAsDouble(2, 0), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(1.6, r.x.getAsDouble(2, 0), tolerance);
 	}
 
 	/**
@@ -402,7 +401,7 @@ class TestProjectedCG {
 		Assertions.assertEquals(PCGStoppingCondition.TRUST_REGION_BOUNDARY_REACHED, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
 
-		MinervaAssertions.assertRelAbsEquals(0.1, r.x.getAsDouble(1, 0), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.1, r.x.getAsDouble(1, 0), tolerance);
 	}
 
 	/**
@@ -440,6 +439,6 @@ class TestProjectedCG {
 		CGInfo r = QPSubproblem.projectedCG(LinAlg.op(H), c, Z, Y, b, trustRadius, lb, ub, tol);
 		Assertions.assertEquals(PCGStoppingCondition.NEGATIVE_CURVATURE, r.stopCond);
 		Assertions.assertEquals(true, r.hitsBoundary);
-		MinervaAssertions.assertRelAbsEquals(100.0, r.x.getAsDouble(2, 0), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(100.0, r.x.getAsDouble(2, 0), tolerance);
 	}
 }

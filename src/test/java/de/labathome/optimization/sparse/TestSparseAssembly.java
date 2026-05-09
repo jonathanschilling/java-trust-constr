@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.scipy.optimize.minimize.sparse.CSRMatrix;
 import org.scipy.optimize.minimize.sparse.SparseAssembly;
 
-import minerva.tests.junit.MinervaAssertions;
+import de.labathome.optimization.RelAbsAssertions;
 
 class TestSparseAssembly {
 
@@ -30,7 +30,7 @@ class TestSparseAssembly {
 				{ 5.0, 6.0 },
 				{ 0.0, 7.0 },
 		};
-		MinervaAssertions.assertArrayRelAbsEquals(expected, v.toDense(), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(expected, v.toDense(), TOL);
 	}
 
 	@Test
@@ -55,7 +55,7 @@ class TestSparseAssembly {
 				{ 1.0, 2.0, 4.0, 0.0, 5.0 },
 				{ 0.0, 3.0, 6.0, 7.0, 0.0 },
 		};
-		MinervaAssertions.assertArrayRelAbsEquals(expected, h.toDense(), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(expected, h.toDense(), TOL);
 	}
 
 	@Test
@@ -86,7 +86,7 @@ class TestSparseAssembly {
 				{ 1.0, 2.0, 3.0, 0.0, 0.0 },
 				{ 0.0, 1.0, 0.0, 0.0, 0.0 },
 		};
-		MinervaAssertions.assertArrayRelAbsEquals(expected, kkt.toDense(), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(expected, kkt.toDense(), TOL);
 	}
 
 	@Test
@@ -118,7 +118,7 @@ class TestSparseAssembly {
 				{ 0.0, 3.0, 4.0, 7.0, 0.0 },
 				{ 5.0, 0.0, 6.0, 0.0, 8.0 },
 		};
-		MinervaAssertions.assertArrayRelAbsEquals(expected, j.toDense(), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(expected, j.toDense(), TOL);
 	}
 
 	@Test
@@ -148,6 +148,6 @@ class TestSparseAssembly {
 				{ jEq,   null  },
 				{ jIneq, diagS },
 		});
-		MinervaAssertions.assertArrayRelAbsEquals(generic.toDense(), optimised.toDense(), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(generic.toDense(), optimised.toDense(), TOL);
 	}
 }

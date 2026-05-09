@@ -1,5 +1,7 @@
 package org.scipy.optimize.minimize;
 
+import dev.ludovic.netlib.blas.BLAS;
+
 import org.scipy.optimize.minimize.enums.ExceptionStrategy;
 import org.ujmp.core.Matrix;
 
@@ -88,6 +90,8 @@ public class BFGS extends FullHessianUpdateStrategy {
 		FACTORY = new BFGSFactory();
 	}
 
+	private static final BLAS BLAS_INSTANCE = BLAS.getInstance();
+
 	private final ExceptionStrategy exceptionStrategy;
 	private final double minCurvature;
 
@@ -120,16 +124,18 @@ public class BFGS extends FullHessianUpdateStrategy {
 	 * @param s
 	 */
 	private void updateInverseHessian(double ys, Matrix Hy, double yHy, Matrix s) {
+		int N = (int) n;
+		double[] flat = symMatrixToFlat(H, N);
+		double[] sArr = colVectorToArray(s, N);
+		double[] HyArr = colVectorToArray(Hy, N);
 
-		// TODO: use _syr2 from BLAS
-		// This is the second row in above equation.
-		double alpha = -1.0/ys;
-		H = H.plus( ( Hy.mtimes(s.transpose()).plus( s.mtimes(Hy.transpose()) ) ).times(alpha) );
+		// dsyr2: H += -1/ys * (Hy s^T + s Hy^T) — second row of the BFGS formula.
+		BLAS_INSTANCE.dsyr2("U", N, -1.0 / ys, HyArr, 1, sArr, 1, flat, N);
+		// dsyr: H += (ys + yHy)/(ys^2) * s s^T — first row of the BFGS formula.
+		BLAS_INSTANCE.dsyr("U", N, (ys + yHy) / (ys * ys), sArr, 1, flat, N);
 
-		// TODO: use _syr from BLAS
-		// This is the first row in above equation.
-		double alpha2 = (ys + yHy)/(ys*ys);
-		H = H.plus( s.mtimes(s.transpose()).times(alpha2) );
+		mirrorSymmetric(flat, N);
+		H = flatToMatrix(flat, N);
 	}
 
 	/**
@@ -152,14 +158,71 @@ public class BFGS extends FullHessianUpdateStrategy {
 	 * @param y
 	 */
 	private void updateHessian(double ys, Matrix Bs, double sBs, Matrix y) {
+		int N = (int) n;
+		double[] flat = symMatrixToFlat(B, N);
+		double[] yArr = colVectorToArray(y, N);
+		double[] BsArr = colVectorToArray(Bs, N);
 
-		// TODO: use _syr from BLAS
-		// This is the second term in above equation.
-		B = B.plus( y.mtimes(y.transpose()).times(1.0/ys) );
+		// dsyr: B += (1/ys) * y y^T — second term.
+		BLAS_INSTANCE.dsyr("U", N, 1.0 / ys, yArr, 1, flat, N);
+		// dsyr: B += -(1/sBs) * Bs Bs^T — first term.
+		BLAS_INSTANCE.dsyr("U", N, -1.0 / sBs, BsArr, 1, flat, N);
 
-		// TODO: use _syr from BLAS
-		// This is the first term in above equation.
-		B = B.plus( Bs.mtimes(Bs.transpose()).times(-1.0/sBs) );
+		mirrorSymmetric(flat, N);
+		B = flatToMatrix(flat, N);
+	}
+
+	/**
+	 * Copy a column vector ({@code n x 1}) {@code v} into a length-{@code n}
+	 * {@code double[]}.
+	 */
+	private static double[] colVectorToArray(Matrix v, int n) {
+		double[] out = new double[n];
+		for (int i = 0; i < n; ++i) {
+			out[i] = v.getAsDouble(i, 0);
+		}
+		return out;
+	}
+
+	/**
+	 * Flatten an {@code n x n} symmetric matrix to a {@code double[n*n]}. The
+	 * row-major and column-major flattenings are identical for symmetric
+	 * matrices, so the result can be passed directly to BLAS routines that
+	 * expect column-major storage (e.g. {@code dsyr}, {@code dsyr2}).
+	 */
+	private static double[] symMatrixToFlat(Matrix m, int n) {
+		double[] flat = new double[n * n];
+		for (int i = 0; i < n; ++i) {
+			for (int j = 0; j < n; ++j) {
+				flat[i * n + j] = m.getAsDouble(i, j);
+			}
+		}
+		return flat;
+	}
+
+	/**
+	 * After a BLAS {@code dsyr}/{@code dsyr2} call with {@code uplo="U"}, only
+	 * one triangle of the flat array is updated (the column-major upper
+	 * triangle, which in row-major reading is the lower triangle). Mirror
+	 * lower→upper to restore full symmetry.
+	 */
+	private static void mirrorSymmetric(double[] flat, int n) {
+		for (int i = 0; i < n; ++i) {
+			for (int j = i + 1; j < n; ++j) {
+				flat[i * n + j] = flat[j * n + i];
+			}
+		}
+	}
+
+	/**
+	 * Wrap a flat array back into a UJMP {@link Matrix} of shape {@code n x n}.
+	 */
+	private static Matrix flatToMatrix(double[] flat, int n) {
+		double[][] arr = new double[n][n];
+		for (int i = 0; i < n; ++i) {
+			System.arraycopy(flat, i * n, arr[i], 0, n);
+		}
+		return Matrix.Factory.linkToArray(arr);
 	}
 
 	@Override

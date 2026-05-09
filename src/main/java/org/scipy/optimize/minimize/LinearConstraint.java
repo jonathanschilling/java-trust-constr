@@ -24,21 +24,23 @@ import org.ujmp.core.SparseMatrix;
  * and {@link Jacobian} (analytic Jacobian, which for a linear constraint is
  * just {@code A}).
  *
- * <p>Each row {@code i} of {@code A} is classified as:
+ * <p>Each row {@code i} of {@code A} is classified as one of four categories:
  * <ul>
- *   <li>Equality if {@code lb[i] == ub[i]} (and finite). Contributes one row
- *       to {@code constrEq} / {@code jacEq} with value {@code A[i,:] x - lb[i]}.</li>
- *   <li>Lower-only if {@code ub[i] == +∞}. Contributes one row to
- *       {@code constrIneq} / {@code jacIneq}: {@code lb[i] - A[i,:] x}, sign
- *       flipped so the convention {@code constrIneq(x) <= 0} holds.</li>
- *   <li>Upper-only if {@code lb[i] == -∞}. Contributes one row to
- *       {@code constrIneq} / {@code jacIneq}: {@code A[i,:] x - ub[i]}.</li>
- *   <li>Two-sided interval ({@code lb[i] < ub[i]}, both finite). Contributes
- *       <em>two</em> rows to {@code constrIneq} / {@code jacIneq}: an
- *       upper-side row {@code A[i,:] x - ub[i]} and a lower-side row
- *       {@code lb[i] - A[i,:] x}. Mirrors scipy's
- *       {@code _canonical_constraints} row split.</li>
+ *   <li>{@code equal}: {@code lb[i] == ub[i]} (finite). Contributes one row
+ *       to {@code constrEq} / {@code jacEq}: {@code A[i,:] x - lb[i]}.</li>
+ *   <li>{@code less}: {@code lb[i] == -∞}, {@code ub[i] < ∞} (upper-only).
+ *       Contributes one ineq row {@code A[i,:] x - ub[i]} (sign +1).</li>
+ *   <li>{@code greater}: {@code ub[i] == +∞}, {@code lb[i] > -∞} (lower-only).
+ *       Contributes one ineq row {@code lb[i] - A[i,:] x} (sign -1, target lb).</li>
+ *   <li>{@code interval}: both finite, {@code lb[i] < ub[i]}. Contributes
+ *       <em>two</em> ineq rows: an upper-side row and a lower-side row.</li>
  * </ul>
+ *
+ * <p>The {@code constrIneq} / {@code jacIneq} output is grouped scipy-style
+ * (mirrors {@code canonical_constraint.py:_interval_to_canonical}): all
+ * {@code less} rows first, then all {@code greater} rows, then all
+ * {@code interval}-upper rows, then all {@code interval}-lower rows. Within
+ * each block the original row order is preserved.
  */
 public class LinearConstraint implements Constraint, Jacobian {
 
@@ -88,32 +90,58 @@ public class LinearConstraint implements Constraint, Jacobian {
 		this.ineqRows = new int[nIneq];
 		this.ineqSign = new int[nIneq];
 		this.ineqTarget = new double[nIneq];
+		// Scipy 4-block order: equal | less | greater | interval-upper | interval-lower.
 		int eqIdx = 0;
 		int ineqIdx = 0;
+		// Pass 1: equality rows (lb == ub).
 		for (int i = 0; i < m; ++i) {
 			boolean lbFinite = !Double.isInfinite(lb[i]);
 			boolean ubFinite = !Double.isInfinite(ub[i]);
 			if (lbFinite && ubFinite && lb[i] == ub[i]) {
 				eqRows[eqIdx++] = i;
-			} else if (lbFinite && ubFinite) {
-				// Two-sided: emit upper-side row, then lower-side row.
+			}
+		}
+		// Pass 2: less (lb=-inf, ub<inf) — sign +1, target ub.
+		for (int i = 0; i < m; ++i) {
+			boolean lbFinite = !Double.isInfinite(lb[i]);
+			boolean ubFinite = !Double.isInfinite(ub[i]);
+			if (!lbFinite && ubFinite) {
 				ineqRows[ineqIdx] = i;
 				ineqSign[ineqIdx] = +1;
 				ineqTarget[ineqIdx] = ub[i];
 				++ineqIdx;
+			}
+		}
+		// Pass 3: greater (ub=+inf, lb>-inf) — sign -1, target lb.
+		for (int i = 0; i < m; ++i) {
+			boolean lbFinite = !Double.isInfinite(lb[i]);
+			boolean ubFinite = !Double.isInfinite(ub[i]);
+			if (lbFinite && !ubFinite) {
 				ineqRows[ineqIdx] = i;
 				ineqSign[ineqIdx] = -1;
 				ineqTarget[ineqIdx] = lb[i];
 				++ineqIdx;
-			} else if (lbFinite) {
-				ineqRows[ineqIdx] = i;
-				ineqSign[ineqIdx] = -1;
-				ineqTarget[ineqIdx] = lb[i];
-				++ineqIdx;
-			} else if (ubFinite) {
+			}
+		}
+		// Pass 4: interval-upper (both finite, lb<ub) — sign +1, target ub.
+		for (int i = 0; i < m; ++i) {
+			boolean lbFinite = !Double.isInfinite(lb[i]);
+			boolean ubFinite = !Double.isInfinite(ub[i]);
+			if (lbFinite && ubFinite && lb[i] != ub[i]) {
 				ineqRows[ineqIdx] = i;
 				ineqSign[ineqIdx] = +1;
 				ineqTarget[ineqIdx] = ub[i];
+				++ineqIdx;
+			}
+		}
+		// Pass 5: interval-lower (both finite, lb<ub) — sign -1, target lb.
+		for (int i = 0; i < m; ++i) {
+			boolean lbFinite = !Double.isInfinite(lb[i]);
+			boolean ubFinite = !Double.isInfinite(ub[i]);
+			if (lbFinite && ubFinite && lb[i] != ub[i]) {
+				ineqRows[ineqIdx] = i;
+				ineqSign[ineqIdx] = -1;
+				ineqTarget[ineqIdx] = lb[i];
 				++ineqIdx;
 			}
 		}

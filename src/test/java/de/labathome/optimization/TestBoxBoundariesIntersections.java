@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.scipy.optimize.minimize.QPSubproblem;
 import org.scipy.optimize.minimize.records.IntersectionResult;
 
-import minerva.tests.junit.MinervaAssertions;
 
 class TestBoxBoundariesIntersections {
 
@@ -19,8 +18,8 @@ class TestBoxBoundariesIntersections {
 				new double[] {0.0, 2.0},
 				new double[] {1.0, 1.0},
 				new double[] {3.0, 3.0});
-		MinervaAssertions.assertRelAbsEquals(0.5, r1.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(1.0, r1.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.5, r1.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(1.0, r1.tB(), tolerance);
 		Assertions.assertTrue(r1.intersect());
 
 		// Negative direction
@@ -37,8 +36,8 @@ class TestBoxBoundariesIntersections {
 				new double[] {0.0, 2.0},
 				new double[] {Double.NEGATIVE_INFINITY, 1.0},
 				new double[] {Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY});
-		MinervaAssertions.assertRelAbsEquals(0.5, r3.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(1.0, r3.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.5, r3.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(1.0, r3.tB(), tolerance);
 		Assertions.assertTrue(r3.intersect());
 
 		// Intersect on the face of the box
@@ -47,8 +46,8 @@ class TestBoxBoundariesIntersections {
 				new double[] {0.0, 1.0},
 				new double[] {1.0, 1.0},
 				new double[] {3.0, 3.0});
-		MinervaAssertions.assertRelAbsEquals(1.0, r4.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(1.0, r4.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(1.0, r4.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(1.0, r4.tB(), tolerance);
 		Assertions.assertTrue(r4.intersect());
 
 		// Interior initial point
@@ -57,8 +56,8 @@ class TestBoxBoundariesIntersections {
 				new double[] {4.0, 4.0},
 				new double[] {-2.0, -3.0},
 				new double[] { 3.0,  2.0});
-		MinervaAssertions.assertRelAbsEquals(0.0, r5.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(0.5, r5.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.0, r5.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.5, r5.tB(), tolerance);
 		Assertions.assertTrue(r5.intersect());
 
 		// No intersection between line and box constraints
@@ -103,8 +102,8 @@ class TestBoxBoundariesIntersections {
 				new double[] {0.0, 1.0},
 				new double[] {-2.0, -2.0},
 				new double[] { 2.0,  2.0});
-		MinervaAssertions.assertRelAbsEquals(0.0, r7.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(0.0, r7.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.0, r7.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.0, r7.tB(), tolerance);
 		Assertions.assertTrue(r7.intersect());
 	}
 
@@ -118,8 +117,8 @@ class TestBoxBoundariesIntersections {
 				new double[] {0.0, 2.0},
 				new double[] {1.0, 1.0},
 				new double[] {3.0, 3.0}, true);
-		MinervaAssertions.assertRelAbsEquals(0.5, r1.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(1.5, r1.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.5, r1.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(1.5, r1.tB(), tolerance);
 		Assertions.assertTrue(r1.intersect());
 
 		// Negative direction
@@ -128,8 +127,8 @@ class TestBoxBoundariesIntersections {
 				new double[] {0.0, 2.0},
 				new double[] {1.0, -3.0},
 				new double[] {3.0, -1.0}, true);
-		MinervaAssertions.assertRelAbsEquals(-1.5, r2.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(-0.5, r2.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(-1.5, r2.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(-0.5, r2.tB(), tolerance);
 		Assertions.assertTrue(r2.intersect());
 
 		// Some constraints are absent (set to +/- inf)
@@ -138,7 +137,7 @@ class TestBoxBoundariesIntersections {
 				new double[] {0.0, 2.0},
 				new double[] {Double.NEGATIVE_INFINITY, 1.0},
 				new double[] {Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY}, true);
-		MinervaAssertions.assertRelAbsEquals(0.5, r3.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.5, r3.tA(), tolerance);
 		Assertions.assertEquals(Double.POSITIVE_INFINITY, r3.tB());
 		Assertions.assertTrue(r3.intersect());
 
@@ -148,8 +147,8 @@ class TestBoxBoundariesIntersections {
 				new double[] {0.0, 1.0},
 				new double[] {1.0, 1.0},
 				new double[] {3.0, 3.0}, true);
-		MinervaAssertions.assertRelAbsEquals(1.0, r4.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(3.0, r4.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(1.0, r4.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(3.0, r4.tB(), tolerance);
 		Assertions.assertTrue(r4.intersect());
 
 		// Interior initial pointoint
@@ -158,8 +157,8 @@ class TestBoxBoundariesIntersections {
 				new double[] {4.0, 4.0},
 				new double[] {-2.0, -3.0},
 				new double[] { 3.0,  2.0}, true);
-		MinervaAssertions.assertRelAbsEquals(-0.5, r5.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals( 0.5, r5.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(-0.5, r5.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals( 0.5, r5.tB(), tolerance);
 		Assertions.assertTrue(r5.intersect());
 
         // No intersection between line and box constraints
@@ -204,8 +203,8 @@ class TestBoxBoundariesIntersections {
 				new double[] {0.0, 1.0},
 				new double[] {-2.0, -2.0},
 				new double[] { 2.0,  2.0}, true);
-		MinervaAssertions.assertRelAbsEquals(-4.0, r7.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals( 0.0, r7.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(-4.0, r7.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals( 0.0, r7.tB(), tolerance);
 		Assertions.assertTrue(r7.intersect());
 	}
 
@@ -219,8 +218,8 @@ class TestBoxBoundariesIntersections {
 				new double[] {0.0, 0.0, 1.0},
 				new double[] {1.0, 1.0, 1.0},
 				new double[] {3.0, 3.0, 3.0});
-		MinervaAssertions.assertRelAbsEquals(1.0, r1.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(1.0, r1.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(1.0, r1.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(1.0, r1.tB(), tolerance);
 		Assertions.assertTrue(r1.intersect());
 
 		// Negative direction
@@ -237,8 +236,8 @@ class TestBoxBoundariesIntersections {
 				new double[] {0.0, -1.0, 1.0},
 				new double[] {1.0, 1.0, 1.0},
 				new double[] {3.0, 3.0, 3.0});
-		MinervaAssertions.assertRelAbsEquals(0.0, r3.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(1.0, r3.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(0.0, r3.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(1.0, r3.tB(), tolerance);
 		Assertions.assertTrue(r3.intersect());
 	}
 
@@ -252,8 +251,8 @@ class TestBoxBoundariesIntersections {
 				new double[] {0.0, 0.0, 1.0},
 				new double[] {1.0, 1.0, 1.0},
 				new double[] {3.0, 3.0, 3.0}, true);
-		MinervaAssertions.assertRelAbsEquals(1.0, r1.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(3.0, r1.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(1.0, r1.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(3.0, r1.tB(), tolerance);
 		Assertions.assertTrue(r1.intersect());
 
 		// Negative direction
@@ -262,8 +261,8 @@ class TestBoxBoundariesIntersections {
 				new double[] {0.0, 0.0, -1.0},
 				new double[] {1.0, 1.0, 1.0},
 				new double[] {3.0, 3.0, 3.0}, true);
-		MinervaAssertions.assertRelAbsEquals(-3.0, r2.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals(-1.0, r2.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(-3.0, r2.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(-1.0, r2.tB(), tolerance);
 		Assertions.assertTrue(r2.intersect());
 
 		// Interior point
@@ -272,8 +271,8 @@ class TestBoxBoundariesIntersections {
 				new double[] {0.0, -1.0, 1.0},
 				new double[] {1.0, 1.0, 1.0},
 				new double[] {3.0, 3.0, 3.0}, true);
-		MinervaAssertions.assertRelAbsEquals(-1.0, r3.tA(), tolerance);
-		MinervaAssertions.assertRelAbsEquals( 1.0, r3.tB(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals(-1.0, r3.tA(), tolerance);
+		RelAbsAssertions.assertRelAbsEquals( 1.0, r3.tB(), tolerance);
 		Assertions.assertTrue(r3.intersect());
 	}
 }

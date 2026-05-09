@@ -35,6 +35,7 @@ import org.scipy.optimize.minimize.matrix.SparseMatrix;
  */
 public class VectorFunction {
 
+	/** Builder for {@link VectorFunction}. */
 	public static class VectorFunctionFactory {
 
 		private Function<Matrix, Matrix> fun;
@@ -60,16 +61,22 @@ public class VectorFunction {
 			sparseJacobian = Optional.empty();
 		}
 
-		/** Set the objective funciton to optimize. */
+		/**
+		 * Set the vector-valued function to evaluate.
+		 *
+		 * @param fun function {@code R^n -> R^m}
+		 * @return this factory, for chaining
+		 */
 		public VectorFunctionFactory fun(Function<Matrix, Matrix> fun) {
 			this.fun = fun;
 			return this;
 		}
 
 		/**
-		 * Provides an initial set of variables for evaluating fun.
-		 * Array of real elements of size (n,),
-		 * where 'n' is the number of independent variables.
+		 * Provide the initial point.
+		 *
+		 * @param x0 starting iterate ({@code n x 1})
+		 * @return this factory, for chaining
 		 */
 		public VectorFunctionFactory x0(Matrix x0) {
 			this.x0 = x0;
@@ -78,18 +85,11 @@ public class VectorFunction {
 
 
 		/**
-		 * Method for computing the gradient vector.
-	     * If it is a callable, it should be a function that returns the gradient
-	     * vector:
-	     *
-	     *     ``grad(x, *args) -> array_like, shape (n,)``
-	     *
-	     * where ``x`` is an array with shape (n,) and ``args`` is a tuple with
-	     * the fixed parameters.
-	     * Alternatively, the keywords  {'2-point', '3-point', 'cs'} can be used
-	     * to select a finite difference scheme for numerical estimation of the
-	     * gradient with a relative step size. These finite difference schemes
-	     * obey any specified `bounds`.
+		 * Provide an analytic Jacobian.
+		 *
+		 * @param jac analytic Jacobian {@code R^n -> R^{m x n}}
+		 * @return this factory, for chaining
+		 * @throws RuntimeException if a Jacobian was already specified
 		 */
 		public VectorFunctionFactory jac(Function<Matrix, Matrix> jac) {
 			if (hasJac) {
@@ -103,7 +103,11 @@ public class VectorFunction {
 		}
 
 		/**
-		 * Method for computing the Jacobian matrix.
+		 * Compute the Jacobian by finite differences instead of analytically.
+		 *
+		 * @param jac FD scheme to use
+		 * @return this factory, for chaining
+		 * @throws RuntimeException if a Jacobian was already specified
 		 */
 		public VectorFunctionFactory jac(FiniteDifferenceMethod jac) {
 			if (hasJac) {
@@ -117,35 +121,35 @@ public class VectorFunction {
 		}
 
 		/**
-		 * Specify a matrix that has non-zero elements only where non-zero Jacobian elements are expected.
+		 * Specify a Jacobian sparsity pattern: a matrix with non-zero elements
+		 * exactly where non-zero Jacobian entries are expected. Enables
+		 * Curtis-Powell-Reid column grouping for the FD path.
 		 *
-		 * @param finiteDiffJacSparsity
-		 * @return
+		 * @param finiteDiffJacSparsity sparsity pattern ({@code m x n})
+		 * @return this factory, for chaining
 		 */
 		public VectorFunctionFactory finiteDiffJacSparsity(Matrix finiteDiffJacSparsity) {
 			this.finiteDiffJacSparsity = finiteDiffJacSparsity;
 			return this;
 		}
 
+		/**
+		 * Force the Jacobian return type to a sparse representation.
+		 *
+		 * @return this factory, for chaining
+		 */
 		public VectorFunctionFactory sparseJacobian() {
 			sparseJacobian = Optional.of(true);
 			return this;
 		}
 
 		/**
-		 * Method for computing the Hessian matrix. If it is callable, it should
-	     * return the  Hessian matrix:
-	     *
-	     *     ``hess(x, *args) -> {LinearOperator, spmatrix, array}, (n, n)``
-	     *
-	     * where x is a (n,) ndarray and `args` is a tuple with the fixed
-	     * parameters. Alternatively, the keywords {'2-point', '3-point', 'cs'}
-	     * select a finite difference scheme for numerical estimation. Or, objects
-	     * implementing `HessianUpdateStrategy` interface can be used to
-	     * approximate the Hessian.
-	     * Whenever the gradient is estimated via finite-differences, the Hessian
-	     * cannot be estimated with options {'2-point', '3-point', 'cs'} and needs
-	     * to be estimated using one of the quasi-Newton strategies.
+		 * Provide an analytic constraint Hessian-of-Lagrangian
+		 * {@code (x, v) -> Sum v[i] H_{c_i}(x)}.
+		 *
+		 * @param hess analytic Hessian-of-Lagrangian
+		 * @return this factory, for chaining
+		 * @throws RuntimeException if a Hessian was already specified
 		 */
 		public VectorFunctionFactory hess(BiFunction<Matrix, Matrix, Matrix> hess) {
 			if (hasHess) {
@@ -160,19 +164,12 @@ public class VectorFunction {
 		}
 
 		/**
-		 * Method for computing the Hessian matrix. If it is callable, it should
-	     * return the  Hessian matrix:
-	     *
-	     *     ``hess(x, *args) -> {LinearOperator, spmatrix, array}, (n, n)``
-	     *
-	     * where x is a (n,) ndarray and `args` is a tuple with the fixed
-	     * parameters. Alternatively, the keywords {'2-point', '3-point', 'cs'}
-	     * select a finite difference scheme for numerical estimation. Or, objects
-	     * implementing `HessianUpdateStrategy` interface can be used to
-	     * approximate the Hessian.
-	     * Whenever the gradient is estimated via finite-differences, the Hessian
-	     * cannot be estimated with options {'2-point', '3-point', 'cs'} and needs
-	     * to be estimated using one of the quasi-Newton strategies.
+		 * Compute the Hessian by finite differences instead of analytically.
+		 * Cannot be combined with an FD Jacobian.
+		 *
+		 * @param hess FD scheme to use for the Hessian
+		 * @return this factory, for chaining
+		 * @throws RuntimeException if a Hessian was already specified
 		 */
 		public VectorFunctionFactory hess(FiniteDifferenceMethod hess) {
 			if (hasHess) {
@@ -187,19 +184,12 @@ public class VectorFunction {
 		}
 
 		/**
-		 * Method for computing the Hessian matrix. If it is callable, it should
-	     * return the  Hessian matrix:
-	     *
-	     *     ``hess(x, *args) -> {LinearOperator, spmatrix, array}, (n, n)``
-	     *
-	     * where x is a (n,) ndarray and `args` is a tuple with the fixed
-	     * parameters. Alternatively, the keywords {'2-point', '3-point', 'cs'}
-	     * select a finite difference scheme for numerical estimation. Or, objects
-	     * implementing `HessianUpdateStrategy` interface can be used to
-	     * approximate the Hessian.
-	     * Whenever the gradient is estimated via finite-differences, the Hessian
-	     * cannot be estimated with options {'2-point', '3-point', 'cs'} and needs
-	     * to be estimated using one of the quasi-Newton strategies.
+		 * Approximate the Hessian via a quasi-Newton update strategy
+		 * (e.g. {@link BFGS}, {@link SR1}).
+		 *
+		 * @param hess Hessian-update strategy instance
+		 * @return this factory, for chaining
+		 * @throws RuntimeException if a Hessian was already specified
 		 */
 		public VectorFunctionFactory hess(HessianUpdateStrategy hess) {
 			if (hasHess) {
@@ -214,11 +204,11 @@ public class VectorFunction {
 		}
 
 		/**
-		 * Relative step size to use. The absolute step size is computed as
-	     * ``h = finite_diff_rel_step * sign(x0) * max(1, abs(x0))``, possibly
-	     * adjusted to fit into the bounds. For ``method='3-point'`` the sign
-	     * of `h` is ignored. If None then finite_diff_rel_step is selected
-	     * automatically,
+		 * Per-component relative step size for the FD Jacobian/Hessian. May
+		 * be {@code null} to derive a default from machine epsilon.
+		 *
+		 * @param finiteDiffRelStep relative step size ({@code n x 1}); may be {@code null}
+		 * @return this factory, for chaining
 		 */
 		public VectorFunctionFactory finiteDiffRelStep(Matrix finiteDiffRelStep) {
 			this.finiteDiffRelStep = finiteDiffRelStep;
@@ -226,16 +216,21 @@ public class VectorFunction {
 		}
 
 		/**
-		 * Lower and upper bounds on independent variables. Defaults to no bounds,
-	     * (-np.inf, np.inf). Each bound must match the size of `x0` or be a
-	     * scalar, in the latter case the bound will be the same for all
-	     * variables. Use it to limit the range of function evaluation.
+		 * Bounds within which FD perturbations must stay. Defaults to
+		 * unbounded.
+		 *
+		 * @param finiteDiffBounds box bounds for FD perturbations
+		 * @return this factory, for chaining
 		 */
 		public VectorFunctionFactory finiteDiffBounds(FiniteDifferenceBounds finiteDiffBounds) {
 			this.finiteDiffBounds = finiteDiffBounds;
 			return this;
 		}
 
+		/**
+		 * @return a fully-configured {@link VectorFunction}
+		 * @throws RuntimeException if neither analytic nor FD Jacobian/Hessian was set
+		 */
 		public VectorFunction build() {
 			// Actually check for nulls to safeguard against calling grad(null) or hess(null).
 			if (jac == null && jacFD == null) {
@@ -261,6 +256,7 @@ public class VectorFunction {
 		}
 	};
 
+	/** Default {@link VectorFunctionFactory}. */
 	public static final VectorFunctionFactory FACTORY;
 	static {
 		FACTORY = new VectorFunctionFactory();
@@ -560,18 +556,31 @@ public class VectorFunction {
 		}
 	}
 
+	/**
+	 * @param x current iterate ({@code n x 1})
+	 * @return cached function value {@code f(x)} ({@code m x 1})
+	 */
 	public Matrix fun(Matrix x) {
 		updateX(x);
 		updateFun();
 		return this.f;
 	}
 
+	/**
+	 * @param x current iterate ({@code n x 1})
+	 * @return cached Jacobian {@code J(x)} ({@code m x n})
+	 */
 	public Matrix jac(Matrix x) {
 		updateX(x);
 		updateJac();
 		return this.J;
 	}
 
+	/**
+	 * @param x current iterate ({@code n x 1})
+	 * @param v Lagrange multipliers ({@code m x 1})
+	 * @return cached Hessian-of-Lagrangian {@code H(x, v)} ({@code n x n})
+	 */
 	public Matrix hess(Matrix x, Matrix v) {
 		// v should be updated before x.
 		updateV(v);
@@ -580,42 +589,47 @@ public class VectorFunction {
 		return this.H;
 	}
 
+	/** @return total number of {@code fun} evaluations performed so far */
 	public int numFunctionEvals() {
 		return numFunctionEvals;
 	}
 
+	/** @return total number of Jacobian evaluations performed so far */
 	public int numJacobianEvals() {
 		return numJacobianEvals;
 	}
 
+	/** @return total number of Hessian evaluations performed so far */
 	public int numHessianEvals() {
 		return numHessianEvals;
 	}
 
+	/** @return {@code true} if the Jacobian return type is sparse */
 	public boolean sparseJacobian() {
 		return sparseJacobian;
 	}
 
+	/** @return the most recently computed {@code f(x)} ({@code m x 1}), or {@code null} if uncached */
 	public Matrix f() {
 		return f;
 	}
 
+	/** @return the most recently computed Jacobian ({@code m x n}), or {@code null} if uncached */
 	public Matrix J() {
 		return J;
 	}
 
+	/** @return the most recently computed Hessian ({@code n x n}), or {@code null} if uncached */
 	public Matrix H() {
 		return H;
 	}
 
+	/** @return the most recently set Lagrange multipliers ({@code m x 1}), or {@code null} */
 	public Matrix v() {
 		return v;
 	}
 
-	/**
-	 * number of function dimensions
-	 * @return
-	 */
+	/** @return number of function dimensions ({@code m} in {@code f : R^n -> R^m}) */
 	public long m() {
 		return m;
 	}

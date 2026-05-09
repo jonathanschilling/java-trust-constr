@@ -109,9 +109,7 @@ class TestProjections {
 
 	@Test
 	void testRowspaceSparse() {
-		// Tolerance is a few ulps to absorb rounding-mode differences between
-		// the in-tree LAPACK-backed Cholesky/QR paths and the previous UJMP
-		// pure-Java factorisations.
+		// Tolerance is a few ulps to absorb LAPACK rounding-mode noise.
 		final double tolerance = 1.0e-14;
 
 		Matrix A = Matrix.Factory.linkToArray(new double[][] {
@@ -140,13 +138,17 @@ class TestProjections {
 				RelAbsAssertions.assertArrayRelAbsEquals(z.toColumnArray(), A.mtimes(x).toColumnArray(), tolerance);
 
 				// Test if x is in the return row space of A
-				long n = A.getRowCount();
-				Matrix extA = Matrix.Factory.zeros(n+1, A.getColumnCount());
-				for (long[] pos: A.allCoordinates()) {
-					extA.setAsDouble(A.getAsDouble(pos), pos);
+				int rowsA = (int) A.getRowCount();
+				int colsA = (int) A.getColumnCount();
+				Matrix extA = Matrix.Factory.zeros(rowsA + 1, colsA);
+				for (int i = 0; i < rowsA; ++i) {
+					for (int j = 0; j < colsA; ++j) {
+						extA.setAsDouble(A.getAsDouble(i, j), i, j);
+					}
 				}
-				for (long[] pos: x.allCoordinates()) {
-					extA.setAsDouble(x.getAsDouble(pos), n, pos[0]);
+				int rowsX = (int) x.getRowCount();
+				for (int i = 0; i < rowsX; ++i) {
+					extA.setAsDouble(x.getAsDouble(i, 0), rowsA, i);
 				}
 				Assertions.assertEquals(A.rank(), extA.rank());
 			}
@@ -204,18 +206,18 @@ class TestProjections {
 		}
 
 		Matrix sparseA = SparseMatrix.Factory.zeros(n, 4*n);
-		for (long[] pos: D.availableCoordinates()) {
-			double dVal = D.getAsDouble(pos);
-			sparseA.setAsDouble(dVal, pos[0], 0*n + pos[1]);
-			sparseA.setAsDouble(dVal, pos[0], 1*n + pos[1]);
-			sparseA.setAsDouble(dVal, pos[0], 2*n + pos[1]);
-			sparseA.setAsDouble(dVal, pos[0], 3*n + pos[1]);
+		for (int i = 0; i < n; ++i) {
+			double dVal = D.getAsDouble(i, i);
+			if (dVal == 0.0) continue;
+			sparseA.setAsDouble(dVal, i, 0*n + i);
+			sparseA.setAsDouble(dVal, i, 1*n + i);
+			sparseA.setAsDouble(dVal, i, 2*n + i);
+			sparseA.setAsDouble(dVal, i, 3*n + i);
 		}
 
 		Matrix denseA = DenseMatrix.Factory.copyFromMatrix(sparseA);
 
-		// set random seed; must be non-zero apparently
-		// https://github.com/ujmp/universal-java-matrix-package/issues/35
+		// Fix the RNG seed so the random test vectors are reproducible.
 		Matrix.Factory.setRandSeed(1);
 
 		LinearOperator[] denseOp = Projections.projections(denseA);
@@ -247,19 +249,23 @@ class TestProjections {
 		Matrix D2 = MatrixOps.diag(new double[] {1, -0.6, -0.3});
 		Matrix D3 = MatrixOps.diag(new double[] {-0.3, -1.5, 2});
 		Matrix A = Matrix.Factory.zeros(3, 9);
-		for (long[] pos: D1.availableCoordinates()) {
-			A.setAsDouble(D1.getAsDouble(pos), pos);
+		// Note: the original code wrote D1's values into all three blocks (apparent typo
+		// preserved: `A.setAsDouble(D1.getAsDouble(...), ...)` was used for D2 and D3 too).
+		for (int i = 0; i < 3; ++i) {
+			double v = D1.getAsDouble(i, i);
+			if (v != 0.0) A.setAsDouble(v, i, i);
 		}
-		for (long[] pos: D2.availableCoordinates()) {
-			A.setAsDouble(D1.getAsDouble(pos), pos[0], 3+pos[1]);
+		for (int i = 0; i < 3; ++i) {
+			double v = D1.getAsDouble(i, i);
+			if (v != 0.0) A.setAsDouble(v, i, 3 + i);
 		}
-		for (long[] pos: D3.availableCoordinates()) {
-			A.setAsDouble(D1.getAsDouble(pos), pos[0], 6+pos[1]);
+		for (int i = 0; i < 3; ++i) {
+			double v = D1.getAsDouble(i, i);
+			if (v != 0.0) A.setAsDouble(v, i, 6 + i);
 		}
 		Matrix sparseA = MatrixOps.sparse(A);
 
-		// set random seed; must be non-zero apparently
-		// https://github.com/ujmp/universal-java-matrix-package/issues/35
+		// Fix the RNG seed so the random test vectors are reproducible.
 		Matrix.Factory.setRandSeed(1);
 
 		LinearOperator[] denseOp = Projections.projections(A);
@@ -346,13 +352,17 @@ class TestProjections {
 				RelAbsAssertions.assertArrayRelAbsEquals(z.toColumnArray(), A.mtimes(x).toColumnArray(), tolerance);
 
 				// Test if x is in the return row space of A
-				long n = A.getRowCount();
-				Matrix extA = Matrix.Factory.zeros(n+1, A.getColumnCount());
-				for (long[] pos: A.allCoordinates()) {
-					extA.setAsDouble(A.getAsDouble(pos), pos);
+				int rowsA = (int) A.getRowCount();
+				int colsA = (int) A.getColumnCount();
+				Matrix extA = Matrix.Factory.zeros(rowsA + 1, colsA);
+				for (int i = 0; i < rowsA; ++i) {
+					for (int j = 0; j < colsA; ++j) {
+						extA.setAsDouble(A.getAsDouble(i, j), i, j);
+					}
 				}
-				for (long[] pos: x.allCoordinates()) {
-					extA.setAsDouble(x.getAsDouble(pos), n, pos[0]);
+				int rowsX = (int) x.getRowCount();
+				for (int i = 0; i < rowsX; ++i) {
+					extA.setAsDouble(x.getAsDouble(i, 0), rowsA, i);
 				}
 				Assertions.assertEquals(A.rank(), extA.rank());
 			}

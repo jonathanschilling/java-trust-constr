@@ -11,10 +11,10 @@ import org.scipy.optimize.minimize.matrix.Matrix;
  *
  * <p>Mirrors scipy's {@code LinearOperator}-wrapping of {@code hessp} in
  * {@code _minimize_trustregion_constr} ({@code minimize_trustregion_constr.py:36}):
- * given a callable {@code hessp(x, p)} returning {@code H(x)·p} for each
+ * given a callable {@code hessp(x, p)} returning {@code H(x)*p} for each
  * vector {@code p}, the wrapper materialises {@code H(x)} as a dense
  * {@code n x n} matrix by probing {@code hessp} along each Cartesian basis
- * vector. This is O(n) hessp evaluations — sufficient for the modest
+ * vector. This is O(n) hessp evaluations -- sufficient for the modest
  * problem sizes trust-constr is typically used on, and a future hook for
  * a true matrix-free path when downstream consumers can accept one.
  */
@@ -23,6 +23,11 @@ public class HessianLinearOperator implements BiFunction<Matrix, Object, Matrix>
 	private final HessianProduct hessp;
 	private final long nVars;
 
+	/**
+	 * @param hessp matrix-free Hessian-vector product evaluator
+	 *              {@code (x, p, args) -> H(x)*p}
+	 * @param nVars number of decision variables (= dimension of the Hessian)
+	 */
 	public HessianLinearOperator(HessianProduct hessp, long nVars) {
 		this.hessp = hessp;
 		this.nVars = nVars;

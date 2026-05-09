@@ -16,397 +16,228 @@ import org.scipy.optimize.minimize.interfaces.LinearOperator;
 import org.scipy.optimize.minimize.records.AdjustedDifferencingScheme;
 import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
 import org.scipy.optimize.minimize.records.Sparsity;
+import org.scipy.optimize.minimize.matrix.DenseMatrix;
 import org.scipy.optimize.minimize.matrix.Matrix;
 import org.scipy.optimize.minimize.matrix.SparseMatrix;
 
+/**
+ * Finite-difference Jacobians and gradients (mirrors scipy
+ * {@code _numdiff.approx_derivative}). Provides:
+ * <ul>
+ *   <li>{@link #approxDerivative} -- vector-valued FD with optional sparsity hint;</li>
+ *   <li>{@link #adjustSchemeToBounds} -- bound-aware step-direction selection;</li>
+ *   <li>{@link #computeAbsoluteStep} / {@link #epsForMethod} -- step-size helpers;</li>
+ *   <li>{@link #groupColumns} -- Curtis-Powell-Reid column grouping for sparse FD.</li>
+ * </ul>
+ */
 public class NumDiff {
 
 	/**
-	 * Group columns of a 2-D matrix for sparse finite differencing [1].
+	 * Group columns of a 2-D matrix for sparse finite differencing.
+	 * Two columns are in the same group if in each row at least one of them
+	 * has zero. A greedy sequential algorithm constructs the groups
+	 * (Curtis-Powell-Reid, 1974).
 	 *
-	 * Two columns are in the same group if in each row at least one of them has
-	 * zero. A greedy sequential algorithm is used to construct groups.
-	 *
-	 * @see [1] A. Curtis, M. J. D. Powell, and J. Reid,
-	 *      "On the estimation of sparse Jacobian matrices", Journal of the
-	 *      Institute of Mathematics and its Applications, 13 (1974), pp. 117-120.
-	 *
-	 * @param A [m][n] Matrix of which to group columns.
-	 * @return [n] Contains values from 0 to n_groups-1, where n_groups is the
-	 *         number of found groups. Each value ``groups[i]`` is an index of a
-	 *         group to which ith column assigned. The procedure was helpful only if
-	 *         n_groups is significantly less than n.
+	 * @param A {@code m x n} sparsity pattern (non-zero entries mark
+	 *          structural non-zeros of the Jacobian).
+	 * @return length-{@code n} array of group indices in {@code [0, n_groups)}.
 	 */
 	public static int[] groupColumns(Matrix A) {
-		int[] defaultOrder = { 0 };
-		return groupColumns(A, defaultOrder);
+		return groupColumns(A, new int[] {0});
 	}
 
 	/**
-	 * Group columns of a 2D matrix for sparse finite differencing [1].
+	 * Group columns of a 2-D matrix for sparse FD with a user-supplied
+	 * permutation that controls greedy-grouping order.
 	 *
-	 * Two columns are in the same group if in each row at least one of them has zero.
-	 * A greedy sequential algorithm is used to construct groups.
-	 *
-	 * @see [1] A. Curtis, M. J. D. Powell, and J. Reid,
-	 *          "On the estimation of sparse Jacobian matrices",
-	 *          Journal of the Institute of Mathematics and its Applications, 13 (1974), pp. 117-120.
-	 *
-	 * @param A     [m][n] Matrix of which to group columns.
-	 * @param order [n] Permutation array which defines the order of columns enumeration.
-	 *                  If int or None, a random permutation is used with `order` used as a random seed.
-	 *                  Default is 0, that is use a random permutation but guarantee repeatability.
-	 * @return [n] Contains values from 0 to n_groups-1, where n_groups is the number of found groups.
-	 *             Each value ``groups[i]`` is an index of a group to which the i-th is column assigned.
-	 *             The procedure was helpful only if n_groups is significantly less than n.
+	 * @param A     {@code m x n} sparsity pattern
+	 * @param order length-{@code n} permutation; if {@code null} or length {@code &le; 1},
+	 *              a reproducible random permutation seeded by {@code order[0]}
+	 *              (defaulting to {@code 0}) is used
+	 * @return length-{@code n} array of group indices
 	 */
 	public static int[] groupColumns(Matrix A, int[] order) {
-
-		// TODO: is this a sparse int matrix already?
-		Matrix newA = SparseMatrix.Factory.zeros(A.getSize());
-		for (long[] pos: A.allCoordinates()) {
-			double aVal = A.getAsDouble(pos);
-			if (aVal != 0.0) {
-				newA.setAsInt(1, pos);
-			}
-		}
-		A = newA;
-
 		if (A.getSize().length != 2) {
 			throw new RuntimeException("`A` must be 2-dimensional.");
 		}
 
-		long m = A.getRowCount();
-		long n = A.getColumnCount();
+		int m = (int) A.getRowCount();
+		int n = (int) A.getColumnCount();
 
-		// get random, but reproducible order if no order is given
-		// or check given order for compatibility with A
+		// Get random, but reproducible order if no order is given.
 		if (order == null || order.length <= 1) {
-			// reproducible RNG
-			Random rnd;
-			if (order == null || order.length == 0) {
-				rnd = new Random(0);
-			} else {
-				rnd = new Random(order[0]);
-			}
-
-			// obtain permutation of [0, 1, ..., (n-1)]
-			List<Integer> indices = new ArrayList<>((int) n);
-			for (int i = 0; i < n; ++i) {
-				indices.add(i);
-			}
+			Random rnd = new Random((order == null || order.length == 0) ? 0 : order[0]);
+			List<Integer> indices = new ArrayList<>(n);
+			for (int i = 0; i < n; ++i) indices.add(i);
 			Collections.shuffle(indices, rnd);
-			order = indices.stream().mapToInt(i -> i).toArray();
-		} else {
-			if (order.length != n) {
-				throw new RuntimeException("length of order has to equal n");
+			order = indices.stream().mapToInt(Integer::intValue).toArray();
+		} else if (order.length != n) {
+			throw new RuntimeException("length of order has to equal n");
+		}
+
+		// Boolean sparsity mask under the column reordering: nz[i][j] = (A[i, order[j]] != 0).
+		boolean[][] nz = new boolean[m][n];
+		for (int j = 0; j < n; ++j) {
+			int origCol = order[j];
+			for (int i = 0; i < m; ++i) {
+				nz[i][j] = A.getAsDouble(i, origCol) != 0.0;
 			}
 		}
 
-		// apply column ordering
-		// TODO: this surely can be done more elegantly...
-		Matrix orderedA = SparseMatrix.Factory.zeros(A.getSize());
-		for (long[] pos: A.allCoordinates()) {
-			// Take elements from column given in order[col] ...
-			double aVal = A.getAsDouble(pos[0], order[(int) pos[1]]);
-			if (aVal != 0.0) { // retain sparsity
-				// ... and put them into column col.
-				orderedA.setAsDouble(aVal, pos);
-			}
-		}
-		A = orderedA;
+		int[] groups = greedyColumnGrouping(m, n, nz);
 
-		final int[] groups;
-		if (A.isSparse()) {
-			groups = groupSparse((int) m, (int) n, (SparseMatrix) A);
-		} else {
-			groups = groupDense((int) m, (int) n, A);
-		}
-
-		final int[] orderedGroups = new int[groups.length];
-		for (int i = 0; i<n; ++i) {
-			orderedGroups[order[i]] = groups[i];
-		}
-
+		int[] orderedGroups = new int[n];
+		for (int i = 0; i < n; ++i) orderedGroups[order[i]] = groups[i];
 		return orderedGroups;
 	}
 
-	private static int[] groupDense(int m, int n, Matrix A) {
-
-		int[] groups = new int[n];
-		Arrays.fill(groups, -1);
-
-		int currentGroup = 0;
-
-		int[] union = new int[m];
-
-		// Loop through all the columns.
-		for (int i=0; i<n; ++i) {
-			if (groups[i] >= 0) {
-				// A group was already assigned.
-				continue;
-			}
-
-			groups[i] = currentGroup;
-			boolean allGrouped = true;
-
-			// Here we store the union of grouped columns.
-			Matrix aCol = A.selectColumns(i);
-			for (long[] pos: aCol.allCoordinates()) {
-				union[(int) pos[1]] = aCol.getAsInt(pos);
-			}
-
-			for (int j = 0; j < n; ++j) {
-				if (groups[j] < 0) {
-					allGrouped = false;
-				} else {
-					continue;
-				}
-
-				// Determine if j-th column intersects with the union.
-				boolean intersect = false;
-				for (int k=0; k<m; ++k) {
-					if (union[k] > 0 && A.getAsInt(k, j) > 0) {
-						intersect = true;
-						break;
-					}
-				}
-
-				// If not, add it to the union and assign the group to it.
-				if (!intersect) {
-					Matrix aOtherCol = A.selectColumns(j);
-					for (long[] pos: aOtherCol.allCoordinates()) {
-						union[(int) pos[1]] += aOtherCol.getAsInt(pos);
-					}
-					groups[j] = currentGroup;
-				}
-			}
-
-			if (allGrouped) {
-				break;
-			}
-
-			currentGroup++;
-		}
-
-		return groups;
-	}
-
 	/**
-	 * Find groups of independent columns of a sparse matrix.
-	 *
-	 * @see https://stackoverflow.com/a/52299730
-	 *
-	 * @param m
-	 * @param n
-	 * @param A
-	 * @return
+	 * Curtis-Powell-Reid greedy column grouping on the boolean sparsity mask.
+	 * Two columns are in the same group iff their non-zero rows are disjoint.
 	 */
-	private static int[] groupSparse(int m, int n, SparseMatrix A) {
+	private static int[] greedyColumnGrouping(int m, int n, boolean[][] nz) {
 		int[] groups = new int[n];
 		Arrays.fill(groups, -1);
 
+		boolean[] union = new boolean[m];
 		int currentGroup = 0;
 
-		int[] union = new int[m];
-
-		// Loop through all the columns.
-		for (int i=0; i<n; ++i) {
-			if (groups[i] >= 0) {
-				// A group was already assigned.
-				continue;
-			}
-
+		for (int i = 0; i < n; ++i) {
+			if (groups[i] >= 0) continue;
 			groups[i] = currentGroup;
 			boolean allGrouped = true;
 
-			// Here we store the union of grouped columns.
-			Arrays.fill(union, 0);
-			Matrix ithCol = A.subMatrix(0, i, A.getRowCount()-1, i);
-			for (long[] pos: ithCol.availableCoordinates()) {
-				if (ithCol.getAsDouble(pos) != 0.0) {
-					union[(int) pos[0]] = 1;
-				}
-			}
+			// Reset union to column i's mask.
+			for (int k = 0; k < m; ++k) union[k] = nz[k][i];
 
-			for (int j = 0; j < n; ++j) {
-				if (groups[j] < 0) {
-					allGrouped = false;
-				} else {
-					continue;
-				}
+			for (int j = i + 1; j < n; ++j) {
+				if (groups[j] >= 0) continue;
+				allGrouped = false;
 
-				// Determine if j-th column intersects with the union.
 				boolean intersect = false;
-				Matrix jthCol = A.subMatrix(0, j, A.getRowCount()-1, j);
-				for (long[] pos: jthCol.availableCoordinates()) {
-					if (jthCol.getAsDouble(pos) != 0.0) {
-						if (union[(int) pos[0]] == 1) {
-							intersect = true;
-							break;
-						}
-					}
+				for (int k = 0; k < m; ++k) {
+					if (union[k] && nz[k][j]) { intersect = true; break; }
 				}
-
-				// If not, add it to the union and assign the group to it.
 				if (!intersect) {
-					for (long[] pos: jthCol.availableCoordinates()) {
-						if (jthCol.getAsDouble(pos) != 0.0) {
-							union[(int) pos[0]] = 1;
-						}
+					for (int k = 0; k < m; ++k) {
+						if (nz[k][j]) union[k] = true;
 					}
 					groups[j] = currentGroup;
 				}
 			}
 
-			if (allGrouped) {
-				break;
-			}
-
+			if (allGrouped) break;
 			currentGroup++;
 		}
-
 		return groups;
 	}
 
 	/**
-	 * @param x0       [n] Point at which we wish to estimate derivative.
-	 * @param h        [n] Desired absolute finite difference steps.
-	 * @param numSteps Number of `h` steps in one direction required to implement
-	 *                 finite difference scheme. For example, 2 means that we need
-	 *                 to evaluate f(x0 + 2 * h) or f(x0 - 2 * h)
-	 * @param scheme   Whether steps in one or both directions are required. In
-	 *                 other words '1-sided' applies to forward and backward
-	 *                 schemes, '2-sided' applies to center schemes.
-	 * @param lb       [n] Lower bounds on independent variables.
-	 * @param ub       [n] Upper bounds on independent variables.
-	 * @return hAdjusted Adjusted absolute step sizes.
-	 *                   Step size decreases only if a sign flip
-	 *                   or switching to one-sided scheme doesn't allow to take a full step.
-	 *         useOneSided Whether to switch to one-sided scheme.
-	 *                     Informative only for ``scheme='2-sided'``.
+	 * Adjust finite-difference step sizes so that the perturbed point stays within
+	 * {@code [lb, ub]} per dimension, flipping direction or switching forward / backward
+	 * as needed. Pure per-element logic on length-{@code n} vectors.
+	 *
+	 * @param x0       point at which to estimate the derivative ({@code n x 1})
+	 * @param h        desired absolute finite-difference steps ({@code n x 1})
+	 * @param numSteps number of {@code h} steps taken per direction
+	 * @param scheme   one-sided or two-sided differencing
+	 * @param lb       per-variable lower bounds ({@code n x 1})
+	 * @param ub       per-variable upper bounds ({@code n x 1})
+	 * @return adjusted step sizes plus per-dimension one-sided fall-back flags
 	 */
 	public static AdjustedDifferencingScheme adjustSchemeToBounds(Matrix x0, Matrix h, int numSteps,
 			FiniteDifferenceMethod scheme, Matrix lb, Matrix ub) {
-
 		int n = (int) h.getRowCount();
 
-		final boolean[] useOneSided = new boolean[n];
+		double[] x0Arr = x0.toColumnArray();
+		double[] hArr = h.toColumnArray();
+		double[] lbArr = lb.toColumnArray();
+		double[] ubArr = ub.toColumnArray();
+
+		boolean[] useOneSided = new boolean[n];
 		switch (scheme) {
 		case ONE_SIDED:
 			Arrays.fill(useOneSided, true);
 			break;
 		case TWO_SIDED:
-			h = h.absInPlace();
-			Arrays.fill(useOneSided, false); // could be omitted...
+			for (int i = 0; i < n; ++i) hArr[i] = Math.abs(hArr[i]);
+			// useOneSided already false-initialised
 			break;
 		default:
 			throw new RuntimeException("schema must be either ONE_SIDED or TWO_SIDED");
 		}
 
 		boolean hasBounds = false;
-		for (int i=0; i<n; ++i) {
-			if (lb.getAsDouble(i, 0) != Double.NEGATIVE_INFINITY || ub.getAsDouble(i, 0) != Double.POSITIVE_INFINITY) {
+		for (int i = 0; i < n; ++i) {
+			if (lbArr[i] != Double.NEGATIVE_INFINITY || ubArr[i] != Double.POSITIVE_INFINITY) {
 				hasBounds = true;
 				break;
 			}
 		}
 		if (!hasBounds) {
-			return new AdjustedDifferencingScheme(h, useOneSided);
+			return new AdjustedDifferencingScheme(DenseMatrix.column(hArr), useOneSided);
 		}
 
-		Matrix hTotal = h.times(numSteps);
-		Matrix hAdjusted = Matrix.Factory.copyFromMatrix(h);
-
-		Matrix lowerDist = x0.minus(lb);
-		Matrix upperDist = ub.minus(x0);
-
-		Matrix maxDist = Matrix.Factory.copyFromMatrix(lowerDist);
-		for (long[] pos: maxDist.allCoordinates()) {
-			double ud = upperDist.getAsDouble(pos);
-			if (ud > maxDist.getAsDouble(pos)) {
-				maxDist.setAsDouble(ud, pos);
-			}
-		}
+		double[] hAdjusted = hArr.clone();
 
 		if (scheme == FiniteDifferenceMethod.ONE_SIDED) {
-			Matrix x = x0.plus(hTotal);
-			Matrix violated = x.lt(lb).or(x.gt(ub));
-			Matrix fitting = hTotal.abs().le(maxDist);
-			for (long[] pos: hAdjusted.allCoordinates()) {
-				if (violated.getAsBoolean(pos) && fitting.getAsBoolean(pos)) {
-					hAdjusted.setAsDouble(-1.0 * hAdjusted.getAsDouble(pos), pos);
+			for (int i = 0; i < n; ++i) {
+				double lowerDist = x0Arr[i] - lbArr[i];
+				double upperDist = ubArr[i] - x0Arr[i];
+				double maxDist = Math.max(lowerDist, upperDist);
+				double hTotal = hArr[i] * numSteps;
+				double xi = x0Arr[i] + hTotal;
+				boolean violated = xi < lbArr[i] || xi > ubArr[i];
+				boolean fitting = Math.abs(hTotal) <= maxDist;
+				if (violated && fitting) {
+					hAdjusted[i] = -hAdjusted[i];
+				}
+				if (!fitting) {
+					if (upperDist >= lowerDist) {
+						hAdjusted[i] = upperDist / numSteps;
+					} else {
+						hAdjusted[i] = -lowerDist / numSteps;
+					}
 				}
 			}
-
-			Matrix forward = upperDist.ge(lowerDist).and(fitting.not());
-			for (long[] pos: forward.availableCoordinates()) {
-				if (forward.getAsBoolean(pos)) {
-					hAdjusted.setAsDouble(upperDist.getAsDouble(pos) / numSteps, pos);
+		} else { // TWO_SIDED
+			for (int i = 0; i < n; ++i) {
+				double lowerDist = x0Arr[i] - lbArr[i];
+				double upperDist = ubArr[i] - x0Arr[i];
+				double hTotal = hArr[i] * numSteps;
+				boolean central = lowerDist >= hTotal && upperDist >= hTotal;
+				if (!central) {
+					if (upperDist >= lowerDist) {
+						hAdjusted[i] = Math.min(hArr[i], 0.5 * upperDist / numSteps);
+					} else {
+						hAdjusted[i] = -Math.min(hArr[i], 0.5 * lowerDist / numSteps);
+					}
+					useOneSided[i] = true;
+				}
+				double minDist = Math.min(upperDist, lowerDist) / numSteps;
+				if (!central && Math.abs(hAdjusted[i]) <= minDist) {
+					hAdjusted[i] = minDist;
+					useOneSided[i] = false;
 				}
 			}
-
-			Matrix backward = upperDist.lt(lowerDist).and(fitting.not());
-			for (long[] pos: backward.availableCoordinates()) {
-				if (backward.getAsBoolean(pos)) {
-					hAdjusted.setAsDouble(-lowerDist.getAsDouble(pos) / numSteps, pos);
-				}
-			}
-
-		} else if (scheme == FiniteDifferenceMethod.TWO_SIDED) {
-			Matrix central = lowerDist.ge(hTotal).and(upperDist.ge(hTotal));
-
-			Matrix forward = upperDist.ge(lowerDist).and(central.not());
-			for (long[] pos: forward.availableCoordinates()) {
-				if (forward.getAsBoolean(pos)) {
-					hAdjusted.setAsDouble(Math.min(h.getAsDouble(pos), 0.5 * upperDist.getAsDouble(pos) / numSteps), pos);
-					useOneSided[(int) pos[0]] = true;
-				}
-			}
-
-			Matrix backward = upperDist.lt(lowerDist).and(central.not());
-			for (long[] pos: backward.availableCoordinates()) {
-				if (backward.getAsBoolean(pos)) {
-					hAdjusted.setAsDouble(-1.0 * Math.min(h.getAsDouble(pos), 0.5 * lowerDist.getAsDouble(pos) / numSteps), pos);
-					useOneSided[(int) pos[0]] = true;
-				}
-			}
-
-			Matrix minDist = Matrix.Factory.zeros(upperDist.getSize());
-			for (long[] pos: upperDist.allCoordinates()) {
-				minDist.setAsDouble(Math.min(upperDist.getAsDouble(pos), lowerDist.getAsDouble(pos)) / numSteps, pos);
-			}
-			Matrix adjustedCentral = central.not().and(hAdjusted.abs().le(minDist));
-			for (long[] pos: adjustedCentral.availableCoordinates()) {
-				if (adjustedCentral.getAsBoolean(pos)) {
-					hAdjusted.setAsDouble(minDist.getAsDouble(pos), pos);
-					useOneSided[(int) pos[0]] = false;
-				}
-			}
-		} else {
-			throw new RuntimeException("schema must be either ONE_SIDED or TWO_SIDED");
 		}
 
-		return new AdjustedDifferencingScheme(hAdjusted, useOneSided);
+		return new AdjustedDifferencingScheme(DenseMatrix.column(hAdjusted), useOneSided);
 	}
 
 	/**
-	 * Calculates relative EPS step to use for a given data type and numdiff step method.
-     *
-     * Progressively smaller steps are used for larger floating point types.
-     *
-     * The default relative step will be double.
-     * However, if x0 or f0 are smaller floating point types (float),
-     * then the smallest floating point type is chosen.
-     *
-	 * @param x0Type type of parameter vector
-	 * @param f0Type type of function evaluation
-	 * @param method {'2-point', '3-point', 'cs'}
-	 * @return relative step size to use
+	 * Calculate the relative EPS step for a given data type and FD method.
+	 * Progressively smaller steps are used for larger floating-point types.
+	 * If {@code x0} or {@code f0} is {@code float}, the smaller (less precise)
+	 * machine epsilon is chosen.
+	 *
+	 * @param x0Type element type of {@code x0} ({@code float} or {@code double})
+	 * @param f0Type element type of {@code f0} ({@code float} or {@code double})
+	 * @param method FD scheme: TWO_POINT, THREE_POINT, or COMPLEX_STEP
+	 * @return relative step size for this combination
 	 */
 	public static double epsForMethod(Class<?> x0Type, Class<?> f0Type, FiniteDifferenceMethod method) {
 
-		// the default EPS value
 		double EPS = Math.ulp(1.0);
 
 		final boolean x0IsFp;
@@ -442,7 +273,6 @@ public class NumDiff {
 		}
 
 		if (x0IsFp && f0IsFp && f0ItemSize < x0ItemSize) {
-			// choose the smallest itemsize between x0 and f0
 			EPS = f0Eps;
 		}
 
@@ -451,239 +281,152 @@ public class NumDiff {
 		case COMPLEX_STEP:
 			return Math.sqrt(EPS);
 		case THREE_POINT:
-			return Math.pow(EPS, 1.0/3.0);
+			return Math.pow(EPS, 1.0 / 3.0);
 		default:
 			throw new RuntimeException("only implemented for TWO_POINT, COMPLEX_STEP and THREE_POINT");
 		}
 	}
 
 	/**
-	 * Computes an absolute step from a relative step for finite difference calculation.
+	 * Compute the absolute finite-difference step from a relative step.
 	 *
-	 * `h` will always be np.float64.
-	 * However, if `x0` or `f0` are smaller floating point dtypes (e.g. np.float32),
-	 * then the absolute step size will be calculated from the smallest floating point size.
-	 *
-	 * @param relStep Relative step for the finite difference calculation
-	 * @param x0 Parameter vector
-	 * @param f0 function value (?)
-	 * @param method {'2-point', '3-point', 'cs'}
-	 * @return The absolute step size
+	 * @param relStep per-variable relative step ({@code n x 1}); pass
+	 *                {@code null} to derive a default from {@code epsForMethod}
+	 * @param x0      point of evaluation ({@code n x 1})
+	 * @param f0      function value at {@code x0} ({@code m x 1}); used only
+	 *                for value-type dispatch in this port (always treated as
+	 *                {@code double})
+	 * @param method  FD scheme: TWO_POINT, THREE_POINT, or COMPLEX_STEP
+	 * @return absolute step ({@code n x 1})
 	 */
 	public static Matrix computeAbsoluteStep(Matrix relStep, Matrix x0, Matrix f0, FiniteDifferenceMethod method) {
+		double[] x0Arr = x0.toColumnArray();
+		int n = x0Arr.length;
 
-		// this is used instead of np.sign(x0) because we need
-	    // sign_x0 to be 1 when x0 == 0.
-		Matrix x0Sign = x0.ge(0).toIntMatrix().times(2.0).minus(1.0);
+		// sign_x0[i] = +1 if x0[i] >= 0 else -1 (so 0 maps to +1, matching scipy).
+		double[] x0Sign = new double[n];
+		for (int i = 0; i < n; ++i) x0Sign[i] = x0Arr[i] >= 0.0 ? 1.0 : -1.0;
 
 		// This port stores all matrices as double; no need to dispatch on value type.
-		final Class<?> x0Type = double.class;
-		final Class<?> f0Type = double.class;
+		double rStep = epsForMethod(double.class, double.class, method);
 
-		double rStep = epsForMethod(x0Type, f0Type, method);
-
-		final Matrix absStep;
+		double[] absStepArr = new double[n];
 		if (relStep == null) {
-			absStep = Matrix.Factory.zeros(x0Sign.getSize());
-			for (long[] pos: x0Sign.allCoordinates()) {
-				absStep.setAsDouble(rStep * x0Sign.getAsInt(pos) * Math.max(1.0, Math.abs(x0.getAsDouble(pos))), pos);
+			for (int i = 0; i < n; ++i) {
+				absStepArr[i] = rStep * x0Sign[i] * Math.max(1.0, Math.abs(x0Arr[i]));
 			}
 		} else {
-			// User has requested specific relative steps.
-	        // Don't multiply by max(1, abs(x0) because if x0 < 1 then their
-			// requested step is not used.
-			absStep = relStep.times(x0Sign).times(x0.abs());
-
-			// however we don't want an abs_step of 0, which can happen if
-	        // rel_step is 0, or x0 is 0. Instead, substitute a realistic step.
-			for (long[] pos: absStep.allCoordinates()) {
-				double x0Val = x0.getAsDouble(pos);
-				double absStepVal = absStep.getAsDouble(pos);
-				double dx = (x0Val + absStepVal) - x0Val;
+			double[] relStepArr = relStep.toColumnArray();
+			// User has requested specific relative steps. Don't multiply by max(1, abs(x0))
+			// because if x0 < 1 then their requested step is not used.
+			for (int i = 0; i < n; ++i) {
+				absStepArr[i] = relStepArr[i] * x0Sign[i] * Math.abs(x0Arr[i]);
+				// We don't want an abs_step of 0, which can happen if rel_step is 0 or x0 is 0.
+				// In that case fall back to the auto-step.
+				double dx = (x0Arr[i] + absStepArr[i]) - x0Arr[i];
 				if (dx == 0.0) {
-					double absStepToUse = rStep * x0Sign.getAsInt(pos) * Math.max(1.0, Math.abs(x0.getAsDouble(pos)));
-					absStep.setAsDouble(absStepToUse, pos);
+					absStepArr[i] = rStep * x0Sign[i] * Math.max(1.0, Math.abs(x0Arr[i]));
 				}
 			}
 		}
 
-		return absStep;
+		return DenseMatrix.column(absStepArr);
 	}
 
 	/**
 	 * Finite-difference gradient of a scalar function of a scalar argument.
 	 *
-	 * Internally, this uses approxDerivative for vector-valued functions.
-	 *
-	 * @param f
-	 * @param x0
-	 * @param f0
-	 * @param options
-	 * @return
+	 * @param f       scalar function {@code R -> R}
+	 * @param x0      evaluation point
+	 * @param options FD configuration
+	 * @return scalar derivative {@code df/dx} at {@code x0}
 	 */
 	public static double approxDerivative(DoubleUnaryOperator f, double x0, FiniteDifferenceOptions options) {
-	    UnaryOperator<Matrix> fVec = (Matrix t) -> {
-			return Matrix.Factory.linkToArray(new double[] { f.applyAsDouble(t.doubleValue()) });
-		};
-		Matrix x0Vec = Matrix.Factory.linkToArray(new double[] { x0 });
-		Matrix f0Vec = null;
-		return approxDerivative(fVec, x0Vec, f0Vec, options).doubleValue();
+		UnaryOperator<Matrix> fVec = (Matrix t) -> DenseMatrix.column(f.applyAsDouble(t.doubleValue()));
+		Matrix x0Vec = DenseMatrix.column(x0);
+		return approxDerivative(fVec, x0Vec, null, options).doubleValue();
 	}
 
 	/**
-	 * Finite-difference gradient of a scalar function of a scalar argument.
+	 * Finite-difference gradient of a {@link ToDoubleFunction} of a scalar argument.
 	 *
-	 * Internally, this uses approxDerivative for vector-valued functions.
-	 *
-	 * @param f
-	 * @param x0
-	 * @param f0
-	 * @param options
-	 * @return
+	 * @param f       scalar function evaluated on a {@code 1 x 1} {@link Matrix}
+	 * @param x0      evaluation point
+	 * @param options FD configuration
+	 * @return scalar derivative {@code df/dx} at {@code x0}
 	 */
 	public static double approxDerivative(ToDoubleFunction<Matrix> f, double x0, FiniteDifferenceOptions options) {
-		UnaryOperator<Matrix> fVec = (Matrix t) -> {
-			return Matrix.Factory.linkToArray(new double[] { f.applyAsDouble(t) });
-		};
-		Matrix x0Vec = Matrix.Factory.linkToArray(new double[] { x0 });
-		Matrix f0Vec = null;
-		return approxDerivative(fVec, x0Vec, f0Vec, options).doubleValue();
+		UnaryOperator<Matrix> fVec = (Matrix t) -> DenseMatrix.column(f.applyAsDouble(t));
+		Matrix x0Vec = DenseMatrix.column(x0);
+		return approxDerivative(fVec, x0Vec, null, options).doubleValue();
 	}
 
 	/**
-	 * Finite-difference gradient of a scalar function of a scalar argument.
+	 * Finite-difference gradient of a scalar function of a scalar argument with a precomputed {@code f0}.
 	 *
-	 * Internally, this uses approxDerivative for vector-valued functions.
-	 *
-	 * @param f
-	 * @param x0
-	 * @param f0
-	 * @param options
-	 * @return
+	 * @param f       scalar function evaluated on a {@code 1 x 1} {@link Matrix}
+	 * @param x0      evaluation point
+	 * @param f0      precomputed {@code f(x0)} (saves one evaluation)
+	 * @param options FD configuration
+	 * @return scalar derivative {@code df/dx} at {@code x0}
 	 */
 	public static double approxDerivative(ToDoubleFunction<Matrix> f, double x0, double f0, FiniteDifferenceOptions options) {
-		Function<Matrix, Matrix> fVec = (Matrix t) -> {
-			return Matrix.Factory.linkToArray(new double[] { f.applyAsDouble(t) });
-		};
-		Matrix x0Vec = Matrix.Factory.linkToArray(new double[] { x0 });
-		Matrix f0Vec = Matrix.Factory.linkToArray(new double[] { f0 });
+		Function<Matrix, Matrix> fVec = (Matrix t) -> DenseMatrix.column(f.applyAsDouble(t));
+		Matrix x0Vec = DenseMatrix.column(x0);
+		Matrix f0Vec = DenseMatrix.column(f0);
 		return approxDerivative(fVec, x0Vec, f0Vec, options).doubleValue();
 	}
 
-
 	/**
-	 * Finite-difference gradient of a real-valued function.
+	 * Finite-difference gradient of a real-valued function of a vector argument.
 	 *
-	 * Internally, this uses approxDerivative for vector-valued functions.
-	 *
-	 * @param f
-	 * @param x0
-	 * @param f0
-	 * @param options
-	 * @return
+	 * @param f       function {@code R^n -> R}
+	 * @param x0      evaluation point ({@code n x 1})
+	 * @param f0      precomputed {@code f(x0)}
+	 * @param options FD configuration
+	 * @return gradient {@code gradf(x0)} ({@code 1 x n} or {@code n x 1} depending on
+	 *         the underlying call shape)
 	 */
 	public static Matrix approxDerivative(ToDoubleFunction<Matrix> f, Matrix x0, double f0, FiniteDifferenceOptions options) {
-		Function<Matrix, Matrix> fVec = (Matrix t) -> {
-			return Matrix.Factory.linkToArray(new double[] { f.applyAsDouble(t) });
-		};
-		Matrix f0Vec = Matrix.Factory.linkToArray(new double[] { f0 });
+		Function<Matrix, Matrix> fVec = (Matrix t) -> DenseMatrix.column(f.applyAsDouble(t));
+		Matrix f0Vec = DenseMatrix.column(f0);
 		return approxDerivative(fVec, x0, f0Vec, options);
 	}
 
 	/**
-	 * Finite-difference approximation of the first-order derivative matrix of a vector-valued function.
+	 * Finite-difference Jacobian of a vector-valued function.
 	 *
-	 * @param f
-	 * @param x0
-	 * @param f0
-	 * @param options
-	 * @return
+	 * @param f       function {@code R^n -> R^m}
+	 * @param x0      evaluation point ({@code n x 1})
+	 * @param f0      precomputed {@code f(x0)} ({@code m x 1}); pass {@code null}
+	 *                to evaluate inside
+	 * @param options FD configuration
+	 * @return Jacobian {@code J} ({@code m x n})
 	 */
 	public static Matrix approxDerivative(Function<Matrix, Matrix> f, Matrix x0, Matrix f0, FiniteDifferenceOptions options) {
-		Object args = null;
-		BiFunction<Matrix, Object, Matrix> fArg =  (Matrix t, Object _args) -> {
-			return f.apply(t);
-		};
-		return approxDerivative(fArg, x0, f0, options, args);
+		BiFunction<Matrix, Object, Matrix> fArg = (Matrix t, Object _args) -> f.apply(t);
+		return approxDerivative(fArg, x0, f0, options, null);
 	}
 
 	/**
-	 * Compute finite difference approximation of the derivatives of a vector-valued
-	 * function.
+	 * Finite-difference Jacobian of a vector-valued function with extra args.
+	 * See the class doc / scipy {@code _numdiff.approx_derivative} for the full
+	 * specification.
 	 *
-	 * If a function maps from R^n to R^m, its derivatives form m-by-n matrix called
-	 * the Jacobian, where an element (i, j) is a partial derivative of f[i] with
-	 * respect to x[j].
-	 *
-	 * See Also
-	 * -----
-	 * check_derivative : Check correctness of a function computing derivatives.
-     *
-     * Notes
-     * -----
-     * If `rel_step` is not provided, it assigned as ``EPS**(1/s)``, where EPS is
-     * determined from the smallest floating point dtype of `x0` or `fun(x0)`,
-     * ``np.finfo(x0.dtype).eps``, s=2 for '2-point' method and
-     * s=3 for '3-point' method. Such relative step approximately minimizes a sum
-     * of truncation and round-off errors, see [1]_. Relative steps are used by
-     * default. However, absolute steps are used when ``abs_step is not None``.
-     * If any of the absolute or relative steps produces an indistinguishable
-     * difference from the original `x0`, ``(x0 + dx) - x0 == 0``, then a
-     * automatic step size is substituted for that particular entry.
-     *
-     * A finite difference scheme for '3-point' method is selected automatically.
-     * The well-known central difference scheme is used for points sufficiently
-     * far from the boundary, and 3-point forward or backward scheme is used for
-     * points near the boundary. Both schemes have the second-order accuracy in
-     * terms of Taylor expansion. Refer to [2]_ for the formulas of 3-point
-     * forward and backward difference schemes.
-     *
-     * For dense differencing when m=1 Jacobian is returned with a shape (n,),
-     * on the other hand when n=1 Jacobian is returned with a shape (m, 1).
-     * Our motivation is the following: a) It handles a case of gradient
-     * computation (m=1) in a conventional way. b) It clearly separates these two
-     * different cases. b) In all cases np.atleast_2d can be called to get 2-D
-     * Jacobian with correct dimensions.
-     *
-     * References
-     * ----------
-     * .. [1] W. H. Press et. al. "Numerical Recipes. The Art of Scientific
-     *        Computing. 3rd edition", sec. 5.7.
-     *
-     * .. [2] A. Curtis, M. J. D. Powell, and J. Reid, "On the estimation of
-     *        sparse Jacobian matrices", Journal of the Institute of Mathematics
-     *        and its Applications, 13 (1974), pp. 117-120.
-     *
-     * .. [3] B. Fornberg, "Generation of Finite Difference Formulas on
-     *        Arbitrarily Spaced Grids", Mathematics of Computation 51, 1988.
-	 *
-	 * @param fun     Function of which to estimate the derivatives. The argument x
-	 *                passed to this function is ndarray of shape (n,) (never a
-	 *                scalar even if n=1). It must return 1-D array_like of shape
-	 *                (m,) or a scalar.
-	 * @param x0      Point at which to estimate the derivatives. Float will be
-	 *                converted to a 1-D array.
-	 * @param f0      If not None it is assumed to be equal to ``fun(x0)``, in this
-	 *                case the ``fun(x0)`` is not called. Default is None.
-	 * @param options
-	 * @param args    Additional arguments passed to `fun`. Empty by default.
-	 * @return Finite difference approximation of the Jacobian matrix. If
-	 *         `as_linear_operator` is True returns a LinearOperator with shape (m,
-	 *         n). Otherwise it returns a dense array or sparse matrix depending on
-	 *         how `sparsity` is defined. If `sparsity` is None then a ndarray with
-	 *         shape (m, n) is returned. If `sparsity` is not None returns a
-	 *         csr_matrix with shape (m, n). For sparse matrices and linear
-	 *         operators it is always returned as a 2-D structure, for ndarrays, if
-	 *         m=1 it is returned as a 1-D gradient array with shape (n,).
+	 * @param fun     function {@code (x, args) -> f(x, args)}
+	 * @param x0      evaluation point ({@code n x 1})
+	 * @param f0      precomputed {@code fun(x0, args)} ({@code m x 1}); pass
+	 *                {@code null} to evaluate inside
+	 * @param options FD configuration
+	 * @param args    extra arguments forwarded to {@code fun}
+	 * @return Jacobian {@code J} ({@code m x n}); a {@link LinearOperator} when
+	 *         {@code options.asLinearOperator()} is {@code true}
 	 */
 	public static Matrix approxDerivative(BiFunction<Matrix, Object, Matrix> fun, Matrix x0, Matrix f0,
 			FiniteDifferenceOptions options, Object args) {
 
-		switch(options.method()) {
-		case TWO_POINT: // fall-through
-		case THREE_POINT: // fall-through
-		case COMPLEX_STEP:
-			// ok
+		switch (options.method()) {
+		case TWO_POINT: case THREE_POINT: case COMPLEX_STEP:
 			break;
 		default:
 			throw new RuntimeException("Can only use TWO_POINT, THREE_POINT or COMPLEX_STEP");
@@ -693,28 +436,31 @@ public class NumDiff {
 			throw new RuntimeException("x0 must be of shape (n,1)");
 		}
 
-		// TODO: prepareBounds:
-		// make default infinite bounds if none specified
-
-		if (    options.bounds().lb().getRowCount()    != x0.getRowCount() ||
-				options.bounds().lb().getColumnCount() != x0.getColumnCount() ||
-				options.bounds().ub().getRowCount()    != x0.getRowCount() ||
-				options.bounds().ub().getColumnCount() != x0.getColumnCount()) {
+		Matrix lb = options.bounds().lb();
+		Matrix ub = options.bounds().ub();
+		if (lb.getRowCount() != x0.getRowCount() || lb.getColumnCount() != x0.getColumnCount()
+				|| ub.getRowCount() != x0.getRowCount() || ub.getColumnCount() != x0.getColumnCount()) {
 			throw new RuntimeException("Inconsistent shapes between bounds and `x0`.");
 		}
 
+		int n = (int) x0.getRowCount();
+
 		if (options.asLinearOperator()) {
-			for (long[] pos: x0.allCoordinates()) {
-				double l = options.bounds().lb().getAsDouble(pos);
-				double u = options.bounds().ub().getAsDouble(pos);
+			for (int i = 0; i < n; ++i) {
+				double l = lb.getAsDouble(i, 0);
+				double u = ub.getAsDouble(i, 0);
 				if (l != Double.NEGATIVE_INFINITY || u != Double.POSITIVE_INFINITY) {
 					throw new RuntimeException("Bounds not supported when `as_linear_operator` is True.");
 				}
 			}
 		}
 
-		if (x0.lt(options.bounds().lb()).or(x0.gt(options.bounds().ub())).toIntMatrix().getValueSum() > 0) {
-			throw new RuntimeException("`x0` violates bound constraints.");
+		// `x0` violates bound constraints?
+		for (int i = 0; i < n; ++i) {
+			double xi = x0.getAsDouble(i, 0);
+			if (xi < lb.getAsDouble(i, 0) || xi > ub.getAsDouble(i, 0)) {
+				throw new RuntimeException("`x0` violates bound constraints.");
+			}
 		}
 
 		UnaryOperator<Matrix> funWrapped = x -> fun.apply(x, args);
@@ -726,63 +472,65 @@ public class NumDiff {
 		if (options.asLinearOperator()) {
 			final Matrix relStep;
 			if (options.relStep() == null) {
-				relStep = Matrix.Factory.ones(x0.getSize()).times(epsForMethod(type(x0), type(f0), options.method()));
+				relStep = Matrix.Factory.ones(x0.getSize()).times(epsForMethod(double.class, double.class, options.method()));
 			} else {
 				relStep = options.relStep();
 			}
 			return (Matrix) linearOperatorDifference(funWrapped, x0, f0, relStep, options.method());
-		} else {
-			// by default we use rel_step
-			final Matrix absStep;
-			if (options.absStep() == null) {
-				absStep = computeAbsoluteStep(options.relStep(), x0, f0, options.method());
-			} else {
-				// user specifies an absolute step
-				Matrix x0Sign = x0.ge(0).toIntMatrix().times(2.0).minus(1.0);
-				absStep = options.absStep();
+		}
 
-				// Cannot have a zero step.
-				// This might happen if x0 is very large or small.
-				// In which case fall back to relative step.
-				Matrix dx = (x0.plus(absStep)).minus(x0);
-				for (long[] pos: absStep.allCoordinates()) {
-					double dxVal = dx.getAsDouble(pos);
-					if (dxVal == 0.0) {
-						double newAbsStep = epsForMethod(type(x0), type(f0), options.method()) *
-								x0Sign.getAsDouble(pos) * Math.max(1.0, Math.abs(x0.getAsDouble(pos)));
-						absStep.setAsDouble(newAbsStep, pos);
-					}
+		// Default: relative step.
+		final Matrix absStep;
+		if (options.absStep() == null) {
+			absStep = computeAbsoluteStep(options.relStep(), x0, f0, options.method());
+		} else {
+			// User specified an absolute step. Cannot have a zero step;
+			// fall back to the auto step if (x0+abs)-x0 underflows to zero.
+			absStep = options.absStep();
+			double rStep = epsForMethod(double.class, double.class, options.method());
+			for (int i = 0; i < n; ++i) {
+				double xi = x0.getAsDouble(i, 0);
+				double si = absStep.getAsDouble(i, 0);
+				double dxVal = (xi + si) - xi;
+				if (dxVal == 0.0) {
+					double sign = xi >= 0.0 ? 1.0 : -1.0;
+					absStep.setAsDouble(rStep * sign * Math.max(1.0, Math.abs(xi)), i, 0);
 				}
 			}
-
-			final AdjustedDifferencingScheme ads;
-			switch (options.method()) {
-			case TWO_POINT:
-				ads = adjustSchemeToBounds(x0, absStep, 1, FiniteDifferenceMethod.ONE_SIDED, options.bounds().lb(), options.bounds().ub());
-				break;
-			case THREE_POINT:
-				ads = adjustSchemeToBounds(x0, absStep, 1, FiniteDifferenceMethod.TWO_SIDED, options.bounds().lb(), options.bounds().ub());
-				break;
-			case COMPLEX_STEP:
-				// useOneSided = false
-				throw new RuntimeException("not implemented yet");
-			default:
-				throw new RuntimeException("only TWO_POINT, THREE_POINT and COMPLEX_STEP are allowed");
-			}
-
-			if (options.sparsity() == null) {
-				return denseDifference(funWrapped, x0, f0, absStep, ads.useOneSided(), options.method());
-			} else {
-				return sparseDifference(funWrapped, x0, f0, absStep, ads.useOneSided(), options.sparsity(), options.method());
-			}
 		}
+
+		final AdjustedDifferencingScheme ads;
+		switch (options.method()) {
+		case TWO_POINT:
+			ads = adjustSchemeToBounds(x0, absStep, 1, FiniteDifferenceMethod.ONE_SIDED, lb, ub);
+			break;
+		case THREE_POINT:
+			ads = adjustSchemeToBounds(x0, absStep, 1, FiniteDifferenceMethod.TWO_SIDED, lb, ub);
+			break;
+		case COMPLEX_STEP:
+			throw new RuntimeException("not implemented yet");
+		default:
+			throw new RuntimeException("only TWO_POINT, THREE_POINT and COMPLEX_STEP are allowed");
+		}
+
+		if (options.sparsity() == null) {
+			return denseDifference(funWrapped, x0, f0, ads.hAdjusted(), ads.useOneSided(), options.method());
+		}
+		return sparseDifference(funWrapped, x0, f0, ads.hAdjusted(), ads.useOneSided(), options.sparsity(), options.method());
 	}
 
-	private static Class<?> type(Matrix A) {
-		// This port stores all matrices as double.
-		return double.class;
-	}
-
+	/**
+	 * Build a {@link LinearOperator} that applies the FD Jacobian
+	 * {@code J(x0)*p} on demand, without materialising the full Jacobian.
+	 * Used by {@code as_linear_operator=True} consumers.
+	 *
+	 * @param fun     vector-valued function being differentiated
+	 * @param x0      evaluation point
+	 * @param f0      cached {@code fun(x0)}
+	 * @param relStep relative step size
+	 * @param method  FD scheme (TWO_POINT, THREE_POINT, COMPLEX_STEP)
+	 * @return matrix-free FD-Jacobian linear operator
+	 */
 	public static LinearOperator linearOperatorDifference(Function<Matrix, Matrix> fun,
 			Matrix x0, Matrix f0, Matrix relStep, FiniteDifferenceMethod method) {
 
@@ -825,27 +573,29 @@ public class NumDiff {
 	private static Matrix denseDifference(Function<Matrix, Matrix> fun, Matrix x0, Matrix f0,
 			Matrix absStep, boolean[] useOneSided, FiniteDifferenceMethod method) {
 
-		long m = f0.getRowCount();
-		long n = x0.getRowCount();
+		int m = (int) f0.getRowCount();
+		int n = (int) x0.getRowCount();
 
 		Matrix Jt = Matrix.Factory.zeros(n, m);
-		Matrix hVecs = Matrix.Factory.eye(n, n);
-		for (long[] pos: absStep.allCoordinates()) {
-			// set diagonal to absStep
-			hVecs.setAsDouble(absStep.getAsDouble(pos), pos[0], pos[0]);
-		}
+		double[] absStepArr = absStep.toColumnArray();
 
-		for (long[] pos: absStep.availableCoordinates()) {
-			int i = (int) pos[0];
-			Matrix hI = hVecs.subMatrix(0, i, n-1, i);
+		// Per-column directional step vector built lazily inside the loop.
+		for (int i = 0; i < n; ++i) {
+			double hi = absStepArr[i];
+
+			// hI = e_i * hi (only the i-th component is non-zero).
+			Matrix hI = Matrix.Factory.zeros(n, 1);
+			hI.setAsDouble(hi, i, 0);
+
 			final double dx;
 			final Matrix df;
 			switch (method) {
-			case TWO_POINT:
+			case TWO_POINT: {
 				Matrix x = x0.plus(hI);
 				dx = x.getAsDouble(i, 0) - x0.getAsDouble(i, 0);
 				df = fun.apply(x).minus(f0);
 				break;
+			}
 			case THREE_POINT:
 				if (useOneSided[i]) {
 					Matrix x1 = x0.plus(hI);
@@ -869,9 +619,8 @@ public class NumDiff {
 				throw new RuntimeException("only TWO_POINT, THREE_POINT and COMPLEX_STEP are allowed");
 			}
 
-			for (long[] p2: df.allCoordinates()) {
-				double j = df.getAsDouble(p2) / dx;
-				Jt.setAsDouble(j, pos[0], p2[0]);
+			for (int p = 0; p < m; ++p) {
+				Jt.setAsDouble(df.getAsDouble(p, 0) / dx, i, p);
 			}
 		}
 
@@ -881,78 +630,84 @@ public class NumDiff {
 	private static Matrix sparseDifference(Function<Matrix, Matrix> fun, Matrix x0, Matrix f0,
 			Matrix absStep, boolean[] useOneSided, Sparsity sparsity, FiniteDifferenceMethod method) {
 
-		long m = f0.getRowCount();
-		long n = x0.getRowCount();
+		int m = (int) f0.getRowCount();
+		int n = (int) x0.getRowCount();
 
 		Matrix J = SparseMatrix.Factory.zeros(m, n);
 
 		int[] groups = sparsity.sparsityGroups();
 		int nGroups = Arrays.stream(groups).max().getAsInt() + 1;
+		Matrix structure = sparsity.A();
+
+		double[] absStepArr = absStep.toColumnArray();
+
 		for (int group = 0; group < nGroups; ++group) {
-			// Perturb variables which are in the same group simultaneously.
-			Matrix e = Matrix.Factory.zeros(n, 1);
-			for (int i=0; i<groups.length; ++i) {
+			// Variables in the current group get a non-zero step; others stay at 0.
+			boolean[] inGroup = new boolean[n];
+			double[] hArr = new double[n];
+			for (int i = 0; i < n; ++i) {
 				if (groups[i] == group) {
-					e.setAsInt(1, i, 0);
+					inGroup[i] = true;
+					hArr[i] = absStepArr[i];
 				}
 			}
-
-			Matrix h = absStep.times(e);
+			Matrix h = DenseMatrix.column(hArr);
 
 			if (method == FiniteDifferenceMethod.TWO_POINT) {
 				Matrix x = x0.plus(h);
 				Matrix dx = x.minus(x0);
 				Matrix df = fun.apply(x).minus(f0);
-				for (long[] pos: sparsity.A().availableCoordinates()) {
-					if (sparsity.A().getAsDouble(pos) != 0.0 && e.getAsInt(pos[0], 0) != 0) {
-						// current coordinate has non-zero Jacobian entry and it has been influenced by e
-						// --> expect a non-zero Jacobian element here
-						J.setAsDouble(df.getAsDouble(pos[0], 0) / dx.getAsDouble(pos[1], 0), pos);
+				// J[i, j] = df[i] / dx[j] for every (i, j) in the sparsity pattern with j in this group.
+				for (int j = 0; j < n; ++j) {
+					if (!inGroup[j]) continue;
+					double dxj = dx.getAsDouble(j, 0);
+					for (int i = 0; i < m; ++i) {
+						if (structure.getAsDouble(i, j) != 0.0) {
+							J.setAsDouble(df.getAsDouble(i, 0) / dxj, i, j);
+						}
 					}
 				}
 			} else if (method == FiniteDifferenceMethod.THREE_POINT) {
-				// Here we do conceptually the same but separate one-sided and two-sided schemes.
+				// Mixed one-sided / central per dimension.
 				Matrix x1 = Matrix.Factory.zeros(n, 1);
 				Matrix x2 = Matrix.Factory.zeros(n, 1);
 				Matrix dx = Matrix.Factory.zeros(n, 1);
-				for (long[] pos: e.availableCoordinates()) {
-					if (e.getAsInt(pos) != 0) {
-						final double x1Val, x2Val;
-						if (useOneSided[(int) pos[0]]) {
-							// These are the ones where one-sided differences have to be used due to proximity to bounds.
-							x1Val = x0.getAsDouble(pos) + 1.0 * h.getAsDouble(pos);
-							x2Val = x0.getAsDouble(pos) + 2.0 * h.getAsDouble(pos);
-						} else {
-							// These are the others, where regular central differencing can be used
-				            // because they are far away enough from the bounds.
-							x1Val = x0.getAsDouble(pos) - h.getAsDouble(pos);
-							x2Val = x0.getAsDouble(pos) + h.getAsDouble(pos);
-						}
-						x1.setAsDouble(x1Val, pos);
-						x2.setAsDouble(x2Val, pos);
-						dx.setAsDouble(x2Val - x1Val, pos);
+				for (int i = 0; i < n; ++i) {
+					if (!inGroup[i]) continue;
+					double x0i = x0.getAsDouble(i, 0);
+					double hi = h.getAsDouble(i, 0);
+					double x1Val, x2Val;
+					if (useOneSided[i]) {
+						x1Val = x0i + hi;
+						x2Val = x0i + 2.0 * hi;
+					} else {
+						x1Val = x0i - hi;
+						x2Val = x0i + hi;
 					}
+					x1.setAsDouble(x1Val, i, 0);
+					x2.setAsDouble(x2Val, i, 0);
+					dx.setAsDouble(x2Val - x1Val, i, 0);
 				}
 
 				Matrix f1 = fun.apply(x1);
 				Matrix f2 = fun.apply(x2);
 
-				Matrix df = Matrix.Factory.zeros(m, 1);
-				for (int j=0; j<m; ++j) {
-					final double dfVal;
+				double[] dfArr = new double[m];
+				for (int j = 0; j < m; ++j) {
 					if (useOneSided[j]) {
-						dfVal = -3.0*f0.getAsDouble(j, 0) + 4.0 * f1.getAsDouble(j, 0) - f2.getAsDouble(j, 0);
+						dfArr[j] = -3.0 * f0.getAsDouble(j, 0) + 4.0 * f1.getAsDouble(j, 0) - f2.getAsDouble(j, 0);
 					} else {
-						dfVal = f2.getAsDouble(j, 0) - f1.getAsDouble(j, 0);
+						dfArr[j] = f2.getAsDouble(j, 0) - f1.getAsDouble(j, 0);
 					}
-					df.setAsDouble(dfVal, j, 0);
 				}
 
-				for (long[] pos: sparsity.A().availableCoordinates()) {
-					if (sparsity.A().getAsDouble(pos) != 0.0 && e.getAsInt(pos[0], 0) != 0) {
-						// current coordinate has non-zero Jacobian entry and it has been influenced by e
-						// --> expect a non-zero Jacobian element here
-						J.setAsDouble(df.getAsDouble(pos[0], 0) / dx.getAsDouble(pos[1], 0), pos);
+				for (int j = 0; j < n; ++j) {
+					if (!inGroup[j]) continue;
+					double dxj = dx.getAsDouble(j, 0);
+					for (int i = 0; i < m; ++i) {
+						if (structure.getAsDouble(i, j) != 0.0) {
+							J.setAsDouble(dfArr[i] / dxj, i, j);
+						}
 					}
 				}
 			} else if (method == FiniteDifferenceMethod.COMPLEX_STEP) {

@@ -54,7 +54,7 @@ class TestHyperbolicIneq {
 			});
 		};
 		// Hessian of v[0] * c(x) = v[0] * (1/(x[0]+1) - x[1]):
-		//   d²/dx[0]² = v[0] * 2/(x[0]+1)^3, others zero.
+		//   d^2/dx[0]^2 = v[0] * 2/(x[0]+1)^3, others zero.
 		java.util.function.BiFunction<Matrix, Matrix, Matrix> cHess = (x, v) -> {
 			double a = x.getAsDouble(0, 0);
 			double v0 = v.getAsDouble(0, 0);
@@ -71,7 +71,7 @@ class TestHyperbolicIneq {
 				false);
 		LinearConstraint bounds = LinearConstraint.fromBounds(nonNeg);
 
-		// scipy's x0 = (0, 0) is on the boundary of the nonneg bounds — interior-point
+		// scipy's x0 = (0, 0) is on the boundary of the nonneg bounds -- interior-point
 		// methods need a strictly feasible start. Pick a feasible interior point instead.
 		Matrix x0 = Matrix.Factory.linkToArray(new double[] {0.5, 0.5});
 		OptimizeResult r = MinimizeTrustConstr.minimize(fun, grad, hess, x0,

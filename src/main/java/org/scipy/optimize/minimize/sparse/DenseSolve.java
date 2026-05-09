@@ -16,12 +16,12 @@ import org.netlib.util.intW;
  * </pre>
  *
  * inside both the AugmentedSystem projection
- * ({@code projections.py:96–176}) and {@code eqp_kktfact}
- * ({@code qp_subproblem.py:50–58}). The Python implementation uses
+ * ({@code projections.py:96-176}) and {@code eqp_kktfact}
+ * ({@code qp_subproblem.py:50-58}). The Python implementation uses
  * {@code scipy.sparse.linalg.splu} on the assembled CSC matrix; here we
  * assemble in CSR/CSC, materialise to dense, and call LAPACK
  * {@code dgesv} via {@link LAPACK}. This keeps the project pure-Java and
- * unblocks the end-to-end algorithm — replacing this with a real sparse
+ * unblocks the end-to-end algorithm -- replacing this with a real sparse
  * LU is a single-call-site upgrade in {@code Projections.augmentedSystem}
  * and {@code QPSubproblem.eqpKktFact}.
  */
@@ -48,7 +48,12 @@ public final class DenseSolve {
 			this.ipiv = ipiv;
 		}
 
-		/** Solve {@code A x = b}. The input vector is not modified. */
+		/**
+		 * Solve {@code A x = b} reusing the captured LU.
+		 *
+		 * @param b length-{@code n} right-hand side; not modified
+		 * @return length-{@code n} solution {@code x}
+		 */
 		public double[] solve(double[] b) {
 			if (b.length != n) {
 				throw new IllegalArgumentException("RHS length must equal n");
@@ -62,6 +67,7 @@ public final class DenseSolve {
 			return rhs;
 		}
 
+		/** @return the dimension of the factored matrix */
 		public int n() { return n; }
 	}
 
@@ -70,7 +76,9 @@ public final class DenseSolve {
 	 * {@code dgetrf}. The input is given in row-major form and is not
 	 * modified.
 	 *
-	 * @throws ArithmeticException if {@code A} is singular (LAPACK info > 0)
+	 * @param a square row-major matrix to factor
+	 * @return the captured LU factorisation
+	 * @throws ArithmeticException if {@code A} is singular (LAPACK info &gt; 0)
 	 */
 	public static LUFactor factor(double[][] a) {
 		int n = a.length;
@@ -103,6 +111,10 @@ public final class DenseSolve {
 	 * {@code factor(a).solve(b)} but reuses the factorisation only once,
 	 * so prefer {@link #factor(double[][])} when you have multiple
 	 * right-hand sides.
+	 *
+	 * @param a square row-major matrix to factor
+	 * @param b length-{@code n} right-hand side
+	 * @return length-{@code n} solution {@code x} of {@code A x = b}
 	 */
 	public static double[] solveLU(double[][] a, double[] b) {
 		return factor(a).solve(b);

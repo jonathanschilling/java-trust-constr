@@ -1,14 +1,14 @@
 package org.scipy.optimize.minimize.matrix;
 
 /**
- * Singular-value decomposition {@code A = U · diag(s) · Vᵀ}.
+ * Singular-value decomposition {@code A = U * diag(s) * V^T}.
  *
  * <p>Shapes:
  * <ul>
- *   <li>{@code U} is m × m</li>
+ *   <li>{@code U} is m x m</li>
  *   <li>{@code s} has length {@code min(m, n)}; values are non-negative and
  *       monotonically non-increasing (LAPACK convention)</li>
- *   <li>{@code Vt} is n × n (already transposed — i.e. {@code Vᵀ} from the
+ *   <li>{@code Vt} is n x n (already transposed -- i.e. {@code V^T} from the
  *       textbook decomposition; rows are right-singular vectors)</li>
  * </ul>
  */
@@ -16,8 +16,11 @@ public record SVDResult(DenseMatrix U, double[] s, DenseMatrix Vt) {
 
 	/**
 	 * Number of singular values strictly greater than {@code tol}. Use the
-	 * LAPACK convention {@code tol = max(m,n) · ulp(σ_max)} for numerical
+	 * LAPACK convention {@code tol = max(m,n) * ulp(sigma_max)} for numerical
 	 * rank if no problem-specific cutoff is known.
+	 *
+	 * @param tol singular-value cutoff
+	 * @return numerical rank
 	 */
 	public int rank(double tol) {
 		int r = 0;
@@ -27,8 +30,11 @@ public record SVDResult(DenseMatrix U, double[] s, DenseMatrix Vt) {
 
 	/**
 	 * Element-wise reciprocal of the singular values, with values at or below
-	 * the LAPACK numerical-zero threshold {@code max(m,n) · ulp(σ_max)} mapped
-	 * to {@code 0}. Use this when forming {@code A⁺ = V · diag(1/s) · Uᵀ}.
+	 * the LAPACK numerical-zero threshold {@code max(m,n) * ulp(sigma_max)} mapped
+	 * to {@code 0}. Use this when forming {@code A^+ = V * diag(1/s) * U^T}.
+	 *
+	 * @return length-{@code min(m, n)} reciprocal singular values, with
+	 *         entries below the cutoff zeroed out
 	 */
 	public double[] reciprocalSingularValues() {
 		int m = (int) U.rows();

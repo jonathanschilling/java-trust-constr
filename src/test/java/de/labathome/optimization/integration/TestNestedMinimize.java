@@ -17,7 +17,7 @@ import org.scipy.optimize.minimize.matrix.Matrix;
  * run to completion.
  *
  * <p>In our port {@code NonlinearConstraint} stores its (optional) Hessian
- * callable as a final field — when omitted it is simply {@code null}, so two
+ * callable as a final field -- when omitted it is simply {@code null}, so two
  * default-Hessian constraints are trivially distinct objects with independent
  * state. The structural concern in scipy gh21193 was that scipy's default
  * {@code hess=BFGS()} closed over a single shared mutable instance; our port
@@ -42,7 +42,7 @@ class TestNestedMinimize {
 
 	@Test
 	void distinctDefaultHessianBetweenConstraints() {
-		// identity(x) == 0 — first-coordinate equality constraint.
+		// identity(x) == 0 -- first-coordinate equality constraint.
 		Function<Matrix, Matrix> identity = x ->
 				Matrix.Factory.linkToArray(new double[] {x.getAsDouble(0, 0)});
 		Function<Matrix, Matrix> identityJac = x -> {
@@ -59,7 +59,7 @@ class TestNestedMinimize {
 
 		// Scipy's gh21193: two no-Hessian constraints used to share a single
 		// mutable BFGS instance. Our port stores `hess` as a final field that
-		// is null when omitted — the two constraint objects are distinct, so
+		// is null when omitted -- the two constraint objects are distinct, so
 		// their Hessian state cannot be aliased.
 		Assertions.assertNotSame(c1, c2);
 	}
@@ -100,7 +100,7 @@ class TestNestedMinimize {
 		};
 		Function<Matrix, Matrix> outerGrad = xOuter -> {
 			// Plug-in finite difference on the *outer* variable. Use a coarse
-			// step — we only need this to terminate, not converge tightly.
+			// step -- we only need this to terminate, not converge tightly.
 			int n = (int) xOuter.getRowCount();
 			double[] g = new double[n];
 			double f0 = outerObjective.apply(xOuter);

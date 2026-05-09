@@ -51,7 +51,7 @@ class TestSparseLinearConstraint {
 
 	@Test
 	void sparseAjacIneqAppliesSignFlipsAndStaysSparse() {
-		// 1x2 sparse matrix with two-sided bounds — produces both
+		// 1x2 sparse matrix with two-sided bounds -- produces both
 		// ub-row (sign +1) and lb-row (sign -1) inequalities.
 		SparseMatrix A = SparseMatrix.Factory.zeros(1, 2);
 		A.setAsDouble(2.0, 0, 0);
@@ -77,7 +77,7 @@ class TestSparseLinearConstraint {
 	@Test
 	void csrJacobianBuildsDirectlyFromSparseA() {
 		// jacEqCSR / jacIneqCSR build CSRMatrix without going through dense
-		// when A is sparse — verifying just the entries match.
+		// when A is sparse -- verifying just the entries match.
 		SparseMatrix A = SparseMatrix.Factory.zeros(3, 4);
 		A.setAsDouble(5.0, 0, 0);
 		A.setAsDouble(6.0, 0, 3);

@@ -127,7 +127,7 @@ class TestMinimizeTrustConstrFullShape {
 	@Test
 	void fdGradPlusBfgsHessOnNonlinearConstraint() {
 		// Most hands-off entry: only the objective. Adapter strips args and
-		// dispatches to the (fun, x0, constraint) overload — which builds
+		// dispatches to the (fun, x0, constraint) overload -- which builds
 		// the FD gradient + BFGS Hessian internally.
 		ToDoubleBiFunction<Matrix, Object> q = (x, args) ->
 				x.getAsDouble(0, 0) * x.getAsDouble(0, 0)
@@ -206,7 +206,7 @@ class TestMinimizeTrustConstrFullShape {
 		Assertions.assertEquals(1.0, r.x.getAsDouble(0, 0), 1.0e-6);
 		Assertions.assertEquals(1.0, r.x.getAsDouble(1, 0), 1.0e-6);
 		// f = k * (1+1) = 2k = 10. If args weren't propagated, args would be
-		// null and the cast would NPE — or k=0 default would converge to f=0.
+		// null and the cast would NPE -- or k=0 default would converge to f=0.
 		Assertions.assertEquals(2.0 * k, r.fun, 1.0e-8,
 				"args should reach fun: f should be 2k=" + (2.0 * k) + " but was " + r.fun);
 	}

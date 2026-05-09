@@ -50,6 +50,31 @@ public class BarrierSubproblem {
 	Matrix jac0;
 	boolean terminate;
 
+	/**
+	 * Construct the barrier subproblem at a starting iterate.
+	 *
+	 * @param x0     starting point in the variable space ({@code nVars x 1})
+	 * @param s0     starting slacks ({@code nIneq x 1}); must be strictly positive
+	 * @param fun    objective {@code (x, args) -> f(x)}
+	 * @param grad   gradient {@code (x, args) -> gradf(x)}
+	 * @param lagrHess Hessian-of-Lagrangian {@code (x, v) -> grad^2L(x, v)}
+	 * @param nVars  number of decision variables
+	 * @param nIneq  number of canonical inequality rows
+	 * @param nEq    number of canonical equality rows
+	 * @param constr combined-constraint evaluator
+	 * @param jac    combined-constraint Jacobian evaluator
+	 * @param barrierParameter initial log-barrier coefficient
+	 * @param tolerance        initial inner-loop tolerance
+	 * @param enforceFeasibility per-canonical-ineq strict-feasibility flag; may be {@code null}
+	 * @param globalStopCriteria outer-loop termination predicate
+	 * @param xtol   trust-region radius termination threshold
+	 * @param fun0   {@code fun(x0)}
+	 * @param grad0  {@code grad(x0)}
+	 * @param constrIneq0 {@code constr_ineq(x0)} ({@code nIneq x 1})
+	 * @param jacIneq0    inequality Jacobian at {@code x0} ({@code nIneq x n})
+	 * @param constrEq0   {@code constr_eq(x0)} ({@code nEq x 1})
+	 * @param jacEq0      equality Jacobian at {@code x0} ({@code nEq x n})
+	 */
 	public BarrierSubproblem(Matrix x0, Matrix s0,
 			ToDoubleBiFunction<Matrix, Object> fun, BiFunction<Matrix, Object, Matrix> grad, LagrangeHessian lagrHess,
 			long nVars, long nIneq, long nEq,
@@ -85,34 +110,51 @@ public class BarrierSubproblem {
 		this.terminate = false;
 	}
 
+	/**
+	 * Refresh the barrier coefficient and inner-loop tolerance for the next
+	 * outer iteration.
+	 *
+	 * @param barrierParameter new log-barrier coefficient
+	 * @param tolerance new inner-loop tolerance
+	 */
 	public void update(double barrierParameter, double tolerance) {
 		this.barrierParameter = barrierParameter;
 		this.tolerance = tolerance;
 	}
 
+	/**
+	 * Slice off the {@code nIneq x 1} slack block from an augmented iterate
+	 * {@code z = [x; s]}.
+	 *
+	 * @param z augmented iterate
+	 * @return slack subvector {@code s}
+	 */
 	public Matrix getSlack(Matrix z) {
 		return z.subMatrix(nVars, 0, nVars+nIneq-1, 0);
 	}
 
+	/**
+	 * Slice off the {@code nVars x 1} variable block from an augmented
+	 * iterate {@code z = [x; s]}.
+	 *
+	 * @param z augmented iterate
+	 * @return variable subvector {@code x}
+	 */
 	public Matrix getVariables(Matrix z) {
 		return z.subMatrix(0, 0, nVars-1, 0);
 	}
 
 	/**
-	 * Returns barrier function and constraints at given point.
-	 *
-	 * For z = [x, s], returns barrier function:
+	 * Evaluate the barrier function and the augmented constraints at a given
+	 * augmented iterate {@code z = [x; s]}:
 	 * <pre>
-	 *     function(z) = fun(x) - barrier_parameter*sum(log(s))
-	 * </pre>
-	 * and barrier constraints:
-	 * <pre>
-	 *     constraints(z) = [   constr_eq(x)     ]
-	 *                      [ constr_ineq(x) + s ]
+	 *   function(z)    = fun(x) - barrier_parameter * sum(log(s))
+	 *   constraints(z) = [   constr_eq(x)     ]
+	 *                    [ constr_ineq(x) + s ]
 	 * </pre>
 	 *
-	 * @param z
-	 * @return
+	 * @param z augmented iterate {@code [x; s]} ({@code (nVars + nIneq) x 1})
+	 * @return barrier objective value and augmented constraint vector
 	 */
 	public FunctionAndConstraint funAndConstr(Matrix z) {
 
@@ -121,7 +163,7 @@ public class BarrierSubproblem {
 		Matrix s = getSlack(z);
 
 		// Compute function and constraints. The `args` slot is intentionally
-		// null — BarrierSubproblem doesn't track scipy's `args`; the
+		// null -- BarrierSubproblem doesn't track scipy's `args`; the
 		// orchestrator (MinimizeTrustConstr) bakes them into `fun` via a
 		// closure before reaching this code path, so the second
 		// argument here is unused by the wrapper.
@@ -137,11 +179,13 @@ public class BarrierSubproblem {
 	}
 
 	/**
-	 * Returns scaling vector.
-	 * Given by:
-	 *     scaling = [ones(n_vars), s]
-	 * @param z
-	 * @return
+	 * Returns the diagonal scaling matrix {@code diag([1...1, s])} that
+	 * decouples the variable rows from the slack rows in the trust-region
+	 * step. Identity on the variable rows; the current slack values on the
+	 * slack rows.
+	 *
+	 * @param z augmented iterate {@code [x; s]}
+	 * @return {@code (nVars + nIneq) x (nVars + nIneq)} diagonal scaling
 	 */
 	public Matrix getScaling(Matrix z) {
 		Matrix s = getSlack(z);
@@ -159,22 +203,17 @@ public class BarrierSubproblem {
 	}
 
 	/**
-	 * Returns scaled gradient.
-	 *
-	 * Return scaled gradient:
+	 * Returns the scaled gradient and Jacobian for the augmented system:
 	 * <pre>
-     *      gradient = [             grad(x)             ]
-     *                 [ -barrier_parameter*ones(n_ineq) ]
-     * </pre>
-     * and scaled Jacobian matrix:
-     * <pre>
-     *      jacobian = [  jac_eq(x)  0  ]
-     *                 [ jac_ineq(x) S  ]
-     * </pre>
-     * Both of them scaled by the previously defined scaling factor.
-     *
-	 * @param z
-	 * @return
+	 *   gradient = [             grad(x)             ]
+	 *              [ -barrier_parameter*ones(n_ineq) ]
+	 *   jacobian = [  jac_eq(x)  0 ]
+	 *              [ jac_ineq(x) S ]
+	 * </pre>
+	 * Both rescaled by the diagonal returned from {@link #getScaling(Matrix)}.
+	 *
+	 * @param z augmented iterate {@code [x; s]}
+	 * @return barrier-augmented gradient and Jacobian
 	 */
 	public GradientAndJacobian gradAndJac(Matrix z) {
 
@@ -196,11 +235,11 @@ public class BarrierSubproblem {
 	}
 
 	/**
-	 * Returns Lagrangian Hessian (in relation to `x`) -> Hx
+	 * Lagrangian Hessian with respect to {@code x} (the {@code Hx} block).
 	 *
-	 * @param z
-	 * @param v
-	 * @return
+	 * @param z augmented iterate {@code [x; s]}
+	 * @param v full Lagrange-multiplier vector (equality + inequality)
+	 * @return {@code Hx} as a {@link LinearOperator}
 	 */
 	public LinearOperator lagrHessX(Matrix z, Matrix v) {
 		Matrix x = getVariables(z);
@@ -216,11 +255,13 @@ public class BarrierSubproblem {
 	}
 
 	/**
-	 * Returns scaled Lagrangian Hessian (in relation to`s`) -> S Hs S
+	 * Scaled Lagrangian Hessian with respect to the slacks {@code s}, i.e.
+	 * the {@code S Hs S} block. Uses the primal-dual formulation for entries
+	 * with positive {@code v_ineq} and the primal formulation otherwise.
 	 *
-	 * @param z
-	 * @param v
-	 * @return
+	 * @param z augmented iterate {@code [x; s]}
+	 * @param v full Lagrange-multiplier vector (equality then inequality)
+	 * @return {@code nIneq x 1} diagonal of the {@code S Hs S} block
 	 */
 	public Matrix lagrHessS(Matrix z, Matrix v) {
 
@@ -240,13 +281,17 @@ public class BarrierSubproblem {
 		// Uses the primal-dual formulation for
         // positives values of v_ineq, and primal
         // formulation for the remaining ones.
-		Matrix ret = Matrix.Factory.zeros(subV.getRowCount(), subV.getColumnCount());
-		for (long[] pos: ret.allCoordinates()) {
-			double vVal = subV.getAsDouble(pos);
-			if (vVal > 0.0) {
-				ret.setAsDouble(primalDual.getAsDouble(pos), pos);
-			} else {
-				ret.setAsDouble(primal, pos);
+		int retRows = (int) subV.getRowCount();
+		int retCols = (int) subV.getColumnCount();
+		Matrix ret = Matrix.Factory.zeros(retRows, retCols);
+		for (int i = 0; i < retRows; ++i) {
+			for (int j = 0; j < retCols; ++j) {
+				double vVal = subV.getAsDouble(i, j);
+				if (vVal > 0.0) {
+					ret.setAsDouble(primalDual.getAsDouble(i, j), i, j);
+				} else {
+					ret.setAsDouble(primal, i, j);
+				}
 			}
 		}
 
@@ -254,11 +299,15 @@ public class BarrierSubproblem {
 	}
 
 	/**
-	 * Returns scaled Lagrangian Hessian
+	 * Full augmented Lagrangian Hessian, block-diagonal:
+	 * <pre>
+	 *   [ Hx    0     ]
+	 *   [  0  S Hs S  ]
+	 * </pre>
 	 *
-	 * @param z
-	 * @param v
-	 * @return
+	 * @param z augmented iterate {@code [x; s]}
+	 * @param v full Lagrange-multiplier vector (equality + inequality)
+	 * @return {@link LinearOperator} applying the augmented Hessian
 	 */
 	public LinearOperator lagrangianHessian(Matrix z, Matrix v) {
 
@@ -290,18 +339,18 @@ public class BarrierSubproblem {
 	}
 
 	/**
-	 * Stop criteria to the barrier problem.
-	 * The criteria here proposed is similar to formula (2.3) from [1], p.879.
+	 * Stopping criterion for the barrier subproblem; mirrors formula (2.3)
+	 * from Byrd-Hribar-Nocedal (1999), p.879.
 	 *
-	 * @param state
-	 * @param z
-	 * @param lastIterationFailed
-	 * @param optimality
-	 * @param constrViolation
-	 * @param trustRadius
-	 * @param penalty
-	 * @param cgInfo
-	 * @return
+	 * @param state outer-loop state
+	 * @param z augmented iterate {@code [x; s]}
+	 * @param lastIterationFailed whether the previous step was rejected
+	 * @param optimality KKT optimality measure at {@code z}
+	 * @param constrViolation infinity-norm of the constraint residual
+	 * @param trustRadius current trust-region radius
+	 * @param penalty current merit-function penalty
+	 * @param cgInfo info from the projected-CG inner solve
+	 * @return {@code true} if the inner barrier loop should terminate
 	 */
 	public boolean stoppingCriteria(State state, Matrix z, boolean lastIterationFailed,
 			double optimality, double constrViolation,
@@ -371,10 +420,10 @@ public class BarrierSubproblem {
 	 * the barrier subproblem ({@code tr_interior_point.py:_assemble_sparse_jacobian}).
 	 *
 	 * The block is assembled directly in CSR via
-	 * {@link SparseAssembly#assembleJacobianWithSlacks} — this is the optimised
+	 * {@link SparseAssembly#assembleJacobianWithSlacks} -- this is the optimised
 	 * counterpart of the generic {@code block_array} call that scipy comments
-	 * about. The output is converted back to a UJMP {@link Matrix} so existing
-	 * callers see the same type they always have.
+	 * about. The output is wrapped back into a {@link Matrix} so callers see
+	 * the same type they always have.
 	 */
 	private Matrix computeJacobian(Matrix jEq, Matrix jIneq, Matrix s) {
 		if (nIneq == 0) {

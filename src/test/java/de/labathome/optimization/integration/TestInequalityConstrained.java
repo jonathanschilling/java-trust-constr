@@ -28,7 +28,7 @@ class TestInequalityConstrained {
 	void dispatchRoutesToInteriorPoint() {
 		// Confirms: a constraint with inequality rows produces an OptimizeResult whose
 		// method field is TRUST_REGION_INTERIOR_POINT (i.e., the dispatch chose the
-		// right path). We don't assert convergence here — see the @Disabled cases.
+		// right path). We don't assert convergence here -- see the @Disabled cases.
 		java.util.function.Function<Matrix, Double> q = x ->
 				x.getAsDouble(0, 0) * x.getAsDouble(0, 0);
 		java.util.function.Function<Matrix, Matrix> qg = x ->
@@ -100,7 +100,7 @@ class TestInequalityConstrained {
 		Assertions.assertEquals(1.0, r.x.getAsDouble(0, 0), 5.0e-3);
 		Assertions.assertEquals(1.0, r.x.getAsDouble(1, 0), 5.0e-3);
 
-		// Convergence signal — the SQP-loop's Lagrangian gradient norm.
+		// Convergence signal -- the SQP-loop's Lagrangian gradient norm.
 		Assertions.assertTrue(r.optimality < 1.0e-6,
 				"Expected r.optimality < 1e-6, got " + r.optimality);
 		// Eval counters: must be positive and reasonable.
@@ -110,7 +110,7 @@ class TestInequalityConstrained {
 				"Unexpected grad-eval count: " + r.numJacobianEval);
 		Assertions.assertTrue(r.numHessianEval > 0 && r.numHessianEval < 1000,
 				"Unexpected hess-eval count: " + r.numHessianEval);
-		// Lagrangian gradient: g + Jineq^T λ. The bound is inactive (λ ≈ 0),
+		// Lagrangian gradient: g + Jineq^T lambda. The bound is inactive (lambda ~= 0),
 		// so this reduces to the ordinary gradient at Rosenbrock's optimum,
 		// which is zero.
 		Assertions.assertNotNull(r.lagrangianGrad);
@@ -160,8 +160,8 @@ class TestInequalityConstrained {
 		Assertions.assertEquals(TrustConstrMethod.TRUST_REGION_INTERIOR_POINT, r.method);
 		Assertions.assertEquals(2.0, r.x.getAsDouble(0, 0), 1.0e-3);
 		Assertions.assertEquals(4.0, r.x.getAsDouble(1, 0), 1.0e-2);
-		// KKT at the optimum: g + Jineq^T λ = 0. The bound is active (λ ≠ 0)
-		// so this is a sharper test than the inactive case — only correct
+		// KKT at the optimum: g + Jineq^T lambda = 0. The bound is active (lambda != 0)
+		// so this is a sharper test than the inactive case -- only correct
 		// multiplier recovery makes the Lagrangian gradient vanish.
 		Assertions.assertNotNull(r.lagrangianGrad);
 		Assertions.assertTrue(r.lagrangianGrad.normInf() < 1.0e-4,

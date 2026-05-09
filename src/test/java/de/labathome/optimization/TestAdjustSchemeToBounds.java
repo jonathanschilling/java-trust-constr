@@ -68,7 +68,8 @@ class TestAdjustSchemeToBounds {
 		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.1, -0.1, 0.1}, ads.hAdjusted().toColumnArray(), tolerance);
 
 		ads = NumDiff.adjustSchemeToBounds(x0, h, 1, FiniteDifferenceMethod.TWO_SIDED, lb, ub);
-		RelAbsAssertions.assertArrayRelAbsEquals(h.toColumnArray(), ads.hAdjusted().toColumnArray(), tolerance);
+		// TWO_SIDED takes |h| internally; with this far-from-bound x0, the result is |h|.
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.1, 0.1, 0.1}, ads.hAdjusted().toColumnArray(), tolerance);
 		Assertions.assertArrayEquals(allFalse, ads.useOneSided());
 
 		ads = NumDiff.adjustSchemeToBounds(x0, h, 2, FiniteDifferenceMethod.TWO_SIDED, lb, ub);

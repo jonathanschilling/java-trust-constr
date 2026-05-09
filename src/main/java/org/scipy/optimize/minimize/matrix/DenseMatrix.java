@@ -27,6 +27,12 @@ public final class DenseMatrix extends Matrix {
 	private final int cols;
 	private final double[] data;
 
+	/**
+	 * Allocate a fresh {@code rows x cols} zero-filled {@code DenseMatrix}.
+	 *
+	 * @param rows number of rows (must be non-negative)
+	 * @param cols number of columns (must be non-negative)
+	 */
 	public DenseMatrix(int rows, int cols) {
 		if (rows < 0 || cols < 0) {
 			throw new IllegalArgumentException("DenseMatrix dimensions must be non-negative; got "
@@ -43,20 +49,34 @@ public final class DenseMatrix extends Matrix {
 		this.data = data;
 	}
 
+	/** @return number of rows (primitive {@code int} accessor) */
 	public int rows() { return rows; }
+	/** @return number of columns (primitive {@code int} accessor) */
 	public int cols() { return cols; }
 
 	/**
 	 * The underlying column-major buffer. Mutable: callers may overwrite
 	 * entries directly (used by BLAS rank updates and LAPACK in-place ops).
-	 * Length is exactly {@code rows * cols}.
+	 *
+	 * @return the live column-major buffer of length {@code rows * cols};
+	 *         entry {@code (i, j)} at index {@code i + j * rows}
 	 */
 	public double[] data() { return data; }
 
+	/**
+	 * @param i 0-based row index
+	 * @param j 0-based column index
+	 * @return entry at {@code (i, j)}
+	 */
 	public double get(int i, int j) {
 		return data[i + j * rows];
 	}
 
+	/**
+	 * @param i 0-based row index
+	 * @param j 0-based column index
+	 * @param v value to store at {@code (i, j)}
+	 */
 	public void set(int i, int j, double v) {
 		data[i + j * rows] = v;
 	}
@@ -102,7 +122,10 @@ public final class DenseMatrix extends Matrix {
 		return data.clone();
 	}
 
-	/** Repack the column-major buffer into a fresh row-major flat {@code double[]}. */
+	/**
+	 * @return contents repacked as a fresh row-major flat {@code double[rows*cols]}
+	 *         (entry {@code (i, j)} at index {@code i*cols + j})
+	 */
 	public double[] toRowMajor() {
 		double[] out = new double[rows * cols];
 		for (int j = 0; j < cols; ++j) {
@@ -125,8 +148,8 @@ public final class DenseMatrix extends Matrix {
 
 		if (other instanceof DenseMatrix b && rows > 0 && cols > 0 && p > 0) {
 			DenseMatrix out = new DenseMatrix(rows, p);
-			// dgemm: C = α A B + β C, all column-major.
-			// A is rows×cols (lda=rows), B is cols×p (ldb=cols), C is rows×p (ldc=rows).
+			// dgemm: C = alpha A B + beta C, all column-major.
+			// A is rowsxcols (lda=rows), B is colsxp (ldb=cols), C is rowsxp (ldc=rows).
 			BLAS_INSTANCE.dgemm("N", "N",
 					rows, p, cols,
 					1.0, this.data, rows,
@@ -135,7 +158,7 @@ public final class DenseMatrix extends Matrix {
 			return out;
 		}
 
-		// Fallback: dense × non-dense via the abstract getAsDouble.
+		// Fallback: dense x non-dense via the abstract getAsDouble.
 		DenseMatrix out = new DenseMatrix(rows, p);
 		for (int k = 0; k < cols; ++k) {
 			int colOffA = k * rows;
@@ -262,7 +285,11 @@ public final class DenseMatrix extends Matrix {
 		return out;
 	}
 
-	/** In-place absolute value. */
+	/**
+	 * In-place absolute value.
+	 *
+	 * @return {@code this} after replacing every entry by its absolute value
+	 */
 	public DenseMatrix absInPlace() {
 		for (int k = 0; k < data.length; ++k) {
 			if (data[k] < 0.0) data[k] = -data[k];
@@ -270,7 +297,12 @@ public final class DenseMatrix extends Matrix {
 		return this;
 	}
 
-	/** In-place scaling by {@code alpha}. */
+	/**
+	 * In-place scaling.
+	 *
+	 * @param alpha scalar multiplier
+	 * @return {@code this} after multiplying every entry by {@code alpha}
+	 */
 	public DenseMatrix scaleInPlace(double alpha) {
 		for (int k = 0; k < data.length; ++k) {
 			data[k] *= alpha;
@@ -296,8 +328,14 @@ public final class DenseMatrix extends Matrix {
 	}
 
 	/**
-	 * Inclusive submatrix slice {@code rows[r0..r1] × cols[c0..c1]}.
+	 * Inclusive submatrix slice {@code rows[r0..r1] x cols[c0..c1]}.
 	 * Always returns a fresh {@code DenseMatrix}; no view aliasing.
+	 *
+	 * @param r0 first row (inclusive)
+	 * @param r1 last row (inclusive)
+	 * @param c0 first column (inclusive)
+	 * @param c1 last column (inclusive)
+	 * @return {@code (r1-r0+1) x (c1-c0+1)} slice
 	 */
 	public DenseMatrix subMatrix(int r0, int r1, int c0, int c1) {
 		int nr = r1 - r0 + 1;
@@ -311,7 +349,12 @@ public final class DenseMatrix extends Matrix {
 		return out;
 	}
 
-	/** Pick an arbitrary subset of columns into a fresh {@code DenseMatrix}. */
+	/**
+	 * Pick an arbitrary subset of columns into a fresh {@code DenseMatrix}.
+	 *
+	 * @param colsToKeep column indices to keep, in the desired output order
+	 * @return {@code rows x colsToKeep.length} matrix
+	 */
 	public DenseMatrix selectColumns(int... colsToKeep) {
 		DenseMatrix out = new DenseMatrix(rows, colsToKeep.length);
 		for (int k = 0; k < colsToKeep.length; ++k) {
@@ -322,7 +365,12 @@ public final class DenseMatrix extends Matrix {
 		return out;
 	}
 
-	/** Pick an arbitrary subset of rows into a fresh {@code DenseMatrix}. */
+	/**
+	 * Pick an arbitrary subset of rows into a fresh {@code DenseMatrix}.
+	 *
+	 * @param rowsToKeep row indices to keep, in the desired output order
+	 * @return {@code rowsToKeep.length x cols} matrix
+	 */
 	public DenseMatrix selectRows(int... rowsToKeep) {
 		DenseMatrix out = new DenseMatrix(rowsToKeep.length, cols);
 		for (int j = 0; j < cols; ++j) {
@@ -360,10 +408,19 @@ public final class DenseMatrix extends Matrix {
 
 	// --- Static factories ---
 
+	/**
+	 * @param rows number of rows (must be non-negative)
+	 * @param cols number of columns (must be non-negative)
+	 * @return a fresh {@code rows x cols} matrix filled with zeros
+	 */
 	public static DenseMatrix zeros(int rows, int cols) {
 		return new DenseMatrix(rows, cols);
 	}
 
+	/**
+	 * @param n dimension (must be non-negative)
+	 * @return the {@code n x n} identity matrix
+	 */
 	public static DenseMatrix eye(int n) {
 		DenseMatrix m = new DenseMatrix(n, n);
 		for (int i = 0; i < n; ++i) {
@@ -372,19 +429,31 @@ public final class DenseMatrix extends Matrix {
 		return m;
 	}
 
-	/** {@code n × 1} column vector. The input array is copied. */
+	/**
+	 * @param v entries of the resulting column vector (copied)
+	 * @return an {@code n x 1} column vector
+	 */
 	public static DenseMatrix column(double... v) {
 		double[] copy = v.clone();
 		return new DenseMatrix(v.length, 1, copy);
 	}
 
-	/** {@code 1 × n} row vector. The input array is copied. */
+	/**
+	 * @param v entries of the resulting row vector (copied)
+	 * @return a {@code 1 x n} row vector
+	 */
 	public static DenseMatrix row(double... v) {
 		double[] copy = v.clone();
 		return new DenseMatrix(1, v.length, copy);
 	}
 
-	/** Repack a row-major {@code double[][]} into a fresh column-major {@code DenseMatrix}. */
+	/**
+	 * Repack a row-major {@code double[][]} into a fresh column-major
+	 * {@code DenseMatrix}.
+	 *
+	 * @param rows row-major source ({@code rows[i][j]} = entry at {@code (i,j)})
+	 * @return a fresh {@code DenseMatrix} with the same shape and values
+	 */
 	public static DenseMatrix fromRows(double[][] rows) {
 		int n = rows.length;
 		int m = n == 0 ? 0 : rows[0].length;
@@ -405,6 +474,12 @@ public final class DenseMatrix extends Matrix {
 	 * Wrap an already-column-major buffer without copying. The caller surrenders
 	 * ownership of {@code data}: subsequent mutations through this matrix will
 	 * be visible to anyone else holding the array.
+	 *
+	 * @param rows number of rows
+	 * @param cols number of columns
+	 * @param data column-major buffer of length {@code rows * cols}; the
+	 *             entry at {@code (i, j)} is {@code data[i + j * rows]}
+	 * @return a {@code DenseMatrix} that aliases {@code data}
 	 */
 	public static DenseMatrix fromColumnMajor(int rows, int cols, double[] data) {
 		if (data.length != rows * cols) {
@@ -416,7 +491,11 @@ public final class DenseMatrix extends Matrix {
 
 	/**
 	 * Densify any {@link Matrix}: if {@code m} is already a {@code DenseMatrix},
-	 * return a {@link #copy()}; otherwise materialise via {@link #getAsDouble(long, long)}.
+	 * return a {@link #copy()}; otherwise materialise via
+	 * {@link #getAsDouble(long, long)}.
+	 *
+	 * @param m source matrix
+	 * @return a fresh dense copy
 	 */
 	public static DenseMatrix copyFromMatrix(Matrix m) {
 		if (m instanceof DenseMatrix d) {
@@ -442,6 +521,11 @@ public final class DenseMatrix extends Matrix {
 	 */
 	public static final class Factory {
 		private Factory() {}
+
+		/**
+		 * @param m source matrix
+		 * @return a fresh dense copy; alias for {@link DenseMatrix#copyFromMatrix(Matrix)}
+		 */
 		public static DenseMatrix copyFromMatrix(Matrix m) {
 			return DenseMatrix.copyFromMatrix(m);
 		}

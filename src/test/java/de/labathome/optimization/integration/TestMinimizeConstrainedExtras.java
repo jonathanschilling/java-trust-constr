@@ -17,12 +17,12 @@ import org.scipy.optimize.minimize.matrix.Matrix;
  * {@code TestBoundedRosenbrock}, or {@code TestElec}:
  *
  * <ul>
- *   <li>{@code TestTrustRegionConstr::test_no_constraints} — unconstrained
+ *   <li>{@code TestTrustRegionConstr::test_no_constraints} -- unconstrained
  *       Rosenbrock through trust-constr (routes through the equality path with
  *       an empty constraint set; needs the zero-row shortcuts in
  *       {@code Projections.projections} and the {@code safeNorm2} guards in
  *       {@code EqualityConstrainedSQP}).</li>
- *   <li>{@code test_bug_11886} — quadratic with a one-sided lower-bound linear
+ *   <li>{@code test_bug_11886} -- quadratic with a one-sided lower-bound linear
  *       inequality; smoke check that the orchestrator doesn't error.</li>
  * </ul>
  */
@@ -30,7 +30,7 @@ class TestMinimizeConstrainedExtras {
 
 	@Test
 	void unconstrainedRosenbrock() {
-		// Scipy's TestTrustRegionConstr::test_no_constraints — unconstrained
+		// Scipy's TestTrustRegionConstr::test_no_constraints -- unconstrained
 		// Rosenbrock should converge to (1, 1) through trust-constr just like
 		// L-BFGS-B does. Routes through the equality path with an empty
 		// constraint set; the Projections.projections zero-row shortcut plus
@@ -76,7 +76,7 @@ class TestMinimizeConstrainedExtras {
 		// Scipy's test_bug_11886: minimize x[0]^2 + x[1]^2 s.t. x[i] >= -1.
 		// The unconstrained optimum (0, 0) is in the feasible interior, so
 		// the solver should converge to the origin without the bound binding.
-		// Originally a smoke test — we additionally check the result.
+		// Originally a smoke test -- we additionally check the result.
 		Function<Matrix, Double> q = x ->
 				x.getAsDouble(0, 0) * x.getAsDouble(0, 0)
 				+ x.getAsDouble(1, 0) * x.getAsDouble(1, 0);
@@ -107,7 +107,7 @@ class TestMinimizeConstrainedExtras {
 	void degenerateConstraintReportsFailure() {
 		// Port of scipy test_issue_18882: minimize u1^2 + u2^2 subject to
 		// 1 + u1^2/9 - u2^2/16 = 0, starting at (0, 0). At the start, the
-		// constraint is infeasible (= 1) and its Jacobian is (0, 0) — singular.
+		// constraint is infeasible (= 1) and its Jacobian is (0, 0) -- singular.
 		// Scipy: success=False AND constr_violation > 1e-8.
 		java.util.function.Function<Matrix, Double> obj = u ->
 				u.getAsDouble(0, 0) * u.getAsDouble(0, 0)
@@ -135,7 +135,7 @@ class TestMinimizeConstrainedExtras {
 						new double[] {0.0}, new double[] {0.0});
 
 		Matrix u0 = Matrix.Factory.linkToArray(new double[] {0.0, 0.0});
-		// Should not throw — the algorithm should report failure rather than
+		// Should not throw -- the algorithm should report failure rather than
 		// crash on the singular Jacobian at start.
 		OptimizeResult r = Assertions.assertDoesNotThrow(() ->
 				MinimizeTrustConstr.minimize(obj, objGrad, objHess, u0, c,
@@ -152,7 +152,7 @@ class TestMinimizeConstrainedExtras {
 	void overdeterminedEqualityRejectedWithHelpfulMessage() {
 		// Port of scipy test_gh20665_too_many_constraints: 3 equality
 		// constraints in 2 variables. Default (QR) factorization can't
-		// handle this — orchestrator should throw a clear error before the
+		// handle this -- orchestrator should throw a clear error before the
 		// algorithm hits an internal array-bounds failure.
 		Matrix A = Matrix.Factory.linkToArray(new double[][] {
 				{0, 1}, {2, 3}, {4, 5}});

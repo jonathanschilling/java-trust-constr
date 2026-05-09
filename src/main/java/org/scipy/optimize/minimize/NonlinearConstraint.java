@@ -46,6 +46,18 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 	private final int[] ineqSign;
 	private final double[] ineqTarget;
 
+	/**
+	 * Build a nonlinear constraint with explicit constraint Hessian.
+	 *
+	 * @param fun          constraint function {@code R^n -> R^m}
+	 * @param jac          analytic Jacobian {@code R^n -> R^{m x n}}
+	 * @param hess         constraint Hessian-of-Lagrangian
+	 *                     {@code (x, v) -> Sum v[i] H_{c_i}(x)}; may be {@code null}
+	 * @param lb           per-row lower bounds, length {@code m}
+	 * @param ub           per-row upper bounds, length {@code m}
+	 * @param keepFeasible per-row strict-feasibility flag, length {@code m};
+	 *                     {@code null} = all-false
+	 */
 	public NonlinearConstraint(Function<Matrix, Matrix> fun, Function<Matrix, Matrix> jac,
 			BiFunction<Matrix, Matrix, Matrix> hess,
 			double[] lb, double[] ub, boolean[] keepFeasible) {
@@ -134,11 +146,30 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 		}
 	}
 
+	/**
+	 * Convenience overload: as {@link #NonlinearConstraint(Function, Function,
+	 * BiFunction, double[], double[], boolean[])} with no constraint Hessian.
+	 *
+	 * @param fun          constraint function
+	 * @param jac          analytic Jacobian
+	 * @param lb           lower bounds
+	 * @param ub           upper bounds
+	 * @param keepFeasible per-row strict-feasibility flag
+	 */
 	public NonlinearConstraint(Function<Matrix, Matrix> fun, Function<Matrix, Matrix> jac,
 			double[] lb, double[] ub, boolean[] keepFeasible) {
 		this(fun, jac, null, lb, ub, keepFeasible);
 	}
 
+	/**
+	 * Convenience overload with neither constraint Hessian nor
+	 * {@code keepFeasible} flags.
+	 *
+	 * @param fun constraint function
+	 * @param jac analytic Jacobian
+	 * @param lb  lower bounds
+	 * @param ub  upper bounds
+	 */
 	public NonlinearConstraint(Function<Matrix, Matrix> fun, Function<Matrix, Matrix> jac,
 			double[] lb, double[] ub) {
 		this(fun, jac, null, lb, ub, null);
@@ -154,11 +185,22 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 	 * (where {@code n = x.size()}). For tight problems an analytic
 	 * Jacobian remains preferable.
 	 */
+	/**
+	 * @param fun          constraint function
+	 * @param lb           lower bounds
+	 * @param ub           upper bounds
+	 * @param keepFeasible per-row strict-feasibility flag
+	 */
 	public NonlinearConstraint(Function<Matrix, Matrix> fun,
 			double[] lb, double[] ub, boolean[] keepFeasible) {
 		this(fun, fdJacobian(fun), null, lb, ub, keepFeasible);
 	}
 
+	/**
+	 * @param fun constraint function
+	 * @param lb  lower bounds
+	 * @param ub  upper bounds
+	 */
 	public NonlinearConstraint(Function<Matrix, Matrix> fun,
 			double[] lb, double[] ub) {
 		this(fun, fdJacobian(fun), null, lb, ub, null);
@@ -183,21 +225,29 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 		};
 	}
 
+	/** @return defensive copy of the lower bounds */
 	public double[] lb() { return lb.clone(); }
+	/** @return defensive copy of the upper bounds */
 	public double[] ub() { return ub.clone(); }
+	/** @return defensive copy of the per-row keep-feasible flags */
 	public boolean[] keepFeasible() { return keepFeasible.clone(); }
+	/** @return the bounds repackaged as a {@link Bounds} record */
 	public Bounds bounds() {
 		return new Bounds(Matrix.Factory.linkToArray(lb), Matrix.Factory.linkToArray(ub), false);
 	}
 
+	/** @return number of canonical equality rows */
 	public int nEq() { return eqRows.length; }
+	/** @return number of canonical inequality rows */
 	public int nIneq() { return ineqRows.length; }
 
 	/**
 	 * Per-canonical-inequality-row {@code enforceFeasibility} flags derived
 	 * from the user-supplied {@code keep_feasible}. Each canonical ineq row
-	 * inherits the kf flag of the original row it came from
-	 * ({@link #ineqRows}). Length matches {@link #nIneq()}.
+	 * inherits the kf flag of the original row it came from. Length matches
+	 * {@link #nIneq()}.
+	 *
+	 * @return per-canonical-row strict-feasibility flags
 	 */
 	public boolean[] enforceFeasibilityIneq() {
 		boolean[] out = new boolean[ineqRows.length];
@@ -211,9 +261,9 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 	 * Throws {@link IllegalArgumentException} if any row marked
 	 * {@code keepFeasible[i] == true} is violated at the supplied starting
 	 * point. Mirrors scipy's strict-feasibility precondition for
-	 * {@code keep_feasible=True} rows: the algorithm will not enforce
-	 * intermediate-iterate feasibility for these rows if the start is
-	 * already infeasible there.
+	 * {@code keep_feasible=True} rows.
+	 *
+	 * @param x0 starting iterate ({@code n x 1})
 	 */
 	public void validateKeepFeasibleAtStart(Matrix x0) {
 		boolean any = false;
@@ -234,14 +284,15 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 	}
 
 	/**
-	 * Constraint Hessian-of-Lagrangian {@code sum_i v[i] * H_{c_i}(x)},
+	 * Constraint Hessian-of-Lagrangian {@code Sum_i v[i] * H_{c_i}(x)},
 	 * combining equality and inequality multipliers into a single Hessian
-	 * contribution. Returns {@code null} if no Hessian was supplied.
+	 * contribution.
 	 *
-	 * <p>{@code vEq} has length {@link #nEq()} and {@code vIneq} length
-	 * {@link #nIneq()}. The values are mapped back to the original constraint
-	 * rows (with appropriate sign for one-sided inequalities) before invoking
-	 * the user-provided {@code hess(x, v)}.
+	 * @param x     iterate ({@code n x 1})
+	 * @param vEq   equality multipliers, length {@link #nEq()}
+	 * @param vIneq inequality multipliers, length {@link #nIneq()}
+	 * @return summed {@code n x n} constraint Hessian, or {@code null} if no
+	 *         analytic Hessian was supplied at construction
 	 */
 	public Matrix lagrangianContribution(Matrix x, double[] vEq, double[] vIneq) {
 		if (hess == null) {

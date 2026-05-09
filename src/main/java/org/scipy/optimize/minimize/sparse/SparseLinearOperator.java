@@ -6,21 +6,22 @@ import org.scipy.optimize.minimize.matrix.Matrix;
 
 /**
  * Adapter from a {@link CSRMatrix} or {@link CSCMatrix} to the existing
- * {@link LinearOperator} interface used throughout the algorithm.
+ * {@link LinearOperator} interface used throughout the algorithm. Mirrors
+ * the role of {@code scipy.sparse.linalg.LinearOperator} produced from a
+ * sparse matrix via {@code aslinearoperator(A)}.
  *
- * <p>Mirrors the role of {@code scipy.sparse.linalg.LinearOperator} produced
- * from a sparse matrix via {@code aslinearoperator(A)}.
- *
- * <p>The {@link LinearOperator} interface is currently typed in terms of UJMP
- * {@link Matrix}, so this class does the array<->matrix conversion at the
- * boundary. When the project finishes its UJMP -> ojAlgo migration, this
- * adapter is the single point that needs to follow.
+ * <p>The {@link LinearOperator} contract is typed in terms of {@link Matrix},
+ * so this adapter does the {@code double[]} &harr; {@link Matrix} conversion
+ * at the boundary on each apply.
  */
 public final class SparseLinearOperator {
 
 	private SparseLinearOperator() { }
 
-	/** {@code y = A x}. */
+	/**
+	 * @param a CSR matrix
+	 * @return a {@link LinearOperator} that computes {@code y = A x}
+	 */
 	public static LinearOperator forMatvec(CSRMatrix a) {
 		return x -> {
 			double[] xArr = x.toColumnArray();
@@ -29,7 +30,10 @@ public final class SparseLinearOperator {
 		};
 	}
 
-	/** {@code y = A x}. */
+	/**
+	 * @param a CSC matrix
+	 * @return a {@link LinearOperator} that computes {@code y = A x}
+	 */
 	public static LinearOperator forMatvec(CSCMatrix a) {
 		return x -> {
 			double[] xArr = x.toColumnArray();
@@ -38,7 +42,10 @@ public final class SparseLinearOperator {
 		};
 	}
 
-	/** {@code y = A^T x}. */
+	/**
+	 * @param a CSR matrix
+	 * @return a {@link LinearOperator} that computes {@code y = A^T x}
+	 */
 	public static LinearOperator forRmatvec(CSRMatrix a) {
 		return x -> {
 			double[] xArr = x.toColumnArray();
@@ -47,7 +54,10 @@ public final class SparseLinearOperator {
 		};
 	}
 
-	/** {@code y = A^T x}. */
+	/**
+	 * @param a CSC matrix
+	 * @return a {@link LinearOperator} that computes {@code y = A^T x}
+	 */
 	public static LinearOperator forRmatvec(CSCMatrix a) {
 		return x -> {
 			double[] xArr = x.toColumnArray();

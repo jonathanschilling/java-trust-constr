@@ -45,18 +45,25 @@ public class EqualityConstrainedSQP {
 
 	/**
 	 * Like {@link Matrix#norm2()} but safe for zero-row matrices, which arise on
-	 * the unconstrained dispatch path (no equality constraints). UJMP throws
-	 * {@code ArrayIndexOutOfBoundsException} for {@code norm2()} on a 0x1
-	 * matrix; the natural answer is 0.
+	 * the unconstrained dispatch path (no equality constraints). The natural
+	 * answer is 0; this guard avoids divisions by zero in the merit-function
+	 * arithmetic when the constraint Jacobian has shape 0&times;n.
 	 */
 	private static double safeNorm2(Matrix m) {
 		return (m.getRowCount() == 0 || m.getColumnCount() == 0) ? 0.0 : m.norm2();
 	}
 
+	/**
+	 * Default scaling: returns the {@code n x n} identity, i.e. an unscaled
+	 * SQP step. Mirrors scipy's {@code default_scaling}, which returns
+	 * {@code scipy.sparse.eye(n)}.
+	 *
+	 * @param n number of decision variables
+	 * @return a {@link LinearOperator} that ignores its input and returns the identity
+	 */
 	public static final LinearOperator defaultScaling(long n) {
 		// "No scaling" means S = I_n: the SQP step is applied unscaled
-		// (S.mtimes(d) == d). Mirrors scipy's default_scaling, which returns
-		// scipy.sparse.eye(n).
+		// (S.mtimes(d) == d).
 		final Matrix identity = Matrix.Factory.eye(n, n);
 		return new LinearOperator() {
 			@Override
@@ -67,25 +74,38 @@ public class EqualityConstrainedSQP {
 	}
 
 	/**
-	 * Solve nonlinear equality-constrained problem using trust-region SQP.
-	 * </p>
-	 * Solve optimization problem:
+	 * Solve a nonlinear equality-constrained problem using trust-region SQP.
+	 *
+	 * <p>Minimizes
 	 * <pre>
-	 * minimize fun(x)
-	 * subject to: constr(x) = 0
+	 *   minimize    fun(x)
+	 *   subject to  constr(x) = 0
 	 * </pre>
-	 * using Byrd-Omojokun Trust-Region SQP method described in [1].
-	 * Several implementation details are based on [2] and [3], p. 549.
+	 * using the Byrd-Omojokun trust-region SQP method (Lalee, Nocedal,
+	 * Plantenga, 1998). Implementation details follow Byrd-Hribar-Nocedal
+	 * (1999) and Nocedal &amp; Wright, <i>Numerical Optimization</i>,
+	 * 2nd ed. (2006), p.549.
 	 *
-	 * @see [1] Lalee, Marucha, Jorge Nocedal, and Todd Plantenga
-	 *          "On the implementation of an algorithm for large-scale equality constrained optimization"
-	 *          SIAM Journal on Optimization 8.3 (1998), p. 682-706
-	 * @see [2] Byrd, Richard H., Mary E. Hribar, and Jorge Nocedal
-	 *          "An interior point algorithm for large-scale nonlinear programming"
-	 *          SIAM Journal on Optimization 9.4 (1999): 877-900
-	 * @see [3] Nocedal, Jorge, and Stephen J. Wright
-	 *          "Numerical optimization", Second Edition (2006)
-	 *
+	 * @param funAndConstr combined evaluator returning {@code (f(x), constr(x))}
+	 * @param gradAndJac   combined evaluator returning {@code (gradf(x), gradconstr(x))}
+	 * @param lagrHess     Hessian-of-Lagrangian {@code (x, v) -> grad^2L(x, v)}
+	 * @param x0           starting iterate ({@code n x 1})
+	 * @param fun0         {@code fun(x0)}
+	 * @param grad0        {@code grad(x0)}
+	 * @param constr0      {@code constr(x0)} (m x 1)
+	 * @param jac0         constraint Jacobian at {@code x0} (m x n)
+	 * @param stopCrit     termination predicate, queried each outer iteration
+	 * @param state        mutable iteration state to thread through and return
+	 * @param initialPenalty     initial constraint penalty for the merit function
+	 * @param initialTrustRadius initial trust-region radius
+	 * @param factorizationMethod projection-Jacobian factorization method
+	 *                            ({@code AUGMENTED_SYSTEM} / {@code QR_FACTORIZATION}
+	 *                            / {@code SVD_FACTORIZATION})
+	 * @param trustLb      element-wise lower bounds on the SQP step
+	 * @param trustUb      element-wise upper bounds on the SQP step
+	 * @param scaling      diagonal-scaling operator for the trust-region step
+	 *                     ({@link #defaultScaling(long)} for the identity)
+	 * @return populated {@link StatefulResult}
 	 */
 	public static StatefulResult eqSQP(
 			IFunctionAndConstraint funAndConstr,

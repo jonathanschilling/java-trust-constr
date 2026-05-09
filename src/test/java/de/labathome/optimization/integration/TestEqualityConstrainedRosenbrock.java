@@ -12,8 +12,8 @@ import de.labathome.optimization.RelAbsAssertions;
  * End-to-end smoke tests for {@link MinimizeTrustConstr#minimizeEqualityConstrained}.
  *
  * <p>Each test exercises the SQP loop, the projection KKT path
- * ({@code Projections.augmentedSystemProjections} → CSR + dense LAPACK), and
- * the Lagrangian Hessian → modified-dogleg → projected-CG → step-acceptance
+ * ({@code Projections.augmentedSystemProjections} -> CSR + dense LAPACK), and
+ * the Lagrangian Hessian -> modified-dogleg -> projected-CG -> step-acceptance
  * pipeline.
  *
  * <p>Both problems converge to machine precision; iteration counts match

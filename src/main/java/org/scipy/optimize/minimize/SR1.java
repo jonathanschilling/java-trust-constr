@@ -5,16 +5,14 @@ import org.scipy.optimize.minimize.matrix.LinAlg;
 import org.scipy.optimize.minimize.matrix.Matrix;
 
 /**
- * Symmetric-rank-1 Hessian update strategy.
+ * Symmetric-rank-1 (SR1) Hessian update strategy.
  *
- * The update is based on the description in [1], p.144-146.
- *
- * @see [1] Nocedal, Jorge, and Stephen J. Wright
- *          "Numerical optimization"
- *          Second Edition (2006)
+ * <p>The update follows Nocedal &amp; Wright, <i>Numerical Optimization</i>,
+ * 2nd ed. (2006), pp.144-146.
  */
 public class SR1 extends FullHessianUpdateStrategy {
 
+	/** Builder for {@link SR1}; configure via {@link SR1#FACTORY}. */
 	public static class SR1Factory extends FullHessianUpdateStrategyFactory {
 
 		private double minDenominator;
@@ -28,13 +26,12 @@ public class SR1 extends FullHessianUpdateStrategy {
 		}
 
 		/**
-		 * This number, scaled by a normalization factor,
-         * defines the minimum denominator magnitude allowed
-         * in the update. When the condition is violated we skip
-         * the update. By default uses ``1e-8``.
-         *
-		 * @param minCurvature
-		 * @return
+		 * Set the minimum denominator magnitude allowed in the update,
+		 * scaled by a normalization factor. When the condition is violated
+		 * the update is skipped. Default {@code 1e-8}.
+		 *
+		 * @param minDenominator denominator-magnitude threshold
+		 * @return this factory, for chaining
 		 */
 		public SR1Factory minDenominator(double minDenominator) {
 			this.minDenominator = minDenominator;
@@ -42,6 +39,11 @@ public class SR1 extends FullHessianUpdateStrategy {
 			return this;
 		}
 
+		/**
+		 * Build a configured {@link SR1} instance.
+		 *
+		 * @return a fresh {@link SR1} with the configured options
+		 */
 		public SR1 build() {
 			if (!hasMinDenominator) {
 				minDenominator = 1.0e-8;
@@ -52,6 +54,7 @@ public class SR1 extends FullHessianUpdateStrategy {
 		}
 	};
 
+	/** Default SR1 factory; configure with chained setters then call {@link SR1Factory#build()}. */
 	public static final SR1Factory FACTORY;
 	static {
 		FACTORY = new SR1Factory();
@@ -59,6 +62,11 @@ public class SR1 extends FullHessianUpdateStrategy {
 
 	private final double minDenominator;
 
+	/**
+	 * @param initialScaleAuto whether the initial scale is auto-derived
+	 * @param initialScale     user-specified initial scale (ignored when auto)
+	 * @param minDenominator   denominator-magnitude threshold below which updates are skipped
+	 */
 	protected SR1(boolean initialScaleAuto, double initialScale, double minDenominator) {
 		super(initialScaleAuto, initialScale);
 

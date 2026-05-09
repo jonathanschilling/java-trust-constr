@@ -1,19 +1,20 @@
 package org.scipy.optimize.minimize.enums;
 
+/** Why projected-CG terminated on the most recent inner solve. */
 public enum PCGStoppingCondition {
 
-	/** 0: CG subproblem not evaluated */
+	/** {@code 0}: CG subproblem not evaluated. */
 	NOT_EVALUATED,
 
-	/** 1: Iteration limit was reached */
+	/** {@code 1}: Iteration limit was reached. */
 	ITER_LIMIT_REACHED,
 
-	/** 2: Reached the trust-region boundary */
+	/** {@code 2}: Reached the trust-region boundary. */
 	TRUST_REGION_BOUNDARY_REACHED,
 
-	/** 3: Negative curvature detected */
+	/** {@code 3}: Negative curvature detected. */
 	NEGATIVE_CURVATURE,
 
-	/** 4: Tolerance was satisfied */
+	/** {@code 4}: Tolerance was satisfied. */
 	TOLERANCE_SATISFIED
 }

@@ -31,10 +31,24 @@ public final class CombinedConstraint implements Constraint, Jacobian {
 	private final int totalEq;
 	private final int totalIneq;
 
+	/**
+	 * Convenience constructor accepting a {@link List} of source constraints.
+	 *
+	 * @param sources element type must be {@link LinearConstraint} or
+	 *                {@link NonlinearConstraint}
+	 * @param nVars   number of decision variables
+	 * @param <C>     element type of {@code sources}
+	 */
 	public <C> CombinedConstraint(List<C> sources, int nVars) {
 		this(sources.toArray(), nVars);
 	}
 
+	/**
+	 * @param sources mix of {@link LinearConstraint} and
+	 *                {@link NonlinearConstraint} instances; rows are
+	 *                concatenated in declaration order
+	 * @param nVars   number of decision variables
+	 */
 	public CombinedConstraint(Object[] sources, int nVars) {
 		this.sources = sources.clone();
 		this.nVars = nVars;
@@ -56,13 +70,17 @@ public final class CombinedConstraint implements Constraint, Jacobian {
 		this.totalIneq = i;
 	}
 
+	/** @return total number of equality rows across all sources */
 	public int nEq() { return totalEq; }
+	/** @return total number of canonical inequality rows across all sources */
 	public int nIneq() { return totalIneq; }
 
 	/**
 	 * Concatenated per-canonical-inequality-row {@code enforceFeasibility}
 	 * flags across all sources, in the same order they appear in
-	 * {@link #constrIneq}. Length matches {@link #nIneq()}.
+	 * {@link #constrIneq(Matrix)}. Length matches {@link #nIneq()}.
+	 *
+	 * @return per-row strict-feasibility flags, length {@link #nIneq()}
 	 */
 	public boolean[] enforceFeasibilityIneq() {
 		boolean[] out = new boolean[totalIneq];
@@ -86,6 +104,8 @@ public final class CombinedConstraint implements Constraint, Jacobian {
 	 * Walk all sources and validate that any row marked
 	 * {@code keep_feasible=True} is satisfied at {@code x0}. Throws
 	 * {@link IllegalArgumentException} on the first violation.
+	 *
+	 * @param x0 starting iterate ({@code n x 1})
 	 */
 	public void validateKeepFeasibleAtStart(Matrix x0) {
 		for (Object s : sources) {
@@ -208,8 +228,14 @@ public final class CombinedConstraint implements Constraint, Jacobian {
 	 * Sum of constraint-Hessian-of-Lagrangian contributions across all sources.
 	 * Walks the constraint list, slices {@code vEq}/{@code vIneq} into the
 	 * portions that belong to each source (in declaration order), and sums the
-	 * resulting Hessians. Returns {@code null} if no source contributes
-	 * (e.g. all sources are {@link LinearConstraint}, which has zero Hessian).
+	 * resulting Hessians.
+	 *
+	 * @param x      iterate ({@code n x 1})
+	 * @param vEq    equality multipliers, length {@link #nEq()}
+	 * @param vIneq  inequality multipliers, length {@link #nIneq()}
+	 * @return summed {@code n x n} constraint Hessian, or {@code null} if no
+	 *         source contributes (e.g. every source is a
+	 *         {@link LinearConstraint}, which has zero Hessian)
 	 */
 	public Matrix lagrangianContribution(Matrix x, double[] vEq, double[] vIneq) {
 		Matrix total = null;

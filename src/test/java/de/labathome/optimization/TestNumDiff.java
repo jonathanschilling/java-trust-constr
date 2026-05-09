@@ -8,7 +8,6 @@ import java.util.function.Function;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.matrix.MatrixOps;
 import org.scipy.optimize.minimize.NumDiff;
 import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
 import org.scipy.optimize.minimize.matrix.DenseMatrix;
@@ -129,7 +128,12 @@ class TestNumDiff {
 			Matrix absStep = NumDiff.computeAbsoluteStep(null, x0, f0, method);
 			RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, absStep.toColumnArray(), tolerance);
 
-			Matrix signX0 = x0.times(-1).ge(0).toIntMatrix().times(2).minus(1);
+			// signX0[i] = +1 if -x0[i] >= 0 else -1
+			double[] signX0Arr = new double[(int) x0.getRowCount()];
+			for (int i = 0; i < signX0Arr.length; ++i) {
+				signX0Arr[i] = -x0.getAsDouble(i, 0) >= 0.0 ? 1.0 : -1.0;
+			}
+			Matrix signX0 = DenseMatrix.column(signX0Arr);
 			absStep = NumDiff.computeAbsoluteStep(null, x0.times(-1), f0, method);
 			RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, absStep.times(signX0).toColumnArray(), tolerance);
 		}
@@ -146,7 +150,11 @@ class TestNumDiff {
 		Matrix absStep = NumDiff.computeAbsoluteStep(Matrix.Factory.linkToArray(relSteps), x0, f0, FiniteDifferenceMethod.TWO_POINT);
 		RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, absStep.toColumnArray(), tolerance);
 
-		Matrix signX0 = x0.times(-1).ge(0).toIntMatrix().times(2).minus(1);
+		double[] signX0Arr = new double[(int) x0.getRowCount()];
+		for (int i = 0; i < signX0Arr.length; ++i) {
+			signX0Arr[i] = -x0.getAsDouble(i, 0) >= 0.0 ? 1.0 : -1.0;
+		}
+		Matrix signX0 = DenseMatrix.column(signX0Arr);
 		absStep = NumDiff.computeAbsoluteStep(Matrix.Factory.linkToArray(relSteps), x0.times(-1), f0, FiniteDifferenceMethod.TWO_POINT);
 		RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, absStep.times(signX0).toColumnArray(), tolerance);
 	}

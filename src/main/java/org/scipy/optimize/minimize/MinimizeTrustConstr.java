@@ -36,6 +36,22 @@ import org.scipy.optimize.minimize.matrix.Matrix;
 /** Java port of scipy.optimize.minimize(method='trust-constr') */
 public class MinimizeTrustConstr {
 
+	/**
+	 * Refresh the equality-path {@link State} record after an outer iteration
+	 * (the function value, gradient, optimality, constraint violation,
+	 * trust-region and CG fields).
+	 *
+	 * @param state                outer-iteration state to update
+	 * @param x                    current iterate
+	 * @param lastIterationFailed  whether the previous step was rejected
+	 * @param objective            wrapped objective providing eval-count metadata
+	 * @param preparedConstraints  prepared constraint records
+	 * @param startTime            wall-clock {@link System#nanoTime()} at the start of the run
+	 * @param trustRadius          current trust-region radius
+	 * @param constraintPenalty    current merit-function penalty
+	 * @param cgInfo               info from the projected-CG inner solve
+	 * @return the same {@code state} after the in-place mutation
+	 */
 	public static State updateState(State state, Matrix x, boolean lastIterationFailed, ScalarFunction objective,
 			PreparedConstraint[] preparedConstraints, long startTime, double trustRadius, double constraintPenalty,
 			CGInfo cgInfo) {
@@ -109,6 +125,24 @@ public class MinimizeTrustConstr {
 		return state;
 	}
 
+	/**
+	 * Refresh the IP-path {@link StateIP} record after an outer iteration:
+	 * delegates to {@link #updateState} and then sets the barrier-specific
+	 * fields.
+	 *
+	 * @param state                outer-iteration IP state to update
+	 * @param x                    current iterate
+	 * @param lastIterationFailed  whether the previous step was rejected
+	 * @param objective            wrapped objective providing eval-count metadata
+	 * @param preparedConstraints  prepared constraint records
+	 * @param startTime            wall-clock {@link System#nanoTime()} at the start of the run
+	 * @param trustRadius          current trust-region radius
+	 * @param constraintPenalty    current merit-function penalty
+	 * @param cgInfo               info from the projected-CG inner solve
+	 * @param barrierParameter     current log-barrier coefficient
+	 * @param barrierTolerance     current barrier-subproblem tolerance
+	 * @return the same {@code state} after the in-place mutation
+	 */
 	public static StateIP updateStateIP(StateIP state, Matrix x, boolean lastIterationFailed, ScalarFunction objective,
 			PreparedConstraint[] preparedConstraints, long startTime, double trustRadius, double constraintPenalty,
 			CGInfo cgInfo, double barrierParameter, double barrierTolerance) {
@@ -145,6 +179,7 @@ public class MinimizeTrustConstr {
 	 * @param maxIter maximum number of outer iterations
 	 * @param xtol stop when {@code trustRadius < xtol}
 	 * @param gtol stop when {@code optimality < gtol} and {@code constrViolation < gtol}
+	 * @param <C>  constraint type, must implement both {@link Constraint} and {@link Jacobian}
 	 * @return populated {@link OptimizeResult}
 	 */
 	public static <C extends Constraint & Jacobian> OptimizeResult minimizeEqualityConstrained(
@@ -287,7 +322,7 @@ public class MinimizeTrustConstr {
 				null, null,                  // trustLb/Ub: unconstrained
 				scaling);
 
-		// Populate OptimizeResult — re-evaluate the objective at the final x to
+		// Populate OptimizeResult -- re-evaluate the objective at the final x to
 		// keep r.fun and r.grad consistent with r.x. (ScalarFunction internal
 		// state is only tracked for evaluations the SQP routes through it; our
 		// closures bypass that.)
@@ -303,7 +338,7 @@ public class MinimizeTrustConstr {
 			// optimality = ||grad + A^T v||_inf, but state doesn't expose v
 			// directly. We re-derive via least-squares: v = -inv(A A^T) A grad.
 			// AAt may be singular (e.g. degenerate-constraint cases like
-			// scipy test_issue_18882) — fall back to lagrangianGrad = grad.
+			// scipy test_issue_18882) -- fall back to lagrangianGrad = grad.
 			try {
 				DenseMatrix AAt = DenseMatrix.copyFromMatrix(Jx.mtimes(Jx.transpose()));
 				DenseMatrix Ag = DenseMatrix.copyFromMatrix(Jx.mtimes(r.grad));
@@ -355,6 +390,17 @@ public class MinimizeTrustConstr {
 	 * single {@link LinearConstraint} or {@link NonlinearConstraint} (or
 	 * {@code null}), no {@link Bounds}, no callback, no finite-difference
 	 * Hessians/Jacobians.
+	 *
+	 * @param fun        objective function {@code f : R^n -> R}
+	 * @param grad       analytic gradient {@code g : R^n -> R^n}
+	 * @param hess       analytic Hessian {@code H : R^n -> R^{nxn}}
+	 * @param x0         initial point ({@code n x 1})
+	 * @param constraint single constraint or {@code null} for unconstrained
+	 * @param maxIter    maximum outer iterations
+	 * @param xtol       stop when {@code trustRadius < xtol}
+	 * @param gtol       stop when {@code optimality < gtol} and {@code constrViolation < gtol}
+	 * @param <C>        constraint type, must implement both {@link Constraint} and {@link Jacobian}
+	 * @return populated {@link OptimizeResult}
 	 */
 	public static <C extends Constraint & Jacobian> OptimizeResult minimize(
 			java.util.function.Function<Matrix, Double> fun,
@@ -443,6 +489,15 @@ public class MinimizeTrustConstr {
 	 * The gradient is approximated by 2-point finite differences and the Hessian
 	 * by a fresh BFGS update strategy. Mirrors scipy's default behaviour when
 	 * both {@code jac} and {@code hess} are omitted.
+	 *
+	 * @param fun        objective function {@code f : R^n -> R}
+	 * @param x0         initial point ({@code n x 1})
+	 * @param constraint single constraint or {@code null}
+	 * @param maxIter    maximum outer iterations
+	 * @param xtol       stop when {@code trustRadius < xtol}
+	 * @param gtol       stop when {@code optimality < gtol} and {@code constrViolation < gtol}
+	 * @param <C>        constraint type, must implement {@link Constraint} and {@link Jacobian}
+	 * @return populated {@link OptimizeResult}
 	 */
 	public static <C extends Constraint & Jacobian> OptimizeResult minimize(
 			java.util.function.Function<Matrix, Double> fun,
@@ -456,23 +511,23 @@ public class MinimizeTrustConstr {
 	 * Mirrors scipy's default behaviour when {@code jac} is omitted.
 	 *
 	 * @param relStep optional per-component relative step size (an
-	 *                {@code n x 1} column matrix) — when non-null, passed
+	 *                {@code n x 1} column matrix) -- when non-null, passed
 	 *                through to {@link NumDiff} as
 	 *                {@code finiteDifferenceRelStep}. Mirrors scipy's
 	 *                {@code finite_diff_rel_step}. {@code null} uses the
 	 *                NumDiff default ({@code eps^(1/2)} for 2-point).
-	 * @param fdBounds optional FD bounds — when non-null, FD perturbations
+	 * @param fdBounds optional FD bounds -- when non-null, FD perturbations
 	 *                stay within them. Pass {@link
 	 *                org.scipy.optimize.minimize.records.StrictBounds} for
 	 *                keep_feasible enforcement; {@code null} or {@code
 	 *                FiniteDifferenceBounds.unbounded(...)} for no clipping.
 	 *                Mirrors scipy's behaviour when {@code Bounds(keep_feasible=True)}
-	 *                is supplied — gh-11649.
+	 *                is supplied -- gh-11649.
 	 */
 	private static java.util.function.Function<Matrix, Matrix> buildFdGrad(
 			java.util.function.Function<Matrix, Double> fun, Matrix x0, Matrix relStep,
 			org.scipy.optimize.minimize.records.FiniteDifferenceBounds fdBounds) {
-		// Build a fresh factory per call — the static FACTORY singleton retains
+		// Build a fresh factory per call -- the static FACTORY singleton retains
 		// state between invocations (e.g. .bounds() throws "bounds have already
 		// been specified" on the second call), same hazard as ScalarFunction.FACTORY.
 		final org.scipy.optimize.minimize.records.FiniteDifferenceBounds bounds =
@@ -527,7 +582,7 @@ public class MinimizeTrustConstr {
 
 	/**
 	 * Convenience overload that approximates the objective Hessian via
-	 * a fresh {@link BFGS} update strategy — the scipy-default behaviour
+	 * a fresh {@link BFGS} update strategy -- the scipy-default behaviour
 	 * when {@code hess} is omitted from the user call.
 	 *
 	 * <p>The BFGS update is driven manually inside the {@code lagrHess}
@@ -536,6 +591,16 @@ public class MinimizeTrustConstr {
 	 * current x and gradient to the previous values and call
 	 * {@link org.scipy.optimize.minimize.interfaces.HessianUpdateStrategy#update}
 	 * to refresh the approximation.
+	 *
+	 * @param fun        objective function {@code f : R^n -> R}
+	 * @param grad       analytic gradient {@code g : R^n -> R^n}
+	 * @param x0         initial point ({@code n x 1})
+	 * @param constraint single constraint or {@code null}
+	 * @param maxIter    maximum outer iterations
+	 * @param xtol       stop when {@code trustRadius < xtol}
+	 * @param gtol       stop when {@code optimality < gtol} and {@code constrViolation < gtol}
+	 * @param <C>        constraint type, must implement {@link Constraint} and {@link Jacobian}
+	 * @return populated {@link OptimizeResult}
 	 */
 	public static <C extends Constraint & Jacobian> OptimizeResult minimize(
 			java.util.function.Function<Matrix, Double> fun,
@@ -552,6 +617,17 @@ public class MinimizeTrustConstr {
 	 * SR1, custom). The strategy is updated by the orchestrator after each
 	 * successful iteration; users typically pass {@code BFGS.FACTORY.build()}
 	 * or {@code SR1.FACTORY.build()}.
+	 *
+	 * @param fun        objective function {@code f : R^n -> R}
+	 * @param grad       analytic gradient
+	 * @param strategy   Hessian-update strategy (BFGS, SR1, ...)
+	 * @param x0         initial point ({@code n x 1})
+	 * @param constraint single constraint or {@code null}
+	 * @param maxIter    maximum outer iterations
+	 * @param xtol       stop when {@code trustRadius < xtol}
+	 * @param gtol       stop when {@code optimality < gtol} and {@code constrViolation < gtol}
+	 * @param <C>        constraint type, must implement {@link Constraint} and {@link Jacobian}
+	 * @return populated {@link OptimizeResult}
 	 */
 	public static <C extends Constraint & Jacobian> OptimizeResult minimize(
 			java.util.function.Function<Matrix, Double> fun,
@@ -565,8 +641,20 @@ public class MinimizeTrustConstr {
 
 	/**
 	 * Multi-constraint entry point: combines the supplied constraints into a
-	 * {@link CombinedConstraint} and dispatches as in {@link #minimize}. Pass
-	 * {@code null} or an empty array for unconstrained problems.
+	 * {@link CombinedConstraint} and dispatches as in
+	 * {@link #minimize(java.util.function.Function, java.util.function.Function, java.util.function.Function, Matrix, Constraint, int, double, double)
+	 *  the single-constraint overload}. Pass {@code null} or an empty array
+	 * for unconstrained problems.
+	 *
+	 * @param fun         objective function {@code f : R^n -> R}
+	 * @param grad        analytic gradient
+	 * @param hess        analytic Hessian
+	 * @param x0          initial point ({@code n x 1})
+	 * @param constraints array of {@link LinearConstraint} / {@link NonlinearConstraint} (may be {@code null})
+	 * @param maxIter     maximum outer iterations
+	 * @param xtol        stop when {@code trustRadius < xtol}
+	 * @param gtol        stop when {@code optimality < gtol} and {@code constrViolation < gtol}
+	 * @return populated {@link OptimizeResult}
 	 */
 	public static OptimizeResult minimize(
 			java.util.function.Function<Matrix, Double> fun,
@@ -630,7 +718,7 @@ public class MinimizeTrustConstr {
 	 * combined) constraint. {@link LinearConstraint} contributes 0;
 	 * {@link NonlinearConstraint} contributes via its
 	 * {@link NonlinearConstraint#lagrangianContribution} callable when set.
-	 * Returns {@code null} if no constraint contributes a Hessian — the caller
+	 * Returns {@code null} if no constraint contributes a Hessian -- the caller
 	 * then uses the objective Hessian alone.
 	 */
 	private static Matrix lagrangianConstraintContribution(Object constraint, Matrix x,
@@ -649,7 +737,7 @@ public class MinimizeTrustConstr {
 		return null;
 	}
 
-	/** Extract a UJMP column vector ({@code n x 1}) as a {@code double[n]}. */
+	/** Extract a column vector ({@code n x 1}) as a {@code double[n]}. */
 	private static double[] colToArray(Matrix v) {
 		long rows = v.getRowCount();
 		double[] out = new double[(int) rows];
@@ -792,7 +880,7 @@ public class MinimizeTrustConstr {
 		// Extract per-canonical-ineq-row enforceFeasibility flags from the
 		// constraint(s). The IP path's BarrierSubproblem.computeFunction uses
 		// these to drive the slack to make `c_i(x) - 0` (i.e. the canonical
-		// ineq value) exactly zero — pushing the algorithm away from
+		// ineq value) exactly zero -- pushing the algorithm away from
 		// infeasible interior steps for those rows. Mirrors scipy's
 		// keep_feasible enforcement on the IP path.
 		boolean[] enforceFeasibility = enforceFeasibilityIneqOf(constraint);
@@ -818,11 +906,11 @@ public class MinimizeTrustConstr {
 		r.fun = fun.apply(sr.x());
 		r.grad = grad.apply(sr.x());
 		// Final Lagrangian gradient at sr.x():
-		//     g + Jeq^T v_eq + Jineq^T λ_ineq.
+		//     g + Jeq^T v_eq + Jineq^T lambda_ineq.
 		// TrustRegionInteriorPoint exposes the augmented-system multiplier from
 		// the last barrier subproblem via sr.v(): length nEq + nIneq, with
-		// equality multipliers in [0, nEq) and slack-row multipliers — which
-		// equal the original problem's λ — in [nEq, nEq+nIneq).
+		// equality multipliers in [0, nEq) and slack-row multipliers -- which
+		// equal the original problem's lambda -- in [nEq, nEq+nIneq).
 		Matrix lagrGrad = Matrix.Factory.copyFromMatrix(r.grad);
 		Matrix vAll = sr.v();
 		if (vAll != null && nEq > 0) {
@@ -866,142 +954,40 @@ public class MinimizeTrustConstr {
 	}
 
 	/**
-	 * Minimize a scalar function subject to constraints.
+	 * Minimize a scalar function subject to constraints. Full scipy-shape
+	 * entry point: see Conn, Gould &amp; Toint, <i>Trust Region Methods</i>
+	 * (SIAM, 2000), p.19 for the algorithm and parameter recommendations.
 	 *
-	 * @see [1] Conn, A. R., Gould, N. I., & Toint, P. L.
-     *          Trust region methods. 2000. Siam. pp. 19.
-	 *
-	 * @param fun
-	 * @param x0
-	 * @param args
-	 * @param grad
-	 * @param hess
-	 * @param hessp
-	 * @param bounds
-	 * @param xTol                     Tolerance for termination by the change of
-	 *                                 the independent variable. The algorithm will
-	 *                                 terminate when ``tr_radius < xtol``, where
-	 *                                 ``tr_radius`` is the radius of the trust
-	 *                                 region used in the algorithm. Default is
-	 *                                 1e-8.
-	 * @param gTol                     Tolerance for termination by the norm of the
-	 *                                 Lagrangian gradient. The algorithm will
-	 *                                 terminate when both the infinity norm (i.e.,
-	 *                                 max abs value) of the Lagrangian gradient and
-	 *                                 the constraint violation are smaller than
-	 *                                 ``gtol``. Default is 1e-8.
-	 * @param barrierTol               Threshold on the barrier parameter for the
-	 *                                 algorithm termination. When inequality
-	 *                                 constraints are present, the algorithm will
-	 *                                 terminate only when the barrier parameter is
-	 *                                 less than `barrier_tol`. Default is 1e-8.
-	 * @param sparseJacobian           Determines how to represent Jacobians of the
-	 *                                 constraints. If bool, then Jacobians of all
-	 *                                 the constraints will be converted to the
-	 *                                 corresponding format. If None (default), then
-	 *                                 Jacobians won't be converted, but the
-	 *                                 algorithm can proceed only if they all have
-	 *                                 the same format.
-	 * @param callback
-	 * @param maxIter                  Maximum number of algorithm iterations.
-	 *                                 Default is 1000.
-	 * @param verbose                  Level of algorithm's verbosity:
-	 *
-	 *                                 0 (default) : work silently. 1 : display a
-	 *                                 termination report. 2 : display progress
-	 *                                 during iterations. 3 : display progress
-	 *                                 during iterations (more complete report).
-	 * @param finiteDifferenceRelStep  Relative step size for the finite difference
-	 *                                 approximation.
-	 * @param initialConstraintPenalty Initial constraints penalty parameter. The
-	 *                                 penalty parameter is used for balancing the
-	 *                                 requirements of decreasing the objective
-	 *                                 function and satisfying the constraints. It
-	 *                                 is used for defining the merit function:
-	 *                                 ``merit_function(x) = fun(x) + constr_penalty
-	 *                                 * constr_norm_l2(x)``, where
-	 *                                 ``constr_norm_l2(x)`` is the l2 norm of a
-	 *                                 vector containing all the constraints. The
-	 *                                 merit function is used for accepting or
-	 *                                 rejecting trial points and ``constr_penalty``
-	 *                                 weights the two conflicting goals of reducing
-	 *                                 objective function and constraints. The
-	 *                                 penalty is automatically updated throughout
-	 *                                 the optimization process, with
-	 *                                 ``initial_constr_penalty`` being its initial
-	 *                                 value. Default is 1 (recommended in [1]_, p
-	 *                                 19).
-	 * @param initialTrustRadius       Initial trust radius. The trust radius gives
-	 *                                 the maximum distance between solution points
-	 *                                 in consecutive iterations. It reflects the
-	 *                                 trust the algorithm puts in the local
-	 *                                 approximation of the optimization problem.
-	 *                                 For an accurate local approximation the
-	 *                                 trust-region should be large and for an
-	 *                                 approximation valid only close to the current
-	 *                                 point it should be a small one. The trust
-	 *                                 radius is automatically updated throughout
-	 *                                 the optimization process, with
-	 *                                 ``initial_tr_radius`` being its initial
-	 *                                 value. Default is 1 (recommended in [1]_, p.
-	 *                                 19).
-	 * @param initialBarrierParameter  Initial barrier parameter and initial
-	 *                                 tolerance for the barrier subproblem. Both
-	 *                                 are used only when inequality constraints are
-	 *                                 present. For dealing with optimization
-	 *                                 problems ``min_x f(x)`` subject to inequality
-	 *                                 constraints ``c(x) <= 0`` the algorithm
-	 *                                 introduces slack variables, solving the
-	 *                                 problem ``min_(x,s) f(x) +
-	 *                                 barrier_parameter*sum(ln(s))`` subject to the
-	 *                                 equality constraints ``c(x) + s = 0`` instead
-	 *                                 of the original problem. This subproblem is
-	 *                                 solved for decreasing values of
-	 *                                 ``barrier_parameter`` and with decreasing
-	 *                                 tolerances for the termination, starting with
-	 *                                 ``initial_barrier_parameter`` for the barrier
-	 *                                 parameter and ``initial_barrier_tolerance``
-	 *                                 for the barrier tolerance. Default is 0.1 for
-	 *                                 both values (recommended in [1]_ p. 19). Also
-	 *                                 note that ``barrier_parameter`` and
-	 *                                 ``barrier_tolerance`` are updated with the
-	 *                                 same prefactor.
-	 * @param initialBarrierTolerance
-	 * @param factorizationMethod      Method to factorize the Jacobian of the
-	 *                                 constraints. Use None (default) for the auto
-	 *                                 selection or one of:
-	 *
-	 *                                 - 'NormalEquation' (requires scikit-sparse) -
-	 *                                 'AugmentedSystem' - 'QRFactorization' -
-	 *                                 'SVDFactorization'
-	 *
-	 *                                 The methods 'NormalEquation' and
-	 *                                 'AugmentedSystem' can be used only with
-	 *                                 sparse constraints. The projections required
-	 *                                 by the algorithm will be computed using,
-	 *                                 respectively, the the normal equation and the
-	 *                                 augmented system approaches explained in
-	 *                                 [1]_. 'NormalEquation' computes the Cholesky
-	 *                                 factorization of ``A A.T`` and
-	 *                                 'AugmentedSystem' performs the LU
-	 *                                 factorization of an augmented system. They
-	 *                                 usually provide similar results.
-	 *                                 'AugmentedSystem' is used by default for
-	 *                                 sparse matrices.
-	 *
-	 *                                 The methods 'QRFactorization' and
-	 *                                 'SVDFactorization' can be used only with
-	 *                                 dense constraints. They compute the required
-	 *                                 projections using, respectively, QR and SVD
-	 *                                 factorizations. The 'SVDFactorization' method
-	 *                                 can cope with Jacobian matrices with
-	 *                                 deficient row rank and will be used whenever
-	 *                                 other factorization methods fail (which may
-	 *                                 imply the conversion of sparse matrices to a
-	 *                                 dense format when required). By default,
-	 *                                 'QRFactorization' is used for dense matrices.
-	 * @param disp                     If True (default), then `verbose` will be set
-	 *                                 to 1 if it was 0.
+	 * @param fun       objective {@code (x, args) -> f(x)}
+	 * @param x0        starting point ({@code n x 1})
+	 * @param args      extra arguments forwarded to {@code fun}/{@code grad}/{@code hess}; may be {@code null}
+	 * @param grad      gradient {@code (x, args) -> gradf(x)}; if {@code null}, computed by 2-point finite differences
+	 * @param hess      Hessian {@code (x, args) -> grad^2f(x)}; if {@code null}, approximated by BFGS
+	 * @param hessp     Hessian-vector product; honored when {@code hess} is {@code null} (materialised via
+	 *                  {@link HessianLinearOperator})
+	 * @param bounds    box bounds on {@code x}; folded into the constraint set as a {@link LinearConstraint};
+	 *                  may be {@code null}
+	 * @param constraints either a single {@link LinearConstraint} / {@link NonlinearConstraint}, an
+	 *                  {@code Object[]} of such, or {@code null}
+	 * @param xTol      tolerance for termination by change in {@code x}: stop when {@code tr_radius < xTol}
+	 * @param gTol      tolerance for termination by Lagrangian gradient norm and constraint violation
+	 * @param barrierTol IP-only: termination requires barrier parameter below this threshold
+	 * @param sparseJacobian {@code true}/{@code false} forces all constraint Jacobians to that
+	 *                  representation via {@link SparsityForcedConstraint}; {@code Optional.empty()}
+	 *                  uses the constraint's native auto-detect
+	 * @param callback  per-iteration callback; return {@code true} to terminate. May be {@code null}
+	 * @param maxIter   maximum outer iterations
+	 * @param verbose   verbosity level (0 silent, 1 termination report, 2-3 per-iteration progress)
+	 * @param finiteDifferenceRelStep relative step size for FD gradient/Hessian; may be {@code null}
+	 * @param initialConstraintPenalty initial constraint penalty for the merit function {@code f(x) + rho ||c(x)||_2}
+	 * @param initialTrustRadius initial trust-region radius
+	 * @param initialBarrierParameter IP-only: initial barrier parameter for the log-barrier subproblem
+	 * @param initialBarrierTolerance IP-only: initial inner-loop tolerance for the barrier subproblem
+	 * @param factorizationMethod how to factor the equality-Jacobian for the projection: one of
+	 *                  {@code AUGMENTED_SYSTEM}, {@code QR_FACTORIZATION}, {@code SVD_FACTORIZATION},
+	 *                  or {@code null} for auto-select (QR for dense, AUGMENTED_SYSTEM for sparse)
+	 * @param disp      if {@code true}, bumps {@code verbose} to 1 when it was 0
+	 * @return populated {@link OptimizeResult}
 	 */
 	public static OptimizeResult minimizeTrustConstr(ToDoubleBiFunction<Matrix, Object> fun, Matrix x0, Object args,
 			BiFunction<Matrix, Object, Matrix> grad, BiFunction<Matrix, Object, Matrix> hess,
@@ -1120,7 +1106,7 @@ public class MinimizeTrustConstr {
 		// parameter that the convenience overloads don't expose: callback,
 		// the four initial* tuning knobs, or factorizationMethod. The
 		// convenience overloads remain reachable for the common case where
-		// users want defaults — but the full-shape entry point honors every
+		// users want defaults -- but the full-shape entry point honors every
 		// knob it accepts. Synthesize FD-grad / BFGS-Hess closures inline
 		// if the caller omitted them.
 		final boolean tuned = (effectiveCallback != null)
@@ -1134,7 +1120,7 @@ public class MinimizeTrustConstr {
 				|| (initialBarrierTolerance != 0.1);
 		if (tuned) {
 			// FD bounds: when the caller supplied Bounds(keep_feasible=True),
-			// FD perturbations must stay inside them — scipy gh-11649. We
+			// FD perturbations must stay inside them -- scipy gh-11649. We
 			// always pass a StrictBounds wrapper when bounds are present,
 			// regardless of keep_feasible, since clipping is harmless when
 			// the start is feasible (the dominant case).

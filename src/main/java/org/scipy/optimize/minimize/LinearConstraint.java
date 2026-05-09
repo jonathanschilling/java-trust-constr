@@ -20,7 +20,7 @@ import org.scipy.optimize.minimize.matrix.SparseMatrix;
  * {@code A}, the bounds, and the per-row {@code keepFeasible} flag.
  *
  * <p>The Java port distinguishes equality and inequality at the constraint
- * level — this class implements both {@link Constraint} (constraint values)
+ * level -- this class implements both {@link Constraint} (constraint values)
  * and {@link Jacobian} (analytic Jacobian, which for a linear constraint is
  * just {@code A}).
  *
@@ -28,9 +28,9 @@ import org.scipy.optimize.minimize.matrix.SparseMatrix;
  * <ul>
  *   <li>{@code equal}: {@code lb[i] == ub[i]} (finite). Contributes one row
  *       to {@code constrEq} / {@code jacEq}: {@code A[i,:] x - lb[i]}.</li>
- *   <li>{@code less}: {@code lb[i] == -∞}, {@code ub[i] < ∞} (upper-only).
+ *   <li>{@code less}: {@code lb[i] == -inf}, {@code ub[i] < inf} (upper-only).
  *       Contributes one ineq row {@code A[i,:] x - ub[i]} (sign +1).</li>
- *   <li>{@code greater}: {@code ub[i] == +∞}, {@code lb[i] > -∞} (lower-only).
+ *   <li>{@code greater}: {@code ub[i] == +inf}, {@code lb[i] > -inf} (lower-only).
  *       Contributes one ineq row {@code lb[i] - A[i,:] x} (sign -1, target lb).</li>
  *   <li>{@code interval}: both finite, {@code lb[i] < ub[i]}. Contributes
  *       <em>two</em> ineq rows: an upper-side row and a lower-side row.</li>
@@ -56,6 +56,18 @@ public class LinearConstraint implements Constraint, Jacobian {
 	/** target value for each ineq row: ub for upper-only, -lb for lower-only (so {@code sign*A x + target <= 0}) */
 	private final double[] ineqTarget;
 
+	/**
+	 * Build a linear constraint {@code lb &le; A x &le; ub}.
+	 *
+	 * <p>Rows where {@code lb[i] == ub[i]} (and both are finite) become
+	 * equality rows; other rows become canonical inequality rows in scipy's
+	 * 4-block order: {@code less | greater | interval-upper | interval-lower}.
+	 *
+	 * @param a            constraint matrix ({@code m x n})
+	 * @param lb           lower bounds, length {@code m} (use {@code -inf} to disable per row)
+	 * @param ub           upper bounds, length {@code m} (use {@code +inf} to disable per row)
+	 * @param keepFeasible per-row strict-feasibility flag, length {@code m}; {@code null} = all-false
+	 */
 	public LinearConstraint(Matrix a, double[] lb, double[] ub, boolean[] keepFeasible) {
 		long m = a.getRowCount();
 		if (lb.length != m || ub.length != m) {
@@ -101,7 +113,7 @@ public class LinearConstraint implements Constraint, Jacobian {
 				eqRows[eqIdx++] = i;
 			}
 		}
-		// Pass 2: less (lb=-inf, ub<inf) — sign +1, target ub.
+		// Pass 2: less (lb=-inf, ub<inf) -- sign +1, target ub.
 		for (int i = 0; i < m; ++i) {
 			boolean lbFinite = !Double.isInfinite(lb[i]);
 			boolean ubFinite = !Double.isInfinite(ub[i]);
@@ -112,7 +124,7 @@ public class LinearConstraint implements Constraint, Jacobian {
 				++ineqIdx;
 			}
 		}
-		// Pass 3: greater (ub=+inf, lb>-inf) — sign -1, target lb.
+		// Pass 3: greater (ub=+inf, lb>-inf) -- sign -1, target lb.
 		for (int i = 0; i < m; ++i) {
 			boolean lbFinite = !Double.isInfinite(lb[i]);
 			boolean ubFinite = !Double.isInfinite(ub[i]);
@@ -123,7 +135,7 @@ public class LinearConstraint implements Constraint, Jacobian {
 				++ineqIdx;
 			}
 		}
-		// Pass 4: interval-upper (both finite, lb<ub) — sign +1, target ub.
+		// Pass 4: interval-upper (both finite, lb<ub) -- sign +1, target ub.
 		for (int i = 0; i < m; ++i) {
 			boolean lbFinite = !Double.isInfinite(lb[i]);
 			boolean ubFinite = !Double.isInfinite(ub[i]);
@@ -134,7 +146,7 @@ public class LinearConstraint implements Constraint, Jacobian {
 				++ineqIdx;
 			}
 		}
-		// Pass 5: interval-lower (both finite, lb<ub) — sign -1, target lb.
+		// Pass 5: interval-lower (both finite, lb<ub) -- sign -1, target lb.
 		for (int i = 0; i < m; ++i) {
 			boolean lbFinite = !Double.isInfinite(lb[i]);
 			boolean ubFinite = !Double.isInfinite(ub[i]);
@@ -147,6 +159,15 @@ public class LinearConstraint implements Constraint, Jacobian {
 		}
 	}
 
+	/**
+	 * Convenience overload: equivalent to
+	 * {@link #LinearConstraint(Matrix, double[], double[], boolean[])} with
+	 * {@code keepFeasible = null}.
+	 *
+	 * @param a  constraint matrix ({@code m x n})
+	 * @param lb lower bounds, length {@code m}
+	 * @param ub upper bounds, length {@code m}
+	 */
 	public LinearConstraint(Matrix a, double[] lb, double[] ub) {
 		this(a, lb, ub, null);
 	}
@@ -158,7 +179,7 @@ public class LinearConstraint implements Constraint, Jacobian {
 	 * Mirrors scipy's promotion of {@code Bounds} to a canonical constraint
 	 * via {@code PreparedConstraint(bounds, ...)}.
 	 *
-	 * @param bounds variable bounds — {@code lb} and {@code ub} are
+	 * @param bounds variable bounds -- {@code lb} and {@code ub} are
 	 *               {@code n x 1} column matrices
 	 * @return identity-Jacobian constraint that enforces {@code bounds}
 	 */
@@ -171,7 +192,7 @@ public class LinearConstraint implements Constraint, Jacobian {
 			lbArr[i] = bounds.lb().getAsDouble(i, 0);
 			ubArr[i] = bounds.ub().getAsDouble(i, 0);
 		}
-		// Propagate keep_feasible from Bounds to per-row keepFeasible — the
+		// Propagate keep_feasible from Bounds to per-row keepFeasible -- the
 		// scalar flag on Bounds applies uniformly to every variable.
 		boolean[] keepFeasible = new boolean[(int) n];
 		if (bounds.keepFeasible()) {
@@ -180,24 +201,32 @@ public class LinearConstraint implements Constraint, Jacobian {
 		return new LinearConstraint(identity, lbArr, ubArr, keepFeasible);
 	}
 
+	/** @return the constraint matrix {@code A} */
 	public Matrix getA() { return A; }
+	/** @return a defensive copy of the lower bounds array */
 	public double[] lb() { return lb.clone(); }
+	/** @return a defensive copy of the upper bounds array */
 	public double[] ub() { return ub.clone(); }
+	/** @return a defensive copy of the per-row keep-feasible flags */
 	public boolean[] keepFeasible() { return keepFeasible.clone(); }
+	/** @return the bounds repackaged as a {@link Bounds} record */
 	public Bounds bounds() {
 		return new Bounds(Matrix.Factory.linkToArray(lb), Matrix.Factory.linkToArray(ub), false);
 	}
 
+	/** @return number of canonical equality rows */
 	public int nEq() { return eqRows.length; }
+	/** @return number of canonical inequality rows */
 	public int nIneq() { return ineqRows.length; }
 
 	/**
 	 * Per-canonical-inequality-row {@code enforceFeasibility} flags derived
 	 * from the user-supplied {@code keep_feasible}. Each canonical ineq row
-	 * inherits the kf flag of the original row it came from
-	 * ({@link #ineqRows}). Length matches {@link #nIneq()} and is suitable
-	 * to pass directly to {@code TrustRegionInteriorPoint}'s
-	 * {@code enforceFeasibility} parameter.
+	 * inherits the kf flag of the original row it came from. Length matches
+	 * {@link #nIneq()} and is suitable to pass directly to
+	 * {@code TrustRegionInteriorPoint}'s {@code enforceFeasibility} parameter.
+	 *
+	 * @return per-canonical-row strict-feasibility flags, length {@link #nIneq()}
 	 */
 	public boolean[] enforceFeasibilityIneq() {
 		boolean[] out = new boolean[ineqRows.length];
@@ -214,6 +243,8 @@ public class LinearConstraint implements Constraint, Jacobian {
 	 * {@code keep_feasible=True} rows: the algorithm will not enforce
 	 * intermediate-iterate feasibility for these rows if the start is
 	 * already infeasible there.
+	 *
+	 * @param x0 starting iterate ({@code n x 1})
 	 */
 	public void validateKeepFeasibleAtStart(Matrix x0) {
 		boolean any = false;
@@ -273,9 +304,14 @@ public class LinearConstraint implements Constraint, Jacobian {
 	/**
 	 * Build the row-selected Jacobian (with optional per-row sign flips for
 	 * one-sided lower-bound rows). Preserves sparsity: when {@link #A} is a
-	 * UJMP sparse matrix, the output is a sparse {@link SparseMatrix}, which
+	 * {@link SparseMatrix}, the output is also a {@link SparseMatrix}, which
 	 * lets {@code Projections.projections} route through the AUGMENTED_SYSTEM
 	 * path automatically.
+	 *
+	 * @param rows  source row indices to select from {@link #A}
+	 * @param signs per-row sign multiplier ({@code +1} for upper-only,
+	 *              {@code -1} for lower-only)
+	 * @return the selected, sign-flipped row block
 	 */
 	private Matrix rowSelection(int[] rows, int[] signs) {
 		long cols = A.getColumnCount();
@@ -308,6 +344,8 @@ public class LinearConstraint implements Constraint, Jacobian {
 	 * Sparse Jacobian for equality rows: a {@link CSRMatrix} built directly
 	 * from the row-selected non-zeros of {@code A}, without going through a
 	 * dense intermediate.
+	 *
+	 * @return CSR representation of the equality-row Jacobian
 	 */
 	public CSRMatrix jacEqCSR() {
 		int[] signs = new int[eqRows.length];
@@ -315,7 +353,12 @@ public class LinearConstraint implements Constraint, Jacobian {
 		return rowSelectionCSR(eqRows, signs);
 	}
 
-	/** Sparse Jacobian for inequality rows: a {@link CSRMatrix} (with appropriate sign flips). */
+	/**
+	 * Sparse Jacobian for inequality rows: a {@link CSRMatrix} (with the
+	 * appropriate per-row sign flips for one-sided lower-bound rows).
+	 *
+	 * @return CSR representation of the inequality-row Jacobian
+	 */
 	public CSRMatrix jacIneqCSR() {
 		return rowSelectionCSR(ineqRows, ineqSign);
 	}

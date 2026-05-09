@@ -12,7 +12,7 @@ import java.util.Map;
  * paths via {@link #toCSR()}.
  *
  * <p>Compute kernels ({@link #mtimes(Matrix)}, {@link #plus(Matrix)} etc.)
- * materialise to dense or convert to CSR internally — no attempt is made to
+ * materialise to dense or convert to CSR internally -- no attempt is made to
  * keep results sparse. The trust-constr port only relies on sparsity in a
  * handful of well-known places (Jacobian storage and the AUGMENTED_SYSTEM
  * KKT factorization, both of which already drop into the CSR fast paths).
@@ -23,6 +23,12 @@ public class SparseMatrix extends Matrix {
 	private final int cols;
 	private final HashMap<Long, Double> entries;
 
+	/**
+	 * Allocate a fresh empty sparse matrix.
+	 *
+	 * @param rows number of rows
+	 * @param cols number of columns
+	 */
 	public SparseMatrix(int rows, int cols) {
 		this.rows = rows;
 		this.cols = cols;
@@ -59,12 +65,17 @@ public class SparseMatrix extends Matrix {
 		return ((long) row) * cols + col;
 	}
 
+	/** @return number of stored (non-zero) entries */
 	public int nnz() {
 		return entries.size();
 	}
 
 	/**
-	 * Materialise this sparse matrix to a {@link org.scipy.optimize.minimize.sparse.CSRMatrix}.
+	 * Materialise this sparse matrix to a
+	 * {@link org.scipy.optimize.minimize.sparse.CSRMatrix} (canonical CSR
+	 * form: column indices sorted within each row, no explicit zeros).
+	 *
+	 * @return a CSR view of the same content
 	 */
 	public org.scipy.optimize.minimize.sparse.CSRMatrix toCSR() {
 		// Two-pass: count nnz per row to size indptr/indices/data.
@@ -242,20 +253,35 @@ public class SparseMatrix extends Matrix {
 		return d;
 	}
 
+	/** Static factories that produce {@link SparseMatrix} instances. */
 	public static final class Factory {
 
 		private Factory() {}
 
+		/**
+		 * @param rows number of rows
+		 * @param cols number of columns
+		 * @return a fresh empty {@link SparseMatrix}
+		 */
 		public static SparseMatrix zeros(long rows, long cols) {
 			return new SparseMatrix((int) rows, (int) cols);
 		}
 
+		/**
+		 * @param size length-2 shape array {@code [rows, cols]}
+		 * @return a fresh empty {@link SparseMatrix}
+		 */
 		public static SparseMatrix zeros(long[] size) {
 			long r = size.length > 0 ? size[0] : 0;
 			long c = size.length > 1 ? size[1] : 1;
 			return zeros(r, c);
 		}
 
+		/**
+		 * @param m source matrix
+		 * @return a fresh {@link SparseMatrix} containing the non-zero
+		 *         entries of {@code m}
+		 */
 		public static SparseMatrix copyFromMatrix(Matrix m) {
 			SparseMatrix out = new SparseMatrix((int) m.getRowCount(), (int) m.getColumnCount());
 			int rows = (int) m.getRowCount();

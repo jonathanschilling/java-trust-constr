@@ -10,18 +10,28 @@ import org.scipy.optimize.minimize.matrix.Matrix;
  */
 public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy {
 
+	/** Shared base factory for {@link BFGS.BFGSFactory} and {@link SR1.SR1Factory}. */
 	public static class FullHessianUpdateStrategyFactory {
 
+		/** Whether the initial Hessian scale is auto-derived from the first step. */
 		protected boolean initialScaleAuto;
+		/** User-specified initial scale, used when {@link #initialScaleAuto} is {@code false}. */
 		protected double initialScale;
 		private boolean hasInitialScale;
 
+		/** Default-construct: initial scale is auto-derived. */
 		protected FullHessianUpdateStrategyFactory() {
 			initialScaleAuto = true;
 			initialScale = Double.NaN;
 			hasInitialScale = false;
 		}
 
+		/**
+		 * Use the auto-derived initial scale (the default).
+		 *
+		 * @return this factory, for chaining
+		 * @throws RuntimeException if {@link #initalScale(double)} was already called
+		 */
 		public FullHessianUpdateStrategyFactory initialScaleAuto() {
 			if (hasInitialScale) {
 				throw new RuntimeException("You can only specify either initScaleAuto or initScale(double).");
@@ -33,6 +43,13 @@ public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy
 			return this;
 		}
 
+		/**
+		 * Pin the initial Hessian scale to a user-supplied value.
+		 *
+		 * @param initialScale scaling factor for the identity initialisation
+		 * @return this factory, for chaining
+		 * @throws RuntimeException if {@link #initialScaleAuto()} was already called
+		 */
 		public FullHessianUpdateStrategyFactory initalScale(double initialScale) {
 			if (hasInitialScale) {
 				throw new RuntimeException("You can only specify either initialScaleAuto or initalScale(double).");
@@ -50,20 +67,28 @@ public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy
 	private final double initialScale;
 	private final boolean initScaleAuto;
 
+	/** Current scaling factor applied to the Hessian (or its inverse). */
 	protected double scale;
 
+	/** {@code true} until the first {@link #update(Matrix, Matrix)} call has been performed. */
 	protected boolean firstIteration;
+	/** Whether {@link #B} (HESSIAN) or {@link #H} (INV_HESSIAN) is being approximated. */
 	protected HessianApproximationType approxType;
 
-	/** problem dimension */
+	/** Problem dimension. */
 	protected long n;
 
-	/** Hessian */
+	/** Hessian approximation (used when {@code approxType == HESSIAN}). */
 	protected DenseMatrix B;
 
-	/** inverse Hessian */
+	/** Inverse-Hessian approximation (used when {@code approxType == INV_HESSIAN}). */
 	protected DenseMatrix H;
 
+	/**
+	 * @param initialScaleAuto whether the initial scale is auto-derived
+	 * @param initialScale     user-specified initial scale; ignored when
+	 *                         {@code initialScaleAuto} is {@code true}
+	 */
 	protected FullHessianUpdateStrategy(boolean initialScaleAuto, double initialScale) {
 		this.initScaleAuto = initialScaleAuto;
 		this.initialScale = initialScale;
@@ -93,12 +118,12 @@ public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy
 	}
 
 	/**
-	 * Heuristic to scale matrix at first iteration.
-	 * Described in Nocedal and Wright "Numerical Optimization"
-	 * p.143 formula (6.20).
+	 * Heuristic scaling factor for the initial Hessian (or inverse-Hessian)
+	 * approximation, based on Nocedal &amp; Wright (2006), p.143 formula (6.20).
 	 *
-	 * @param deltaX
-	 * @param deltaG
+	 * @param deltaX step in {@code x}: {@code x_k - x_{k-1}}
+	 * @param deltaG step in the gradient: {@code g_k - g_{k-1}}
+	 * @return scaling factor used to multiply the identity initialisation
 	 */
 	protected double autoScale(Matrix deltaX, Matrix deltaG) {
 		double sNorm2 = deltaX.transpose().mtimes(deltaX).doubleValue();

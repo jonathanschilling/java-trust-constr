@@ -4,6 +4,12 @@ import org.scipy.optimize.minimize.enums.PCGStoppingCondition;
 import org.scipy.optimize.minimize.enums.TrustConstrMethod;
 import org.scipy.optimize.minimize.matrix.Matrix;
 
+/**
+ * Mutable output of
+ * {@link org.scipy.optimize.minimize.MinimizeTrustConstr#minimize}. Mirrors
+ * scipy's {@code OptimizeResult}: the solution, KKT-related residuals,
+ * iteration counters, termination metadata, and constraint multipliers.
+ */
 public class OptimizeResult {
 
 	/** [n] Solution found. */
@@ -105,11 +111,11 @@ public class OptimizeResult {
 	 * <p>Derived at result construction:
 	 * <ul>
 	 *   <li>{@link #status} {@code == 1} (gtol satisfied): always {@code true}
-	 *       — gtol-termination requires the constraint violation to also be
+	 *       -- gtol-termination requires the constraint violation to also be
 	 *       below {@code gtol}.</li>
 	 *   <li>{@link #status} {@code == 2} (xtol satisfied / trust-radius
 	 *       collapse): {@code true} only if the residual constraint
-	 *       violation is below {@code gtol} — distinguishes "converged at
+	 *       violation is below {@code gtol} -- distinguishes "converged at
 	 *       an active boundary" from "stuck on an infeasible problem".</li>
 	 *   <li>{@link #status} {@code == 0} (maxIter exceeded) or
 	 *       {@link #status} {@code == 3} (callback terminated):
@@ -119,7 +125,7 @@ public class OptimizeResult {
 	 * <p>Mirrors scipy's {@code OptimizeResult.success} semantics, including
 	 * the behaviour exercised by scipy {@code test_issue_18882} where a
 	 * degenerate constraint causes trust-radius collapse with a non-trivial
-	 * constraint violation — that outcome reports {@code success=false}.
+	 * constraint violation -- that outcome reports {@code success=false}.
 	 */
 	public boolean success;
 

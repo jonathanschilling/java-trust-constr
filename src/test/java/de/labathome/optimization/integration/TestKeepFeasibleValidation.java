@@ -52,7 +52,7 @@ class TestKeepFeasibleValidation {
 	@Test
 	void linearConstraintRejectsInfeasibleKeepFeasibleStart() {
 		// Constraint: x[0] >= 5 with keep_feasible=true. x0 = (0.5, 1.5)
-		// gives A x[0] = 0.5 < 5 — infeasible. Should throw.
+		// gives A x[0] = 0.5 < 5 -- infeasible. Should throw.
 		Matrix A = Matrix.Factory.linkToArray(new double[][] {{1.0, 0.0}});
 		LinearConstraint ineq = new LinearConstraint(A,
 				new double[] {5.0}, new double[] {Double.POSITIVE_INFINITY},
@@ -86,7 +86,7 @@ class TestKeepFeasibleValidation {
 	@Test
 	void nonlinearConstraintRejectsInfeasibleKeepFeasibleStart() {
 		// Constraint: x[0]^2 + x[1]^2 <= 1 with keep_feasible=true. x0 = (3, 0)
-		// gives 9 > 1 — infeasible.
+		// gives 9 > 1 -- infeasible.
 		Function<Matrix, Matrix> cFun = x -> Matrix.Factory.linkToArray(new double[] {
 				x.getAsDouble(0, 0) * x.getAsDouble(0, 0)
 				+ x.getAsDouble(1, 0) * x.getAsDouble(1, 0)});

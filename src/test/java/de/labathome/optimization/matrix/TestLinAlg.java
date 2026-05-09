@@ -80,7 +80,7 @@ class TestLinAlg {
 				assertRelAbsEquals(0.0, qr.R().get(i, j), 1e-15);
 			}
 		}
-		// Q · R reconstructs A
+		// Q * R reconstructs A
 		DenseMatrix QR = (DenseMatrix) qr.Q().mtimes(qr.R());
 		assertArrayRelAbsEquals(A.toDoubleArray(), QR.toDoubleArray(), 1e-12);
 	}
@@ -102,7 +102,7 @@ class TestLinAlg {
 		DenseMatrix QtQ = (DenseMatrix) qr.Q().transpose().mtimes(qr.Q());
 		assertArrayRelAbsEquals(DenseMatrix.eye(2).toDoubleArray(),
 				QtQ.toDoubleArray(), 1e-12);
-		// Q · R = A
+		// Q * R = A
 		DenseMatrix QR = (DenseMatrix) qr.Q().mtimes(qr.R());
 		assertArrayRelAbsEquals(A.toDoubleArray(), QR.toDoubleArray(), 1e-12);
 	}
@@ -130,7 +130,7 @@ class TestLinAlg {
 				{3, -5},
 		});
 		SVDResult svd = LinAlg.svd(A);
-		// Reconstruct U · diag(s) · Vt
+		// Reconstruct U * diag(s) * Vt
 		DenseMatrix Sigma = DenseMatrix.zeros(2, 2);
 		for (int i = 0; i < svd.s().length; ++i) Sigma.set(i, i, svd.s()[i]);
 		DenseMatrix recon = (DenseMatrix) svd.U().mtimes(Sigma).mtimes(svd.Vt());
@@ -203,16 +203,16 @@ class TestLinAlg {
 	@Test
 	void choleskySolveCorrect() {
 		DenseMatrix A = DenseMatrix.fromRows(new double[][] {{4, 2}, {2, 10}});
-		// Solve A x = b for b = [10, 22], expected x = [2, 1.8] (verify: 4·2+2·1.8 = 11.6, hmm)
-		// Recompute: A·x = [4*2+2*1.8, 2*2+10*1.8] = [11.6, 22], so b should be [11.6, 22].
+		// Solve A x = b for b = [10, 22], expected x = [2, 1.8] (verify: 4*2+2*1.8 = 11.6, hmm)
+		// Recompute: A*x = [4*2+2*1.8, 2*2+10*1.8] = [11.6, 22], so b should be [11.6, 22].
 		// Easier: pick x = [1, 1], then b = [6, 12].
 		DenseMatrix b = DenseMatrix.column(6.0, 12.0);
 		CholResult chol = LinAlg.cholesky(A);
 		DenseMatrix x = chol.solve(b);
 		assertArrayRelAbsEquals(new double[] {1.0, 1.0}, x.toColumnArray(), 1e-12);
-		// Solve again — captured factor must still work.
+		// Solve again -- captured factor must still work.
 		DenseMatrix b2 = DenseMatrix.column(2.0, 4.0);
-		// A·x = [2, 4]: 4x1 + 2x2 = 2, 2x1 + 10x2 = 4. Solve: x2 = (4 - 2x1)/10; sub: 4x1 + 2(4-2x1)/10 = 2 → 40x1 + 8 - 4x1 = 20 → 36x1 = 12 → x1 = 1/3, x2 = (4-2/3)/10 = 10/3/10 = 1/3.
+		// A*x = [2, 4]: 4x1 + 2x2 = 2, 2x1 + 10x2 = 4. Solve: x2 = (4 - 2x1)/10; sub: 4x1 + 2(4-2x1)/10 = 2 -> 40x1 + 8 - 4x1 = 20 -> 36x1 = 12 -> x1 = 1/3, x2 = (4-2/3)/10 = 10/3/10 = 1/3.
 		DenseMatrix x2 = chol.solve(b2);
 		assertArrayRelAbsEquals(new double[] {1.0 / 3.0, 1.0 / 3.0}, x2.toColumnArray(), 1e-12);
 	}
@@ -228,7 +228,7 @@ class TestLinAlg {
 
 	@Test
 	void syrAgreesWithManualRankOneUpdate() {
-		// A starts as 4x4 zeros. After A := A + α x x^T with α = 2, x = [1,2,3,4],
+		// A starts as 4x4 zeros. After A := A + alpha x x^T with alpha = 2, x = [1,2,3,4],
 		// A should equal 2 * outer(x, x).
 		DenseMatrix A = DenseMatrix.zeros(4, 4);
 		double[] x = {1, 2, 3, 4};
@@ -260,7 +260,7 @@ class TestLinAlg {
 
 	@Test
 	void syr2AgreesWithManualRankTwoUpdate() {
-		// A starts as 4x4 with some content; add α (x y^T + y x^T).
+		// A starts as 4x4 with some content; add alpha (x y^T + y x^T).
 		DenseMatrix A = DenseMatrix.eye(4);
 		double[] x = {1, 0, 1, 0};
 		double[] y = {0, 1, 0, 1};

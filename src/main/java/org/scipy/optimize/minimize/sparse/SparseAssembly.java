@@ -19,6 +19,8 @@ public final class SparseAssembly {
 	 * Empty input yields an empty {@code 0 x 0} matrix; if all blocks have a
 	 * common positive column count, the result has that column count.
 	 *
+	 * @param blocks CSR blocks to stack (in row order)
+	 * @return concatenated CSR matrix
 	 * @see <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.vstack.html">scipy.sparse.vstack</a>
 	 */
 	public static CSRMatrix vstack(CSRMatrix... blocks) {
@@ -59,6 +61,8 @@ public final class SparseAssembly {
 	/**
 	 * Horizontal stack of CSR matrices: columns are concatenated, rows must agree.
 	 *
+	 * @param blocks CSR blocks to stack (in column order)
+	 * @return concatenated CSR matrix
 	 * @see <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.hstack.html">scipy.sparse.hstack</a>
 	 */
 	public static CSRMatrix hstack(CSRMatrix... blocks) {
@@ -106,6 +110,8 @@ public final class SparseAssembly {
 	 * blocks must share column count. At least one block per row band and per
 	 * column band must be non-null so the band size can be inferred.
 	 *
+	 * @param blocks 2-D grid of {@link CSRMatrix} blocks (rows by columns); {@code null} = zero block
+	 * @return assembled CSR matrix
 	 * @see <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.block_array.html">scipy.sparse.block_array</a>
 	 */
 	public static CSRMatrix blockArray(CSRMatrix[][] blocks) {
@@ -161,7 +167,11 @@ public final class SparseAssembly {
 		return vstack(bandRows);
 	}
 
-	/** {@code rows x cols} all-zero CSR matrix. */
+	/**
+	 * @param rows number of rows
+	 * @param cols number of columns
+	 * @return a {@code rows x cols} CSR matrix with no stored entries
+	 */
 	public static CSRMatrix zeros(int rows, int cols) {
 		int[] indptr = new int[rows + 1];
 		return new CSRMatrix(rows, cols, indptr, new int[0], new double[0]);
@@ -176,7 +186,7 @@ public final class SparseAssembly {
 	 * </pre>
 	 *
 	 * Equivalent to {@code blockArray([[J_eq, null], [J_ineq, diag(s)]])} but
-	 * inlined for the specific structure — this is the optimised path
+	 * inlined for the specific structure -- this is the optimised path
 	 * {@code _assemble_sparse_jacobian} from {@code tr_interior_point.py:187}.
 	 *
 	 * @param jEq   {@code n_eq x n_vars} CSR equality Jacobian
@@ -199,7 +209,7 @@ public final class SparseAssembly {
 		int[] auxIndptr = jAux.indptrRef();
 		int[] auxIndices = jAux.indicesRef();
 		double[] auxData = jAux.dataRef();
-		// Step 2: shift indptr — equality rows unchanged, inequality row i (i=0..n_ineq-1)
+		// Step 2: shift indptr -- equality rows unchanged, inequality row i (i=0..n_ineq-1)
 		// gets one extra entry shifted in: row offset increases by (i+1).
 		int totalRows = nEq + nIneq;
 		int[] newIndptr = new int[totalRows + 1];

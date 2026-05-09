@@ -15,16 +15,19 @@ import org.scipy.optimize.minimize.records.StatefulResult;
 import org.scipy.optimize.minimize.matrix.Matrix;
 
 /**
- * Trust-region interior point method.
+ * Trust-region interior-point method.
  *
- * @see [1] Byrd, Richard H., Mary E. Hribar, and Jorge Nocedal.
- *          "An interior point algorithm for large-scale nonlinear
- *          programming." SIAM Journal on Optimization 9.4 (1999): 877-900.
- * @see [2] Byrd, Richard H., Guanghui Liu, and Jorge Nocedal.
- *          "On the local behavior of an interior point method for
- *          nonlinear programming." Numerical analysis 1997 (1997): 37-56.
- * @see [3] Nocedal, Jorge, and Stephen J. Wright. "Numerical optimization"
- *          Second Edition (2006).
+ * <p>References:
+ * <ol>
+ *   <li>Byrd, Hribar, Nocedal, &quot;An interior point algorithm for
+ *       large-scale nonlinear programming&quot;, SIAM J. Optim. 9.4
+ *       (1999): 877-900.</li>
+ *   <li>Byrd, Liu, Nocedal, &quot;On the local behavior of an interior
+ *       point method for nonlinear programming&quot;, Numerical Analysis
+ *       1997 (1997): 37-56.</li>
+ *   <li>Nocedal &amp; Wright, <i>Numerical Optimization</i>, 2nd ed.
+ *       (2006).</li>
+ * </ol>
  */
 public class TrustRegionInteriorPoint {
 
@@ -44,15 +47,45 @@ public class TrustRegionInteriorPoint {
 	static final double TRUST_ENLARGEMENT = 5.0;
 
 	/**
-	 * Trust-region interior points method.
+	 * Trust-region interior-point solve.
 	 *
-	 * Solve problem:
+	 * <p>Minimizes
 	 * <pre>
-	 * minimize fun(x)
-	 * subject to: constr_ineq(x) <= 0
-	 *             constr_eq(x) = 0
+	 *   minimize    fun(x)
+	 *   subject to  constr_ineq(x) &lt;= 0
+	 *               constr_eq(x)   =  0
 	 * </pre>
-	 * using trust-region interior point method described in [1].
+	 * using the algorithm of Byrd-Hribar-Nocedal (1999).
+	 *
+	 * @param fun      objective {@code (x, args) -> f(x)}
+	 * @param grad     gradient {@code (x, args) -> gradf(x)}
+	 * @param lagrHess Hessian-of-Lagrangian {@code (x, vEq, vIneq) -> grad^2L(x, v)}
+	 * @param nVars    number of decision variables
+	 * @param nIneq    number of canonical inequality rows ({@code c(x) <= 0})
+	 * @param nEq      number of canonical equality rows ({@code c(x) = 0})
+	 * @param constr   combined-constraint evaluator that returns {@code (eq, ineq)}
+	 * @param jac      combined-constraint Jacobian evaluator
+	 * @param x0       starting iterate ({@code n x 1})
+	 * @param fun0     {@code fun(x0)}
+	 * @param grad0    {@code grad(x0)}
+	 * @param constrIneq0 {@code constr_ineq(x0)} ({@code nIneq x 1})
+	 * @param jacIneq0    inequality Jacobian at {@code x0} ({@code nIneq x n})
+	 * @param constrEq0   {@code constr_eq(x0)} ({@code nEq x 1})
+	 * @param jacEq0      equality Jacobian at {@code x0} ({@code nEq x n})
+	 * @param stopCrit termination criterion (queried each outer iteration)
+	 * @param enforceFeasibility per-canonical-ineq flag forcing strict feasibility
+	 *                           in the slack rows; may be {@code null} (no
+	 *                           enforcement)
+	 * @param xtol     termination tolerance on {@code trustRadius}
+	 * @param state    mutable iteration state to thread through and return
+	 * @param initialBarrierParameter initial value of the log-barrier coefficient
+	 * @param initialTolerance initial inner-loop tolerance for the barrier subproblem
+	 * @param initialPenalty initial constraint penalty for the merit function
+	 * @param initialTrustRadius initial trust-region radius
+	 * @param factorizationMethod projection-Jacobian factorization method
+	 *                            ({@code AUGMENTED_SYSTEM} / {@code QR_FACTORIZATION}
+	 *                            / {@code SVD_FACTORIZATION})
+	 * @return populated {@link StatefulResult}
 	 */
 	public static StatefulResult trustRegionInteriorPoint(
 			ToDoubleBiFunction<Matrix, Object> fun, BiFunction<Matrix, Object, Matrix> grad, LagrangeHessian lagrHess,
@@ -79,8 +112,8 @@ public class TrustRegionInteriorPoint {
 
 		// Define initial value for the slack variables
 		Matrix s0 = Matrix.Factory.zeros(nIneq, 1);
-		for (long[] pos: constrIneq0.allCoordinates()) {
-			s0.setAsDouble(Math.max(-1.5 * constrIneq0.getAsDouble(pos), 1.0), pos);
+		for (int i = 0; i < nIneq; ++i) {
+			s0.setAsDouble(Math.max(-1.5 * constrIneq0.getAsDouble(i, 0), 1.0), i, 0);
 		}
 
 		// Define barrier subproblem
@@ -150,7 +183,7 @@ public class TrustRegionInteriorPoint {
 		// vFinal is the augmented-system multiplier from the final barrier
 		// subproblem: length nEq + nIneq; first nEq entries are equality
 		// multipliers, remaining nIneq entries are slack-row multipliers
-		// corresponding to the original problem's inequality λ.
+		// corresponding to the original problem's inequality lambda.
 		return new StatefulResult(x, state, vFinal);
 	}
 }

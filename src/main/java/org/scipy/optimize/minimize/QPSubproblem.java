@@ -14,32 +14,33 @@ import org.scipy.optimize.minimize.sparse.SparseAssembly;
 import org.scipy.optimize.minimize.matrix.Matrix;
 import org.scipy.optimize.minimize.matrix.MatrixOps;
 
+/**
+ * Quadratic-programming subproblem helpers used inside the trust-region
+ * SQP / IP loops: the projected-CG inner solver, the equality-constrained
+ * KKT direct factorization, the modified-dogleg trust-region step, and the
+ * segment/box/sphere intersection routines that drive trust-region step
+ * acceptance.
+ */
 public class QPSubproblem {
 
 	/**
-	 * Solve the Equality-Constrained Quadratic Programming Problem:
-	 *
+	 * Solve the equality-constrained quadratic program
 	 * <pre>
-	 * min wrt. x: q(x) = 1/2 x^T G x + x^T c
-	 * s.t.         A x = b
+	 *   minimize  q(x) = 1/2 x^T G x + x^T c
+	 *   subject to    A x = b
 	 * </pre>
-	 * where
-	 * <pre>
-	 * G is the symmetric (n x n) Hessian matrix,
-	 * c and x are vectors in R^n and
-	 * A is the (m x n) Jacobian of constraints (with m <= n).
-	 * n = number of parameters
-	 * m = number of constraints
-	 * </pre>
+	 * where {@code G} is the symmetric {@code n x n} Hessian, {@code c, x}
+	 * are length-{@code n} vectors, and {@code A} is the {@code m x n}
+	 * Jacobian of constraints (with {@code m &le; n}).
 	 *
-	 * @see Nocedal/Wright, Numerical Optimization (2006), chapter 16.1
-	 * @see https://antonior92.github.io/posts/2017/05/projected-CG/
+	 * <p>See Nocedal &amp; Wright, <i>Numerical Optimization</i>, 2nd ed.
+	 * (2006), chapter 16.1.
 	 *
-	 * @param H [n][n] Hessian matrix of the EQP problem
-	 * @param c [n] gradient of the quadratic objective function
-	 * @param A [m][n] Jacobian matrix of the EQP problem
-	 * @param b [m] Right-hand side of the constraint equation * (-1)
-	 * @return {x, lambda}: solution and Lagrange multipliers
+	 * @param H {@code n x n} Hessian matrix of the EQP problem
+	 * @param c length-{@code n} gradient of the quadratic objective function
+	 * @param A {@code m x n} Jacobian matrix of the equality constraints
+	 * @param b length-{@code m} right-hand side of the constraint equation, sign-flipped
+	 * @return two-element array {@code [x, lambda]} containing the solution and Lagrange multipliers
 	 */
 	public static Matrix[] eqpKktFact(Matrix H, Matrix c, Matrix A, Matrix b) {
 
@@ -68,12 +69,12 @@ public class QPSubproblem {
 
 		// 3. solve via dense LU on the assembled KKT.
 		// TODO: When the project ships a sparse direct solver this is the only call site
-		//       that needs to switch — the KKT matrix above is already CSR.
+		//       that needs to switch -- the KKT matrix above is already CSR.
 		// TODO: Use a symmetric indefinite factorization
 		//       to solve the system twice as fast (because of the symmetry).
 		double[] sln = DenseSolve.solveLU(kkt.toDense(), rhs);
 
-		// 4. copy solution back into UJMP column vectors.
+		// 4. copy solution back into column vectors.
 		Matrix x = Matrix.Factory.zeros(n, 1);
 		for (int i = 0; i < n; ++i) {
 			x.setAsDouble(sln[i], i, 0);
@@ -92,10 +93,11 @@ public class QPSubproblem {
 	 * Find the intersection between the segment (or line) defined by the parametric
 	 * equation {@code x(t) = z + t*d} and the ball {@code ||x|| <= trust_radius}.
 	 *
-	 * @param z           [n] initial point
-	 * @param d           [n] direction
+	 * @param z           length-{@code n} initial point
+	 * @param d           length-{@code n} direction
 	 * @param trustRadius ball radius
-	 * @return
+	 * @return the {@code t}-interval over which the segment lies inside the
+	 *         ball, or {@code intersect=false} if it never enters
 	 */
 	public static IntersectionResult sphereIntersections(double[] z, double[] d, double trustRadius) {
 		boolean entireLine = false;
@@ -103,20 +105,18 @@ public class QPSubproblem {
 	}
 
 	/**
-	 * Find the intersection between segment (or line) and spherical constraints.
-	 * <p>
-	 * Find the intersection between the segment (or line) defined by the parametric
-	 * equation {@code x(t) = z + t*d} and the ball {@code ||x|| <= trust_radius}.
+	 * Find the intersection of a segment (or line) with the ball
+	 * {@code ||x|| &le; trustRadius}, where the segment is parameterised as
+	 * {@code x(t) = z + t*d}.
 	 *
-	 * @param z           [n] initial point
-	 * @param d           [n] direction
+	 * @param z           length-{@code n} initial point
+	 * @param d           length-{@code n} direction
 	 * @param trustRadius ball radius
-	 * @param entireLine  When {@code true}, the function returns the intersection
-	 *                    between the line {@code x(t) = z + t*d} ({@code t} can
-	 *                    assume any value) and the ball {@code ||x|| <= trust_radius}.
-	 *                    When {@code false}, the function returns the intersection
-	 *                    between the segment {@code x(t) = z + t*d}, {@code 0 <= t <= 1},
-	 *                    and the ball.
+	 * @param entireLine  if {@code true}, allow {@code t} to range over all
+	 *                    of {@code R}; if {@code false}, restrict
+	 *                    {@code 0 &le; t &le; 1}
+	 * @return the {@code t}-interval over which the segment lies inside the
+	 *         ball, or {@code intersect=false} if it never enters
 	 */
 	public static IntersectionResult sphereIntersections(double[] z, double[] d, double trustRadius, boolean entireLine) {
 
@@ -186,19 +186,17 @@ public class QPSubproblem {
 	}
 
 	/**
-	 * Find the intersection between segment (or line) and box constraints.
-	 * <p>
-	 * Find the intersection between the segment (or line) defined by the
-	 * parametric  equation {@code x(t) = z + t*d} and the rectangular box
-	 * {@code lb <= x <= ub}.
+	 * Find the intersection of a segment (or line) with the rectangular box
+	 * {@code lb &le; x &le; ub}, where the segment is parameterised as
+	 * {@code x(t) = z + t*d}. Convenience overload that disables the
+	 * &quot;entire line&quot; mode.
 	 *
-	 * @param zIn [n] initial point
-	 * @param dIn [n] direction
-	 * @param lbIn [n] lower bounds to each one of the components of {@code x},
-	 *               used to delimit the rectangular box
-	 * @param ubIn [n] upper bounds to each one of the components of {@code x},
-	 *               used to delimit the rectangular box
-	 * @return
+	 * @param z  length-{@code n} initial point
+	 * @param d  length-{@code n} direction
+	 * @param lb length-{@code n} lower bounds of the box
+	 * @param ub length-{@code n} upper bounds of the box
+	 * @return {@code (tA, tB, intersect)} -- the {@code t}-interval over which
+	 *         the segment lies inside the box, or {@code intersect=false}.
 	 */
 	public static IntersectionResult boxIntersections(double[] z, double[] d, double[] lb, double[] ub) {
 		boolean entireLine = false;
@@ -206,23 +204,19 @@ public class QPSubproblem {
 	}
 
 	/**
-	 * Find the intersection between segment (or line) and box constraints.
-	 * <p>
-	 * Find the intersection between the segment (or line) defined by the
-	 * parametric  equation {@code x(t) = z + t*d} and the rectangular box
-	 * {@code lb <= x <= ub}.
+	 * Find the intersection of a segment (or line) with the rectangular box
+	 * {@code lb &le; x &le; ub}, where the segment is parameterised as
+	 * {@code x(t) = z + t*d}.
 	 *
-	 * @param zIn [n] initial point
-	 * @param dIn [n] direction
-	 * @param lbIn [n] lower bounds to each one of the components of {@code x},
-	 *               used to delimit the rectangular box
-	 * @param ubIn [n] upper bounds to each one of the components of {@code x},
-	 *               used to delimit the rectangular box
-	 * @param entireLine When {@code true}, the function returns the intersection between the line
-	 *                   {@code x(t) = z + t*d} ({@code t} can assume any value) and the rectangular box.
-	 *                   When {@code false}, the function returns the intersection between the segment
-	 *                   {@code x(t) = z + t*d}, {@code 0 <= t <= 1}, and the rectangular box.
-	 * @return
+	 * @param zIn  length-{@code n} initial point
+	 * @param dIn  length-{@code n} direction
+	 * @param lbIn length-{@code n} lower bounds of the box
+	 * @param ubIn length-{@code n} upper bounds of the box
+	 * @param entireLine if {@code true}, allow {@code t} to range over all
+	 *                   of {@code R}; if {@code false}, restrict
+	 *                   {@code 0 &le; t &le; 1}
+	 * @return the {@code t}-interval over which the segment lies inside the
+	 *         box, or {@code intersect=false} if it never enters
 	 */
 	public static IntersectionResult boxIntersections(double[] zIn, double[] dIn, double[] lbIn, double[] ubIn, boolean entireLine) {
 
@@ -292,15 +286,53 @@ public class QPSubproblem {
 		return new IntersectionResult(tA, tB, intersect);
 	}
 
+	/**
+	 * Convenience overload of
+	 * {@link #boxSphereIntersections(double[], double[], double[], double[], double, boolean)}
+	 * with {@code entireLine = false}.
+	 *
+	 * @param z           initial point
+	 * @param d           direction
+	 * @param lb          box lower bounds
+	 * @param ub          box upper bounds
+	 * @param trustRadius sphere radius
+	 * @return the intersection {@code t}-interval
+	 */
 	public static IntersectionResult boxSphereIntersections(double[] z, double[] d, double[] lb, double[] ub, double trustRadius) {
 		boolean entireLine = false;
 		return boxSphereIntersections(z, d, lb, ub, trustRadius, entireLine);
 	}
 
+	/**
+	 * Find the intersection of a segment (or line) with both a box
+	 * {@code lb &le; x &le; ub} and a ball {@code ||x|| &le; trustRadius}.
+	 *
+	 * @param z           initial point
+	 * @param d           direction
+	 * @param lb          box lower bounds
+	 * @param ub          box upper bounds
+	 * @param trustRadius sphere radius
+	 * @param entireLine  if {@code true}, allow {@code t} to range over all
+	 *                    of {@code R}; if {@code false}, restrict to the segment
+	 * @return the intersection {@code t}-interval
+	 */
 	public static IntersectionResult boxSphereIntersections(double[] z, double[] d, double[] lb, double[] ub, double trustRadius, boolean entireLine) {
 		return boxSphereIntersectionsWithExtraInfo(z, d, lb, ub, trustRadius, entireLine)[0];
 	}
 
+	/**
+	 * Convenience overload of
+	 * {@link #boxSphereIntersectionsWithExtraInfo(double[], double[], double[], double[], double, boolean)}
+	 * with {@code entireLine = false}.
+	 *
+	 * @param z           initial point
+	 * @param d           direction
+	 * @param lb          box lower bounds
+	 * @param ub          box upper bounds
+	 * @param trustRadius sphere radius
+	 * @return three-element array {@code {boxSphere, sphere, box}} of
+	 *         {@link IntersectionResult}
+	 */
 	public static IntersectionResult[] boxSphereIntersectionsWithExtraInfo(double[] z, double[] d, double[] lb, double[] ub, double trustRadius) {
 		boolean entireLine = false;
 		return boxSphereIntersectionsWithExtraInfo(z, d, lb, ub, trustRadius, entireLine);
@@ -350,7 +382,7 @@ public class QPSubproblem {
 	 * @param x  [n] position vector to force into bounds
 	 * @param lb [n] lower bounds
 	 * @param ub [n] upper bounds
-	 * @return coerced copy of x such that lb <= x <= ub for all entries
+	 * @return coerced copy of {@code x} such that {@code lb &le; x &le; ub} for all entries
 	 */
 	public static double[] reinforceBoxBoundaries(double[] x, double[] lb, double[] ub) {
 		double[] clippedX = x.clone();
@@ -362,12 +394,12 @@ public class QPSubproblem {
 	}
 
 	/**
-	 * Check if lb <= x <= ub.
+	 * Check whether {@code lb &le; x &le; ub} elementwise.
 	 *
-	 * @param x  [n] position to test
-	 * @param lb [n] lower bounds
-	 * @param ub [n] upper bounds
-	 * @return true of lb <= x <= ub for all entries, false otherwise
+	 * @param x  length-{@code n} position to test
+	 * @param lb length-{@code n} lower bounds
+	 * @param ub length-{@code n} upper bounds
+	 * @return {@code true} iff every entry satisfies {@code lb[i] &le; x[i] &le; ub[i]}
 	 */
 	public static boolean insideBoxBoundaries(double[] x, double[] lb, double[] ub) {
 		for (int i=0; i<x.length; ++i) {
@@ -379,34 +411,25 @@ public class QPSubproblem {
 	}
 
 	/**
-	 * Approximately  minimize {@code 1/2*|| A x + b ||^2} inside trust-region.
-	 * <p>
-	 * Approximately solve the problem of minimizing {@code 1/2*|| A x + b ||^2}
-	 * subject to {@code ||x|| < Delta} and {@code lb <= x <= ub} using a modification
-	 * of the classical dogleg approach.
-	 * <p>
-	 * Based on implementations described in pp. 885-886 from [1].
+	 * Approximately minimize {@code 1/2 ||A x + b||^2} subject to
+	 * {@code ||x|| &lt; Delta} and {@code lb &le; x &le; ub} using a modified dogleg
+	 * approach. Implementation based on Byrd-Hribar-Nocedal (1999),
+	 * pp.885-886.
 	 *
-	 * @see [1] Byrd, Richard H., Mary E. Hribar, and Jorge Nocedal.
-	 *          "An interior point algorithm for large-scale nonlinear
-	 *          programming." SIAM Journal on Optimization 9.4 (1999): 877-900.
-	 *
-	 * @param A [m][n] Matrix {@code A} in the minimization problem.
-	 *                 It should have dimensions {@code (m, n)} such that {@code m < n}.
-	 * @param Y [n][m] Matrix or LinearOperator that applies the projection matrix
-	 *                 {@code Q = A.T inv(A A.T)} to the vector, the obtained vector
-	 *                 {@code y = Q x} being the minimum norm solution of {@code A y = x}.
-	 * @param b [m] Vector {@code b}in the minimization problem.
-	 * @param trustRadius Trust radius to be considered. Delimits a sphere boundary to the problem.
-	 * @param lb [n] Lower bounds to each one of the components of {@code x}.
-	 *               It is expected that {@code lb <= 0}, otherwise the algorithm
-	 *               may fail. If {@code lb[i] = Double.NEGATIVE_INFINITY}, the lower
-	 *               bound for the i-th component is just ignored.
-	 * @param ub [n] Upper bounds to each one of the components of {@code x}.
-	 *               It is expected that {@code ub >= 0}, otherwise the algorithm
-	 *               may fail. If {@code ub[i] = Double.POSITIVE_INFINITY}, the upper bound for the i-th
-	 *               component is just ignored.
-	 * @return [n] Solution to the problem.
+	 * @param A {@code m x n} matrix in the minimization problem
+	 *          ({@code m &lt; n} expected)
+	 * @param Y {@link Matrix} or {@link LinearOperator} that applies the
+	 *          projection {@code Q = A^T (A A^T)^-^1}; for any input {@code x},
+	 *          {@code y = Q x} is the minimum-norm solution of {@code A y = x}
+	 * @param b length-{@code m} vector in the minimization problem
+	 * @param trustRadius trust radius {@code Delta} (sphere boundary)
+	 * @param lb length-{@code n} lower bounds; {@code Double.NEGATIVE_INFINITY}
+	 *           disables the bound for that component. Algorithm assumes
+	 *           {@code lb &le; 0}
+	 * @param ub length-{@code n} upper bounds; {@code Double.POSITIVE_INFINITY}
+	 *           disables the bound for that component. Algorithm assumes
+	 *           {@code ub &ge; 0}
+	 * @return length-{@code n} solution vector
 	 */
 	public static Matrix modifiedDogleg(Matrix A, Object Y, Matrix b, double trustRadius, double[] lb, double[] ub) {
 
@@ -470,35 +493,22 @@ public class QPSubproblem {
 	}
 
 	/**
-	 * Solve EQP problem with projected CG method.
-	 * <p>
-	 * Solve equality-constrained quadratic programming problem
-	 * {@code min 1/2 x^T H x + x^t c} subject to {@code A x + b = 0} and, possibly,
-	 * to trust region constraints {@code ||x|| < trust_radius} and box constraints
-	 * {@code lb <= x <= ub}.
-	 * <p>
-	 * Implementation of Algorithm 6.2 on [1].
-	 * <p>
-	 * In the absence of spherical and box constraints, for sufficient
-	 * iterations, the method returns a truly optimal result.
-	 * In the presence of those constraints, the value returned is only
-	 * a inexpensive approximation of the optimal value.
+	 * Solve the equality-constrained quadratic program
+	 * <pre>
+	 *   minimize    1/2 x^T H x + x^T c
+	 *   subject to  A x + b = 0
+	 * </pre>
+	 * with the projected conjugate-gradient method. Convenience overload
+	 * with no trust-region or box constraints.
 	 *
-	 * @see [1] Gould, Nicholas IM, Mary E. Hribar, and Jorge Nocedal.
-	 *          "On the solution of equality constrained quadratic
-	 *          programming problems arising in optimization."
-	 *          SIAM Journal on Scientific Computing 23.4 (2001): 1376-1395.
-	 *
-	 * @param H [n][n] Operator for computing {@code H v}
-	 * @param c [n] Gradient of the quadratic objective
-	 *          function
-	 * @param Z [n][n] Operator for projecting {@code x} into
-	 *          the null space of A.
-	 * @param Y [n][m] Operator that, for a given a vector
-	 *          {@code b}, compute smallest norm solution of
-	 *          {@code A x + b = 0}.
-	 * @param b [m] Right-hand side of the constraint equation
-	 * @return  solution vector and additional info
+	 * @param H operator that computes {@code H v} on a length-{@code n} vector
+	 * @param c length-{@code n} gradient of the quadratic objective
+	 * @param Z {@link Matrix} or {@link LinearOperator} that projects
+	 *          {@code x} into the null space of {@code A}
+	 * @param Y {@link Matrix} or {@link LinearOperator} that, given
+	 *          {@code b}, returns the minimum-norm solution of {@code A x + b = 0}
+	 * @param b length-{@code m} right-hand side of the constraint equation
+	 * @return solution vector and additional CG info
 	 */
 	public static CGInfo projectedCG(LinearOperator H, Matrix c, Object Z, Object Y, Matrix b) {
 
@@ -517,41 +527,26 @@ public class QPSubproblem {
 	 * {@code min 1/2 x^T H x + x^t c} subject to {@code A x + b = 0} and, possibly,
 	 * to trust region constraints {@code ||x|| < trust_radius} and box constraints
 	 * {@code lb <= x <= ub}.
-	 * <p>
-	 * Implementation of Algorithm 6.2 on [1].
-	 * <p>
-	 * In the absence of spherical and box constraints, for sufficient
-	 * iterations, the method returns a truly optimal result.
-	 * In the presence of those constraints, the value returned is only
-	 * a inexpensive approximation of the optimal value.
 	 *
-	 * @see [1] Gould, Nicholas IM, Mary E. Hribar, and Jorge Nocedal.
-	 *          "On the solution of equality constrained quadratic
-	 *          programming problems arising in optimization."
-	 *          SIAM Journal on Scientific Computing 23.4 (2001): 1376-1395.
+	 * <p>Without spherical or box constraints and with enough iterations, the
+	 * method returns the exact optimum. With those constraints active, the
+	 * returned value is only an inexpensive approximation.
 	 *
-	 * @param H                       [n][n] Operator for computing {@code H v}
-	 * @param c                       [n] Gradient of the quadratic objective
-	 *                                function
-	 * @param Z                       [n][n] Operator for projecting {@code x} into
-	 *                                the null space of A.
-	 * @param Y                       [n][m] Operator that, for a given a vector
-	 *                                {@code b}, compute smallest norm solution of
-	 *                                {@code A x + b = 0}.
-	 * @param b                       [m] Right-hand side of the constraint equation
-	 * @param trustRadius             Trust radius to be considered. By default,
-	 *                                uses Double.POSITIVE_INFINITY, which means no
-	 *                                trust radius at all.
-	 * @param lb                      [n] Lower bounds to each one of the components
-	 *                                of {@code x}. If {@code lb[i] = -Inf} the
-	 *                                lower bound for the i-th component is just
-	 *                                ignored (default).
-	 * @param ub                      [n] Upper bounds to each one of the components
-	 *                                of {@code x}. If {@code ub[i] = Inf} the upper
-	 *                                bound for the i-th component is just ignored
-	 *                                (default).
-	 * @param tolerance               Tolerance used to interrupt the algorithm.
-	 * @return                        solution vector and additional info
+	 * @param H operator that computes {@code H v} on a length-{@code n} vector
+	 * @param c length-{@code n} gradient of the quadratic objective
+	 * @param Z {@link Matrix} or {@link LinearOperator} that projects {@code x}
+	 *          into the null space of {@code A}
+	 * @param Y {@link Matrix} or {@link LinearOperator} that, given {@code b},
+	 *          returns the minimum-norm solution of {@code A x + b = 0}
+	 * @param b length-{@code m} right-hand side of the constraint equation
+	 * @param trustRadius trust-region radius; {@code Double.POSITIVE_INFINITY}
+	 *                    disables the trust-region constraint
+	 * @param lb length-{@code n} lower bounds; {@code Double.NEGATIVE_INFINITY}
+	 *           disables the bound for that component
+	 * @param ub length-{@code n} upper bounds; {@code Double.POSITIVE_INFINITY}
+	 *           disables the bound for that component
+	 * @param tolerance termination tolerance for the projected residual
+	 * @return solution vector and additional CG info
 	 */
 	public static CGInfo projectedCG(LinearOperator H, Matrix c, Object Z, Object Y, Matrix b, double trustRadius, double[] lb,
 			double[] ub, double tolerance) {
@@ -564,56 +559,37 @@ public class QPSubproblem {
 	}
 
 	/**
-	 * Solve EQP problem with projected CG method.
-	 * <p>
-	 * Solve equality-constrained quadratic programming problem
-	 * {@code min 1/2 x^T H x + x^t c} subject to {@code A x + b = 0} and, possibly,
-	 * to trust region constraints {@code ||x|| < trust_radius} and box constraints
-	 * {@code lb <= x <= ub}.
-	 * <p>
-	 * Implementation of Algorithm 6.2 on [1].
-	 * <p>
-	 * In the absence of spherical and box constraints, for sufficient
-	 * iterations, the method returns a truly optimal result.
-	 * In the presence of those constraints, the value returned is only
-	 * a inexpensive approximation of the optimal value.
+	 * Solve the equality-constrained quadratic program
+	 * <pre>
+	 *   minimize    1/2 x^T H x + x^T c
+	 *   subject to  A x + b = 0
+	 *   and (optionally) ||x|| &lt; trustRadius, lb &le; x &le; ub
+	 * </pre>
+	 * with the projected conjugate-gradient method (Algorithm 6.2 of
+	 * Gould-Hribar-Nocedal, 2001).
 	 *
-	 * @see [1] Gould, Nicholas IM, Mary E. Hribar, and Jorge Nocedal.
-	 *          "On the solution of equality constrained quadratic
-	 *          programming problems arising in optimization."
-	 *          SIAM Journal on Scientific Computing 23.4 (2001): 1376-1395.
+	 * <p>Without spherical or box constraints and with enough iterations, the
+	 * method returns the exact optimum. With those constraints active, the
+	 * returned value is only an inexpensive approximation.
 	 *
-	 * @param H                       [n][n] Operator for computing {@code H v}
-	 * @param c                       [n] Gradient of the quadratic objective
-	 *                                function
-	 * @param Z                       [n][n] Operator for projecting {@code x} into
-	 *                                the null space of A.
-	 * @param Y                       [n][m] Operator that, for a given a vector
-	 *                                {@code b}, compute smallest norm solution of
-	 *                                {@code A x + b = 0}.
-	 * @param b                       [m] Right-hand side of the constraint equation
-	 * @param trustRadius             Trust radius to be considered. By default,
-	 *                                uses Double.POSITIVE_INFINITY, which means no
-	 *                                trust radius at all.
-	 * @param lb                      [n] Lower bounds to each one of the components
-	 *                                of {@code x}. If {@code lb[i] = -Inf} the
-	 *                                lower bound for the i-th component is just
-	 *                                ignored (default).
-	 * @param ub                      [n] Upper bounds to each one of the components
-	 *                                of {@code x}. If {@code ub[i] = Inf} the upper
-	 *                                bound for the i-th component is just ignored
-	 *                                (default).
-	 * @param tolerance               Tolerance used to interrupt the algorithm.
-	 * @param maxIterations           Maximum algorithm iterations, where
-	 *                                {@code max_inter <= n-m}. By default, uses
-	 *                                {@code max_iter = n-m}.
-	 * @param maxInfeasibleIterations Maximum infeasible (regarding box constraints)
-	 *                                iterations the algorithm is allowed to take.
-	 *                                By default, uses
-	 *                                {@code max_infeasible_iter = n-m}.
-	 * @param returnAll               When {@code true}, return the list of all
-	 *                                vectors through the iterations.
-	 * @return                        solution vector and additional info
+	 * @param H operator that computes {@code H v}
+	 * @param c length-{@code n} gradient of the quadratic objective
+	 * @param Z {@link Matrix} or {@link LinearOperator} projecting into null({@code A})
+	 * @param Y {@link Matrix} or {@link LinearOperator} for the minimum-norm
+	 *          solution of {@code A x + b = 0}
+	 * @param b length-{@code m} right-hand side of the constraint equation
+	 * @param trustRadius trust-region radius; {@code Double.POSITIVE_INFINITY}
+	 *                    disables the trust-region constraint
+	 * @param lb length-{@code n} lower bounds (use {@code -inf} to disable per dim)
+	 * @param ub length-{@code n} upper bounds (use {@code +inf} to disable per dim)
+	 * @param tolerance termination tolerance for the projected residual
+	 * @param maxIterations max CG iterations; {@code -1} for the default
+	 *                      {@code n - m}
+	 * @param maxInfeasibleIterations max iterations spent infeasible w.r.t. box
+	 *                                constraints; {@code -1} for the default
+	 *                                {@code n - m}
+	 * @param returnAll if {@code true}, the result includes the iterate trajectory
+	 * @return solution vector and additional CG info
 	 */
 	public static CGInfo projectedCG(LinearOperator H, Matrix c, Object Z, Object Y, Matrix b, double trustRadius, double[] lb,
 			double[] ub, double tolerance, long maxIterations, long maxInfeasibleIterations, boolean returnAll) {

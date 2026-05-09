@@ -14,10 +14,15 @@ import org.scipy.optimize.minimize.records.State;
  * {@link State#constrViolation}, {@link State#trustRadius}, and
  * {@link State#nIter} for the just-completed iteration. Returning
  * {@code true} terminates the SQP / IP loop the same way exhausting
- * {@code maxIter} does — the orchestrator still populates
+ * {@code maxIter} does -- the orchestrator still populates
  * {@code OptimizeResult} from whatever state the loop reached.
  */
 @FunctionalInterface
 public interface IterationCallback {
+
+	/**
+	 * @param state outer-iteration state at the just-completed iteration
+	 * @return {@code true} to request early termination, {@code false} to continue
+	 */
 	boolean shouldTerminate(State state);
 }

@@ -124,7 +124,7 @@ class TestDenseMatrix {
 				{0.0, 1.0},
 				{1.0, 1.0},
 		});
-		// A·B by hand:
+		// A*B by hand:
 		// row 0: [1+0+3, 0+2+3] = [4, 5]
 		// row 1: [4+0+6, 0+5+6] = [10, 11]
 		// row 2: [7+0+9, 0+8+9] = [16, 17]
@@ -167,7 +167,7 @@ class TestDenseMatrix {
 		S.setAsDouble(1.0, 1L, 1L);
 		S.setAsDouble(1.0, 2L, 0L);
 		S.setAsDouble(1.0, 2L, 1L);
-		// A·S = [[1+0+3, 0+2+3], [4+0+6, 0+5+6]] = [[4,5], [10,11]]
+		// A*S = [[1+0+3, 0+2+3], [4+0+6, 0+5+6]] = [[4,5], [10,11]]
 		Matrix C = A.mtimes(S);
 		assertArrayRelAbsEquals(new double[][] {{4, 5}, {10, 11}},
 				((DenseMatrix) C).toDoubleArray(), 1e-15);

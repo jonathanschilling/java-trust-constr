@@ -1,5 +1,10 @@
 package org.scipy.optimize.minimize.enums;
 
+/**
+ * How {@link org.scipy.optimize.minimize.Projections#projections} should
+ * factor the constraint Jacobian to build the null-space / least-squares /
+ * row-space projectors.
+ */
 public enum ProjectionMethod {
 
 	/**

@@ -84,7 +84,7 @@ class TestLinearConstraint {
 		Assertions.assertEquals(0, c.nEq());
 		Assertions.assertEquals(2, c.nIneq());
 
-		// At x=(1,1), A x = 2 — the upper bound is exactly tight.
+		// At x=(1,1), A x = 2 -- the upper bound is exactly tight.
 		Matrix x = Matrix.Factory.linkToArray(new double[] {1.0, 1.0});
 		RelAbsAssertions.assertArrayRelAbsEquals(
 				new double[] {0.0, -2.0},

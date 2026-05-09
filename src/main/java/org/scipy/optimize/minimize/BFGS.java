@@ -8,13 +8,12 @@ import org.scipy.optimize.minimize.matrix.Matrix;
 /**
  * Broyden-Fletcher-Goldfarb-Shanno (BFGS) Hessian update strategy.
  *
- * The update is based on the description in [1], p.140.
- *
- * @see [1] Nocedal, Jorge, and Stephen J. Wright. "Numerical optimization"
- *          Second Edition (2006).
+ * <p>The update follows Nocedal &amp; Wright, <i>Numerical Optimization</i>,
+ * 2nd ed. (2006), p.140.
  */
 public class BFGS extends FullHessianUpdateStrategy {
 
+	/** Builder for {@link BFGS}; configure via {@link BFGS#FACTORY}. */
 	public static class BFGSFactory extends FullHessianUpdateStrategyFactory {
 
 		private ExceptionStrategy exceptionStrategy;
@@ -32,15 +31,14 @@ public class BFGS extends FullHessianUpdateStrategy {
 		}
 
 		/**
-		 * Define how to proceed when the curvature condition is violated.
-		 * Set it to 'skip_update' to just skip the update. Or,
-		 *                          alternatively, set it to 'damp_update' to
-		 *                          interpolate between the actual BFGS result and the
-		 *                          unmodified matrix. Both exceptions strategies are
-		 *                          explained in [1], p.536-537.
+		 * Choose how to proceed when the curvature condition is violated:
+		 * {@code SKIP_UPDATE} skips the update entirely; {@code DAMP_UPDATE}
+		 * interpolates between the actual BFGS result and the unmodified
+		 * matrix. Both strategies are described in Nocedal &amp; Wright
+		 * (2006), pp.536-537.
 		 *
-		 * @param exceptionStrategy
-		 * @return
+		 * @param exceptionStrategy strategy to apply on curvature violation
+		 * @return this factory, for chaining
 		 */
 		public BFGSFactory exceptionStrategy(ExceptionStrategy exceptionStrategy) {
 			this.exceptionStrategy = exceptionStrategy;
@@ -48,14 +46,13 @@ public class BFGS extends FullHessianUpdateStrategy {
 		}
 
 		/**
-		 * This number, scaled by a normalization factor, defines the
-		 * minimum curvature ``dot(delta_grad, delta_x)`` allowed to go
-		 * unaffected by the exception strategy. By default is equal to
-		 * 1e-8 when ``exception_strategy = 'skip_update'`` and equal
-		 * to 0.2 when ``exception_strategy = 'damp_update'``.
+		 * Minimum curvature {@code dot(delta_grad, delta_x)} (scaled by a
+		 * normalization factor) allowed to bypass the exception strategy.
+		 * Default is {@code 1e-8} for {@code SKIP_UPDATE} and {@code 0.2}
+		 * for {@code DAMP_UPDATE}.
 		 *
-		 * @param minCurvature
-		 * @return
+		 * @param minCurvature curvature threshold
+		 * @return this factory, for chaining
 		 */
 		public BFGSFactory minCurvature(double minCurvature) {
 			this.minCurvature = minCurvature;
@@ -63,6 +60,11 @@ public class BFGS extends FullHessianUpdateStrategy {
 			return this;
 		}
 
+		/**
+		 * Build a configured {@link BFGS} instance.
+		 *
+		 * @return a fresh {@link BFGS} with the configured options
+		 */
 		public BFGS build() {
 			switch(exceptionStrategy) {
 			case SKIP_UPDATE:
@@ -85,6 +87,7 @@ public class BFGS extends FullHessianUpdateStrategy {
 		}
 	};
 
+	/** Default BFGS factory; configure with chained setters then call {@link BFGSFactory#build()}. */
 	public static final BFGSFactory FACTORY;
 	static {
 		FACTORY = new BFGSFactory();
@@ -125,9 +128,9 @@ public class BFGS extends FullHessianUpdateStrategy {
 		double[] sArr = colVectorToArray(s);
 		double[] HyArr = colVectorToArray(Hy);
 
-		// H += -1/ys * (Hy s^T + s Hy^T) — second row of the BFGS formula.
+		// H += -1/ys * (Hy s^T + s Hy^T) -- second row of the BFGS formula.
 		LinAlg.syr2(H, -1.0 / ys, HyArr, sArr);
-		// H += (ys + yHy)/(ys^2) * s s^T — first row of the BFGS formula.
+		// H += (ys + yHy)/(ys^2) * s s^T -- first row of the BFGS formula.
 		LinAlg.syr(H, (ys + yHy) / (ys * ys), sArr);
 	}
 
@@ -154,14 +157,14 @@ public class BFGS extends FullHessianUpdateStrategy {
 		double[] yArr = colVectorToArray(y);
 		double[] BsArr = colVectorToArray(Bs);
 
-		// B += (1/ys) * y y^T — second term.
+		// B += (1/ys) * y y^T -- second term.
 		LinAlg.syr(B, 1.0 / ys, yArr);
-		// B += -(1/sBs) * Bs Bs^T — first term.
+		// B += -(1/sBs) * Bs Bs^T -- first term.
 		LinAlg.syr(B, -1.0 / sBs, BsArr);
 	}
 
 	/**
-	 * Copy a column vector ({@code n × 1}) {@code v} into a length-{@code n}
+	 * Copy a column vector ({@code n x 1}) {@code v} into a length-{@code n}
 	 * {@code double[]}. When {@code v} is a {@link DenseMatrix} this is a
 	 * single {@code data().clone()}; otherwise it falls back to element-wise
 	 * extraction via {@link Matrix#getAsDouble(long, long)}.

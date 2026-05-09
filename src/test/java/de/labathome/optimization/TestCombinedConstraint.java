@@ -187,7 +187,7 @@ class TestCombinedConstraint {
 	void jacEqIsDenseWhenAnySourceIsDense() {
 		// Mixed sources: one sparse, one dense. Combined output should be
 		// dense (the dense source's part can't be embedded into a sparse
-		// allocator without extra copying — auto-detect picks the lower
+		// allocator without extra copying -- auto-detect picks the lower
 		// common denominator).
 		org.scipy.optimize.minimize.matrix.SparseMatrix A1 = org.scipy.optimize.minimize.matrix.SparseMatrix.Factory.zeros(1, 4);
 		A1.setAsDouble(1.0, 0, 0);

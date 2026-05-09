@@ -11,7 +11,7 @@ import org.scipy.optimize.minimize.matrix.Matrix;
 
 /**
  * Tests the {@link NonlinearConstraint} constructor that omits the analytic
- * Jacobian and computes one via 2-point finite differences on each call —
+ * Jacobian and computes one via 2-point finite differences on each call --
  * mirroring scipy's behaviour when {@code jac} is omitted.
  */
 class TestNonlinearConstraintFiniteDiffJac {

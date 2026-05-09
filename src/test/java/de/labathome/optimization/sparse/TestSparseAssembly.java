@@ -67,7 +67,7 @@ class TestSparseAssembly {
 
 	@Test
 	void testBlockArrayKKTPattern() {
-		// [[I_3, A^T], [A, 0]] — the projection KKT shape from projections.py:99
+		// [[I_3, A^T], [A, 0]] -- the projection KKT shape from projections.py:99
 		CSRMatrix i3 = CSRMatrix.eye(3);
 		double[][] aDense = {
 				{ 1.0, 2.0, 3.0 },
@@ -99,7 +99,7 @@ class TestSparseAssembly {
 	@Test
 	void testAssembleJacobianWithSlacks() {
 		// J_eq is 1x3, J_ineq is 2x3, s has length 2.
-		// Result shape: 3 rows, 5 cols — [[J_eq, 0_{1x2}], [J_ineq, diag(s)]]
+		// Result shape: 3 rows, 5 cols -- [[J_eq, 0_{1x2}], [J_ineq, diag(s)]]
 		double[][] jEqDense = {
 				{ 1.0, 2.0, 0.0 },
 		};

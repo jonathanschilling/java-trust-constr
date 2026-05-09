@@ -11,7 +11,7 @@ import org.scipy.optimize.minimize.records.OptimizeResult;
 import org.scipy.optimize.minimize.matrix.Matrix;
 
 /**
- * Distribution of electrons on a unit sphere — COPS problem #2 ("Thomson
+ * Distribution of electrons on a unit sphere -- COPS problem #2 ("Thomson
  * problem"), via scipy's {@code test_minimize_constrained.py::Elec}.
  *
  * <p>For {@code n_electrons} on a sphere, minimize total electrostatic
@@ -96,7 +96,7 @@ class TestElec {
 	private static Matrix elecHess(Matrix v) {
 		// Closed-form objective Hessian: 3N x 3N. Implementation mirrors scipy's
 		// _Elec.hess: build six N x N blocks Hxx, Hxy, Hxz, Hyy, Hyz, Hzz, then
-		// stack as the symmetric block matrix [[Hxx, Hxy, Hxz], [Hxy^T, Hyy, Hyz], …].
+		// stack as the symmetric block matrix [[Hxx, Hxy, Hxz], [Hxy^T, Hyy, Hyz], ...].
 		// Diagonals of each block are filled from row-sum negation.
 		double[] xc = new double[N];
 		double[] yc = new double[N];
@@ -170,7 +170,7 @@ class TestElec {
 
 	@Test
 	void twoElectronsOnSphere() {
-		// Constraint: each electron lies on or inside the sphere — c[i] = x[i]^2+y[i]^2+z[i]^2-1 <= 0.
+		// Constraint: each electron lies on or inside the sphere -- c[i] = x[i]^2+y[i]^2+z[i]^2-1 <= 0.
 		Function<Matrix, Matrix> cf = v -> {
 			double[] out = new double[N];
 			for (int i = 0; i < N; ++i) {
@@ -218,7 +218,7 @@ class TestElec {
 		// The optimum places the two electrons at antipodes, energy = 0.5.
 		Assertions.assertEquals(0.5, r.fun, 1.0e-3);
 
-		// Check antipodal constraint: x[i] ≈ -x[j] for some matching, or coords sum to ~0.
+		// Check antipodal constraint: x[i] ~= -x[j] for some matching, or coords sum to ~0.
 		double sumX = r.x.getAsDouble(0, 0) + r.x.getAsDouble(1, 0);
 		double sumY = r.x.getAsDouble(2, 0) + r.x.getAsDouble(3, 0);
 		double sumZ = r.x.getAsDouble(4, 0) + r.x.getAsDouble(5, 0);

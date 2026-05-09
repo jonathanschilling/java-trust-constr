@@ -15,7 +15,7 @@ import org.scipy.optimize.minimize.matrix.Matrix;
 /**
  * Tests that the {@code initial*} tuning knobs and {@code factorizationMethod}
  * parameter on the full-shape {@link MinimizeTrustConstr#minimizeTrustConstr}
- * entry point are honored — i.e. they reach the inner SQP / IP loop instead
+ * entry point are honored -- i.e. they reach the inner SQP / IP loop instead
  * of being silently overridden by the hardcoded defaults the convenience
  * overloads use.
  */
@@ -47,7 +47,7 @@ class TestTuningKnobs {
 	void smallInitialTrustRadiusOnEquality() {
 		// Hyperplane Rosenbrock with a tiny initial trust radius. Same
 		// tolerances and starting point as TestEqualityConstrainedRosenbrock
-		// — converges to (1, 1), but takes more iterations than the default
+		// -- converges to (1, 1), but takes more iterations than the default
 		// trust radius (1.0) since the algorithm has to grow the radius.
 		LinearConstraint eq = new LinearConstraint(
 				Matrix.Factory.linkToArray(new double[][] {{1.0, 1.0}}),
@@ -63,7 +63,7 @@ class TestTuningKnobs {
 				null,
 				1000, 0, null,
 				1.0,                   // initialConstraintPenalty (default)
-				1.0e-3,                // initialTrustRadius — TIGHT
+				1.0e-3,                // initialTrustRadius -- TIGHT
 				0.1, 0.1,
 				null, false);
 
@@ -81,7 +81,7 @@ class TestTuningKnobs {
 
 		Assertions.assertEquals(1.0, tiny.x.getAsDouble(0, 0), 1.0e-6);
 		Assertions.assertEquals(1.0, dflt.x.getAsDouble(0, 0), 1.0e-6);
-		// Tight initial trust radius forces extra iterations — the knob is
+		// Tight initial trust radius forces extra iterations -- the knob is
 		// reaching the SQP loop.
 		Assertions.assertTrue(tiny.nIter > dflt.nIter,
 				"Tight initial trust radius should require more iterations; "
@@ -148,8 +148,8 @@ class TestTuningKnobs {
 				Optional.empty(), null,
 				1000, 0, null,
 				1.0, 1.0,
-				10.0,                  // initialBarrierParameter — LARGE
-				10.0,                  // initialBarrierTolerance — LARGE
+				10.0,                  // initialBarrierParameter -- LARGE
+				10.0,                  // initialBarrierTolerance -- LARGE
 				null, false);
 
 		Assertions.assertEquals(2.0, dflt.x.getAsDouble(0, 0), 1.0e-3);
@@ -165,7 +165,7 @@ class TestTuningKnobs {
 		// Hands-off entry: only objective. The full-shape adapter routes
 		// through buildFdGrad with the user's finiteDifferenceRelStep.
 		// A coarse step (1e-3) should still converge for a smooth quadratic
-		// — verifying the knob is plumbed through to NumDiff.
+		// -- verifying the knob is plumbed through to NumDiff.
 		LinearConstraint eq = new LinearConstraint(
 				Matrix.Factory.linkToArray(new double[][] {{1.0, 1.0}}),
 				new double[] {2.0}, new double[] {2.0});

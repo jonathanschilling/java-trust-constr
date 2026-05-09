@@ -1,12 +1,12 @@
 # java-trust-constr
 
-A Java port of `scipy.optimize.minimize(method='trust-constr')` — a trust-region
+A Java port of `scipy.optimize.minimize(method='trust-constr')` -- a trust-region
 constrained nonlinear optimizer that handles linear and nonlinear equality and
 inequality constraints, and bounds.
 
 The reference Python implementation is checked out as a git submodule at
 `scipy/`. Each Java class mirrors its scipy counterpart (e.g.
-`Projections.java` ↔ `projections.py`).
+`Projections.java` <-> `projections.py`).
 
 ## Build
 
@@ -18,9 +18,8 @@ mvn compile
 mvn test
 ```
 
-The parent POM `de.labathome:de-labathome-parent` and the test-only
-`MinervaAssertions` artifact are not on Maven Central; they need to be available
-in a local or internal repository.
+The parent POM `de.labathome:de-labathome-parent` is not on Maven Central; it
+needs to be available in a local or internal repository.
 
 ## Quick start
 
@@ -83,7 +82,7 @@ OptimizeResult r = MinimizeTrustConstr.minimize(
 
 ### Most hands-off: only the objective
 
-Both gradient and Hessian are omitted — the orchestrator computes the gradient
+Both gradient and Hessian are omitted -- the orchestrator computes the gradient
 by 2-point finite differences and the Hessian by BFGS:
 
 ```java
@@ -123,9 +122,9 @@ Jacobian internally.
 
 ### Full scipy-shape API
 
-For users who want every knob — `args`, `Bounds`, `hessp`, callback,
+For users who want every knob -- `args`, `Bounds`, `hessp`, callback,
 `finiteDifferenceRelStep`, `factorizationMethod`, the four `initial*` tuning
-parameters, and `verbose`/`disp` console output — use
+parameters, and `verbose`/`disp` console output -- use
 `MinimizeTrustConstr.minimizeTrustConstr(...)`. See its Javadoc for the full
 signature.
 
@@ -168,7 +167,7 @@ exposes the scipy-style fields:
 | `status`, `message`         | Termination status code (0..3) and human-readable reason |
 | `method`                    | Which dispatch path ran (`EQUALITY_CONSTRAINED_SQP` or `TRUST_REGION_INTERIOR_POINT`) |
 | `trustRadius`               | Final trust-region radius                              |
-| `barrierParameter`, `barrierTolerance` | IP-path only — final values from the last barrier subproblem |
+| `barrierParameter`, `barrierTolerance` | IP-path only -- final values from the last barrier subproblem |
 
 `println(result)` prints a one-line summary.
 

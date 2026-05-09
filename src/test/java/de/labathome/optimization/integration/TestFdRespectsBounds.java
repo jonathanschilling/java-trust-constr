@@ -58,7 +58,7 @@ class TestFdRespectsBounds {
 				1.0, 1.0, 0.1, 0.1,
 				null, false);
 
-		// Should converge near (0.5, 0.5) — the unconstrained optimum is in
+		// Should converge near (0.5, 0.5) -- the unconstrained optimum is in
 		// the interior so bounds don't bind.
 		Assertions.assertEquals(0.5, r.x.getAsDouble(0, 0), 1.0e-3);
 		Assertions.assertEquals(0.5, r.x.getAsDouble(1, 0), 1.0e-3);
@@ -94,7 +94,7 @@ class TestFdRespectsBounds {
 		BiFunction<Matrix, Object, Matrix> hess = (x, args) ->
 				Matrix.Factory.linkToArray(new double[][] {{2, 0}, {0, 2}});
 
-		// Infeasible start (5, 0) outside [-1, 1] — should throw.
+		// Infeasible start (5, 0) outside [-1, 1] -- should throw.
 		Matrix x0Bad = Matrix.Factory.linkToArray(new double[] {5.0, 0.0});
 		IllegalArgumentException ex = Assertions.assertThrows(
 				IllegalArgumentException.class,

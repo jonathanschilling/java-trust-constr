@@ -17,7 +17,7 @@ import org.scipy.optimize.minimize.matrix.SparseMatrix;
  * Tests for the explicit {@code Optional<Boolean> sparseJacobian} parameter
  * to {@link MinimizeTrustConstr#minimizeTrustConstr}. When set, every
  * constraint Jacobian is forced to the requested representation via
- * {@link SparsityForcedConstraint} — overriding the auto-detect logic.
+ * {@link SparsityForcedConstraint} -- overriding the auto-detect logic.
  */
 class TestSparseJacobianFlag {
 
@@ -74,7 +74,7 @@ class TestSparseJacobianFlag {
 	@Test
 	void sparseJacobianTrueForcesSparseEndToEnd() {
 		// Hyperplane Rosenbrock with a *dense* A, but the user asks for
-		// sparseJacobian=True — the orchestrator wraps the constraint so
+		// sparseJacobian=True -- the orchestrator wraps the constraint so
 		// jacEq is sparse. Algorithm should still converge.
 		Matrix Adense = Matrix.Factory.linkToArray(new double[][] {{1.0, 1.0}});
 		LinearConstraint eq = new LinearConstraint(Adense,
@@ -100,7 +100,7 @@ class TestSparseJacobianFlag {
 	@Test
 	void sparseJacobianFalseForcesDenseEndToEnd() {
 		// Hyperplane Rosenbrock with a *sparse* A but the user asks for
-		// sparseJacobian=False — the orchestrator wraps the constraint so
+		// sparseJacobian=False -- the orchestrator wraps the constraint so
 		// jacEq is dense. Algorithm should still converge.
 		SparseMatrix Asp = SparseMatrix.Factory.zeros(1, 2);
 		Asp.setAsDouble(1.0, 0, 0);

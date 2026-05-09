@@ -14,7 +14,7 @@ import org.scipy.optimize.minimize.matrix.Matrix;
  * Tests for the quasi-Newton (BFGS / SR1) and finite-difference overloads of
  * {@code MinimizeTrustConstr.minimize}. The orchestrator builds a fresh
  * Hessian-update strategy when the user omits {@code hess}, and 2-point
- * finite-difference gradient estimation when {@code grad} is also omitted —
+ * finite-difference gradient estimation when {@code grad} is also omitted --
  * mirroring scipy's defaults.
  */
 class TestQuasiNewtonAndFiniteDiff {

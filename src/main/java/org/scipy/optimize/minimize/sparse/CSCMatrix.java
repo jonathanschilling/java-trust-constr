@@ -12,7 +12,7 @@ import java.util.Arrays;
  * indptr.length == cols + 1
  * indptr[j] .. indptr[j+1] is the half-open range of {@code indices}/{@code data}
  *     entries belonging to column j.
- * indices[k] is the row of the k-th stored entry (0 <= indices[k] < rows).
+ * indices[k] is the row of the k-th stored entry (0 &le; indices[k] &lt; rows).
  * data[k]    is the value of the k-th stored entry.
  * </pre>
  *
@@ -38,6 +38,12 @@ public final class CSCMatrix {
 	/**
 	 * Construct from raw CSC triplets. Inputs are defensively copied. See the
 	 * class-level invariants for shape and ordering requirements.
+	 *
+	 * @param rows    number of rows
+	 * @param cols    number of columns
+	 * @param indptr  column pointer array, length {@code cols + 1}
+	 * @param indices row index for each stored entry
+	 * @param data    value for each stored entry
 	 */
 	public CSCMatrix(int rows, int cols, int[] indptr, int[] indices, double[] data) {
 		if (rows < 0 || cols < 0) {
@@ -75,12 +81,18 @@ public final class CSCMatrix {
 		this.data = data.clone();
 	}
 
+	/** @return number of rows */
 	public int rows() { return rows; }
+	/** @return number of columns */
 	public int cols() { return cols; }
+	/** @return number of stored (structural) non-zero entries */
 	public int nnz() { return data.length; }
 
+	/** @return defensive copy of the column pointer array */
 	public int[] indptr() { return indptr.clone(); }
+	/** @return defensive copy of the row index array */
 	public int[] indices() { return indices.clone(); }
+	/** @return defensive copy of the value array */
 	public double[] data() { return data.clone(); }
 
 	int[] indptrRef() { return indptr; }
@@ -90,6 +102,9 @@ public final class CSCMatrix {
 	/**
 	 * Build CSC from a dense 2D array; column-major scan, but the input is
 	 * still given as row-major {@code dense[i][j]}.
+	 *
+	 * @param dense {@code [m][n]} row-major dense values
+	 * @return CSC matrix with the same non-zero pattern as {@code dense}
 	 */
 	public static CSCMatrix fromDense(double[][] dense) {
 		int m = dense.length;
@@ -122,7 +137,11 @@ public final class CSCMatrix {
 		return new CSCMatrix(m, n, indptr, indices, data);
 	}
 
-	/** Materialise as a dense {@code [rows][cols]} array. */
+	/**
+	 * Materialise as a dense {@code [rows][cols]} array.
+	 *
+	 * @return fresh row-major dense view
+	 */
 	public double[][] toDense() {
 		double[][] out = new double[rows][cols];
 		for (int j = 0; j < cols; ++j) {
@@ -133,7 +152,12 @@ public final class CSCMatrix {
 		return out;
 	}
 
-	/** {@code n x n} identity in CSC. */
+	/**
+	 * {@code n x n} identity in CSC.
+	 *
+	 * @param n dimension; must be non-negative
+	 * @return the {@code n x n} identity matrix
+	 */
 	public static CSCMatrix eye(int n) {
 		if (n < 0) {
 			throw new IllegalArgumentException("n must be non-negative");
@@ -192,7 +216,12 @@ public final class CSCMatrix {
 		return y;
 	}
 
-	/** Element-wise scalar multiply. */
+	/**
+	 * Element-wise scalar multiply (allocates a new matrix).
+	 *
+	 * @param s scalar factor
+	 * @return {@code s * this}
+	 */
 	public CSCMatrix multiply(double s) {
 		double[] newData = new double[data.length];
 		for (int k = 0; k < data.length; ++k) {
@@ -202,15 +231,21 @@ public final class CSCMatrix {
 	}
 
 	/**
-	 * Transpose. Same nnz, rows and columns swapped. The natural output is CSR
-	 * because a CSC column traversal of {@code A} is a CSR row traversal of
-	 * {@code A^T}.
+	 * Transpose. Same nnz, rows and columns swapped. The natural output is
+	 * CSR because a CSC column traversal of {@code A} is a CSR row
+	 * traversal of {@code A^T}.
+	 *
+	 * @return {@code A^T} as a {@link CSRMatrix}
 	 */
 	public CSRMatrix transpose() {
 		return new CSRMatrix(cols, rows, indptr.clone(), indices.clone(), data.clone());
 	}
 
-	/** Convert to CSR of the same matrix (not the transpose). */
+	/**
+	 * Convert to CSR of the <em>same</em> matrix (not the transpose).
+	 *
+	 * @return CSR representation of this matrix
+	 */
 	public CSRMatrix toCSR() {
 		int[] outIndptr = new int[rows + 1];
 		for (int k = 0; k < indices.length; ++k) {

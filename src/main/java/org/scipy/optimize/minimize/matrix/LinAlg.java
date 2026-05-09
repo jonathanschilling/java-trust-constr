@@ -5,10 +5,10 @@ import dev.ludovic.netlib.lapack.LAPACK;
 import org.netlib.util.intW;
 
 /**
- * Thin static façade over {@code dev.ludovic.netlib} BLAS / LAPACK kernels,
+ * Thin static facade over {@code dev.ludovic.netlib} BLAS / LAPACK kernels,
  * specialised to {@link DenseMatrix} (column-major {@code double[]}). All
- * routines pass {@link DenseMatrix#data()} straight to the native call — no
- * row-major↔column-major conversion, no extra allocation beyond the working
+ * routines pass {@link DenseMatrix#data()} straight to the native call -- no
+ * row-major / column-major conversion, no extra allocation beyond the working
  * buffer that LAPACK overwrites.
  *
  * <p>Each routine documents whether it modifies the input. Where it does, the
@@ -26,8 +26,12 @@ public final class LinAlg {
 
 	/**
 	 * Solve {@code A x = b} via LAPACK {@code dgesv} (general LU with partial
-	 * pivoting). {@code A} must be square. Inputs are not modified — the
+	 * pivoting). {@code A} must be square. Inputs are not modified -- the
 	 * implementation operates on copies.
+	 *
+	 * @param A square coefficient matrix
+	 * @param b right-hand side ({@code A.rows x nrhs}); supports multiple RHS
+	 * @return the solution {@code x} ({@code A.rows x nrhs})
 	 */
 	public static DenseMatrix solve(DenseMatrix A, DenseMatrix b) {
 		int n = A.rows();
@@ -55,8 +59,11 @@ public final class LinAlg {
 
 	/**
 	 * QR factorisation via {@code dgeqrf} + {@code dorgqr}. {@code A} must
-	 * have m ≥ n. Returns {@link QRResult} with {@code Q} (m × n,
-	 * orthonormal columns) and {@code R} (n × n, upper triangular).
+	 * be tall-or-square (m >= n).
+	 *
+	 * @param A {@code m x n} matrix to factor
+	 * @return {@link QRResult} with {@code Q} ({@code m x n}, orthonormal
+	 *         columns) and {@code R} ({@code n x n}, upper triangular)
 	 */
 	public static QRResult qr(DenseMatrix A) {
 		int m = A.rows();
@@ -97,7 +104,7 @@ public final class LinAlg {
 			throw new ArithmeticException("dorgqr failed: info=" + info2.val);
 		}
 
-		// Q is m × n column-major in `flat[0..m*n-1]`.
+		// Q is m x n column-major in `flat[0..m*n-1]`.
 		double[] qData = new double[m * n];
 		System.arraycopy(flat, 0, qData, 0, m * n);
 		DenseMatrix Q = DenseMatrix.fromColumnMajor(m, n, qData);
@@ -108,9 +115,13 @@ public final class LinAlg {
 	// ----- SVD -----
 
 	/**
-	 * Full SVD via {@code dgesvd} (jobu='A', jobvt='A'): {@code A = U · diag(s) · Vᵀ}.
-	 * Returns U (m × m), s (length min(m,n), monotonically non-increasing),
-	 * and Vᵀ (n × n).
+	 * Full SVD via {@code dgesvd} ({@code jobu='A'}, {@code jobvt='A'}):
+	 * {@code A = U * diag(s) * V^T}.
+	 *
+	 * @param A {@code m x n} matrix to factor
+	 * @return {@link SVDResult} with {@code U} ({@code m x m}),
+	 *         {@code s} (length {@code min(m, n)}, monotonically
+	 *         non-increasing), and {@code V^T} ({@code n x n})
 	 */
 	public static SVDResult svd(DenseMatrix A) {
 		int m = A.rows();
@@ -139,7 +150,11 @@ public final class LinAlg {
 
 	/**
 	 * Cholesky factorisation of an SPD matrix via {@code dpotrf}, upper
-	 * triangle. Input is not modified — implementation operates on a copy.
+	 * triangle. Input is not modified -- implementation operates on a copy.
+	 *
+	 * @param A square SPD matrix
+	 * @return {@link CholResult} carrying the upper-triangular Cholesky
+	 *         factor in LAPACK column-major layout
 	 */
 	public static CholResult cholesky(DenseMatrix A) {
 		int n = A.rows();
@@ -160,10 +175,14 @@ public final class LinAlg {
 	// ----- Symmetric rank updates (in-place, on the upper triangle) -----
 
 	/**
-	 * In-place rank-1 symmetric update: {@code A := A + α x xᵀ}. {@code A}
+	 * In-place rank-1 symmetric update: {@code A := A + alpha x x^T}. {@code A}
 	 * must be square; only the upper triangle is updated by BLAS, after which
 	 * the lower triangle is mirrored from the upper to keep {@code A}
 	 * symmetric.
+	 *
+	 * @param A     square matrix to update in place ({@code n x n})
+	 * @param alpha scalar multiplier
+	 * @param x     length-{@code n} vector
 	 */
 	public static void syr(DenseMatrix A, double alpha, double[] x) {
 		int n = A.rows();
@@ -179,9 +198,14 @@ public final class LinAlg {
 	}
 
 	/**
-	 * In-place rank-2 symmetric update: {@code A := A + α (x yᵀ + y xᵀ)}.
+	 * In-place rank-2 symmetric update: {@code A := A + alpha (x y^T + y x^T)}.
 	 * {@code A} must be square; only the upper triangle is updated, and the
 	 * lower triangle is mirrored from the upper afterwards.
+	 *
+	 * @param A     square matrix to update in place ({@code n x n})
+	 * @param alpha scalar multiplier
+	 * @param x     length-{@code n} vector
+	 * @param y     length-{@code n} vector
 	 */
 	public static void syr2(DenseMatrix A, double alpha, double[] x, double[] y) {
 		int n = A.rows();
@@ -201,8 +225,8 @@ public final class LinAlg {
 		int n = A.rows();
 		double[] d = A.data();
 		// Column-major: A[i + j*n] is row i, col j.
-		// "U" upper triangle in Fortran is i ≤ j (i.e. row index ≤ col index).
-		// Mirror upper → lower: for i < j, set d[j + i*n] = d[i + j*n].
+		// "U" upper triangle in Fortran is i <= j (i.e. row index <= col index).
+		// Mirror upper -> lower: for i < j, set d[j + i*n] = d[i + j*n].
 		for (int j = 1; j < n; ++j) {
 			for (int i = 0; i < j; ++i) {
 				d[j + i * n] = d[i + j * n];

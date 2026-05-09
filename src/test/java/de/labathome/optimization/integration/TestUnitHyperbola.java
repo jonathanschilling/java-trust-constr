@@ -19,7 +19,7 @@ import org.scipy.optimize.minimize.matrix.Matrix;
  * </pre>
  *
  * The unconstrained minimum (0, 0) is infeasible. The constrained optimum lies
- * on the boundary of the unit hyperbola, {@code x = ±1, y = 0}, with
+ * on the boundary of the unit hyperbola, {@code x = +/-1, y = 0}, with
  * {@code f = 1}.
  *
  * <p>Exercises the analytic constraint Hessian-of-Lagrangian path with a
@@ -54,9 +54,9 @@ class TestUnitHyperbola {
 		NonlinearConstraint c = new NonlinearConstraint(cFun, cJac, cHess,
 				new double[] {1.0}, new double[] {Double.POSITIVE_INFINITY}, null);
 
-		// Start at scipy's (1, 2). Already satisfies x^2 - y^2 = 1 - 4 = -3 — INFEASIBLE.
+		// Start at scipy's (1, 2). Already satisfies x^2 - y^2 = 1 - 4 = -3 -- INFEASIBLE.
 		// IP needs a strictly feasible start, so start at a point that satisfies it.
-		// (1.5, 0): 2.25 - 0 = 2.25 > 1 ✓
+		// (1.5, 0): 2.25 - 0 = 2.25 > 1 OK
 		Matrix x0 = Matrix.Factory.linkToArray(new double[] {1.5, 0.0});
 		OptimizeResult r = MinimizeTrustConstr.minimize(fun, grad, hess, x0, c,
 				1000, 1.0e-8, 1.0e-8);
@@ -65,8 +65,8 @@ class TestUnitHyperbola {
 		Assertions.assertEquals(1.0, Math.abs(r.x.getAsDouble(0, 0)), 1.0e-3);
 		Assertions.assertEquals(0.0, r.x.getAsDouble(1, 0), 1.0e-3);
 		Assertions.assertEquals(1.0, r.fun, 1.0e-3);
-		// KKT at the boundary optimum: g + Jineq^T λ = 0, with constraint
-		// active and λ ≠ 0. Sharpest test of multiplier recovery.
+		// KKT at the boundary optimum: g + Jineq^T lambda = 0, with constraint
+		// active and lambda != 0. Sharpest test of multiplier recovery.
 		Assertions.assertNotNull(r.lagrangianGrad);
 		Assertions.assertTrue(r.lagrangianGrad.normInf() < 1.0e-3,
 				"Lagrangian gradient too large: " + r.lagrangianGrad.normInf());

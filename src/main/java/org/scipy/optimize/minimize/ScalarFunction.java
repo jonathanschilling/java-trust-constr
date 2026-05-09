@@ -30,6 +30,7 @@ import org.scipy.optimize.minimize.matrix.Matrix;
  */
 public class ScalarFunction {
 
+	/** Builder for {@link ScalarFunction}. */
 	public static class ScalarFunctionFactory {
 
 		private ToDoubleBiFunction<Matrix, Object> fun;
@@ -49,46 +50,54 @@ public class ScalarFunction {
 		private FiniteDifferenceBounds finiteDiffBounds;
 		private Matrix epsilon;
 
+		/** Default-construct an empty factory. */
 		public ScalarFunctionFactory() {
 			hasGrad = false;
 			hasHess = false;
 		}
 
-		/** Set the objective function to optimize. */
+		/**
+		 * Set the objective function to optimize.
+		 *
+		 * @param fun objective {@code (x, args) -> f(x)}
+		 * @return this factory, for chaining
+		 */
 		public ScalarFunctionFactory fun(ToDoubleBiFunction<Matrix, Object> fun) {
 			this.fun = fun;
 			return this;
 		}
 
 		/**
-		 * Provides an initial set of variables for evaluating fun.
-		 * Array of real elements of size (n,),
-		 * where 'n' is the number of independent variables.
+		 * Provide the initial point for evaluating {@code fun}.
+		 *
+		 * @param x0 starting iterate ({@code n x 1})
+		 * @return this factory, for chaining
 		 */
 		public ScalarFunctionFactory x0(Matrix x0) {
 			this.x0 = x0;
 			return this;
 		}
 
-		/** Any additional fixed parameters needed to completely specify the scalar function. */
+		/**
+		 * Provide any additional fixed parameters needed to specify the
+		 * scalar function (the {@code args} argument forwarded to
+		 * {@code fun}/{@code grad}/{@code hess}).
+		 *
+		 * @param args fixed parameters (may be {@code null})
+		 * @return this factory, for chaining
+		 */
 		public ScalarFunctionFactory args(Object args) {
 			this.args = args;
 			return this;
 		}
 
 		/**
-		 * Method for computing the gradient vector.
-	     * If it is a callable, it should be a function that returns the gradient
-	     * vector:
-	     *
-	     *     ``grad(x, *args) -> array_like, shape (n,)``
-	     *
-	     * where ``x`` is an array with shape (n,) and ``args`` is a tuple with
-	     * the fixed parameters.
-	     * Alternatively, the keywords  {'2-point', '3-point', 'cs'} can be used
-	     * to select a finite difference scheme for numerical estimation of the
-	     * gradient with a relative step size. These finite difference schemes
-	     * obey any specified `bounds`.
+		 * Provide an analytic gradient {@code grad(x, args) -> gradf(x)}.
+		 * Mutually exclusive with {@link #grad(FiniteDifferenceMethod)}.
+		 *
+		 * @param grad analytic gradient
+		 * @return this factory, for chaining
+		 * @throws RuntimeException if a gradient (analytic or FD) was already specified
 		 */
 		public ScalarFunctionFactory grad(BiFunction<Matrix, Object, Matrix> grad) {
 			if (hasGrad) {
@@ -102,18 +111,12 @@ public class ScalarFunction {
 		}
 
 		/**
-		 * Method for computing the gradient vector.
-	     * If it is a callable, it should be a function that returns the gradient
-	     * vector:
-	     *
-	     *     ``grad(x, *args) -> array_like, shape (n,)``
-	     *
-	     * where ``x`` is an array with shape (n,) and ``args`` is a tuple with
-	     * the fixed parameters.
-	     * Alternatively, the keywords  {'2-point', '3-point', 'cs'} can be used
-	     * to select a finite difference scheme for numerical estimation of the
-	     * gradient with a relative step size. These finite difference schemes
-	     * obey any specified `bounds`.
+		 * Compute the gradient by finite differences instead of analytically.
+		 * Mutually exclusive with {@link #grad(BiFunction)}.
+		 *
+		 * @param grad FD scheme to use
+		 * @return this factory, for chaining
+		 * @throws RuntimeException if a gradient was already specified
 		 */
 		public ScalarFunctionFactory grad(FiniteDifferenceMethod grad) {
 			if (hasGrad) {
@@ -127,19 +130,12 @@ public class ScalarFunction {
 		}
 
 		/**
-		 * Method for computing the Hessian matrix. If it is callable, it should
-	     * return the  Hessian matrix:
-	     *
-	     *     ``hess(x, *args) -> {LinearOperator, spmatrix, array}, (n, n)``
-	     *
-	     * where x is a (n,) ndarray and `args` is a tuple with the fixed
-	     * parameters. Alternatively, the keywords {'2-point', '3-point', 'cs'}
-	     * select a finite difference scheme for numerical estimation. Or, objects
-	     * implementing `HessianUpdateStrategy` interface can be used to
-	     * approximate the Hessian.
-	     * Whenever the gradient is estimated via finite-differences, the Hessian
-	     * cannot be estimated with options {'2-point', '3-point', 'cs'} and needs
-	     * to be estimated using one of the quasi-Newton strategies.
+		 * Provide an analytic Hessian {@code hess(x, args) -> grad^2f(x)}.
+		 * Mutually exclusive with the FD and quasi-Newton overloads.
+		 *
+		 * @param hess analytic Hessian evaluator
+		 * @return this factory, for chaining
+		 * @throws RuntimeException if a Hessian was already specified
 		 */
 		public ScalarFunctionFactory hess(BiFunction<Matrix, Object, Matrix> hess) {
 			if (hasHess) {
@@ -154,19 +150,12 @@ public class ScalarFunction {
 		}
 
 		/**
-		 * Method for computing the Hessian matrix. If it is callable, it should
-	     * return the  Hessian matrix:
-	     *
-	     *     ``hess(x, *args) -> {LinearOperator, spmatrix, array}, (n, n)``
-	     *
-	     * where x is a (n,) ndarray and `args` is a tuple with the fixed
-	     * parameters. Alternatively, the keywords {'2-point', '3-point', 'cs'}
-	     * select a finite difference scheme for numerical estimation. Or, objects
-	     * implementing `HessianUpdateStrategy` interface can be used to
-	     * approximate the Hessian.
-	     * Whenever the gradient is estimated via finite-differences, the Hessian
-	     * cannot be estimated with options {'2-point', '3-point', 'cs'} and needs
-	     * to be estimated using one of the quasi-Newton strategies.
+		 * Compute the Hessian by finite differences instead of analytically.
+		 * Note: cannot be combined with an FD gradient.
+		 *
+		 * @param hess FD scheme to use for the Hessian
+		 * @return this factory, for chaining
+		 * @throws RuntimeException if a Hessian was already specified
 		 */
 		public ScalarFunctionFactory hess(FiniteDifferenceMethod hess) {
 			if (hasHess) {
@@ -181,19 +170,12 @@ public class ScalarFunction {
 		}
 
 		/**
-		 * Method for computing the Hessian matrix. If it is callable, it should
-	     * return the  Hessian matrix:
-	     *
-	     *     ``hess(x, *args) -> {LinearOperator, spmatrix, array}, (n, n)``
-	     *
-	     * where x is a (n,) ndarray and `args` is a tuple with the fixed
-	     * parameters. Alternatively, the keywords {'2-point', '3-point', 'cs'}
-	     * select a finite difference scheme for numerical estimation. Or, objects
-	     * implementing `HessianUpdateStrategy` interface can be used to
-	     * approximate the Hessian.
-	     * Whenever the gradient is estimated via finite-differences, the Hessian
-	     * cannot be estimated with options {'2-point', '3-point', 'cs'} and needs
-	     * to be estimated using one of the quasi-Newton strategies.
+		 * Approximate the Hessian via a quasi-Newton update strategy
+		 * (e.g. {@link BFGS}, {@link SR1}).
+		 *
+		 * @param hess Hessian-update strategy instance
+		 * @return this factory, for chaining
+		 * @throws RuntimeException if a Hessian was already specified
 		 */
 		public ScalarFunctionFactory hess(HessianUpdateStrategy hess) {
 			if (hasHess) {
@@ -208,11 +190,13 @@ public class ScalarFunction {
 		}
 
 		/**
-		 * Relative step size to use. The absolute step size is computed as
-	     * ``h = finite_diff_rel_step * sign(x0) * max(1, abs(x0))``, possibly
-	     * adjusted to fit into the bounds. For ``method='3-point'`` the sign
-	     * of `h` is ignored. If None then finite_diff_rel_step is selected
-	     * automatically,
+		 * Per-component relative step size for the FD gradient/Hessian. The
+		 * absolute step is {@code h = relStep * sign(x0) * max(1, |x0|)},
+		 * clamped to {@link #finiteDiffBounds(FiniteDifferenceBounds)}. May be
+		 * {@code null} to derive a default from machine epsilon.
+		 *
+		 * @param finiteDiffRelStep relative step size ({@code n x 1}); may be {@code null}
+		 * @return this factory, for chaining
 		 */
 		public ScalarFunctionFactory finiteDiffRelStep(Matrix finiteDiffRelStep) {
 			this.finiteDiffRelStep = finiteDiffRelStep;
@@ -220,10 +204,11 @@ public class ScalarFunction {
 		}
 
 		/**
-		 * Lower and upper bounds on independent variables. Defaults to no bounds,
-	     * (-np.inf, np.inf). Each bound must match the size of `x0` or be a
-	     * scalar, in the latter case the bound will be the same for all
-	     * variables. Use it to limit the range of function evaluation.
+		 * Bounds within which FD perturbations must stay. Defaults to
+		 * unbounded.
+		 *
+		 * @param finiteDiffBounds box bounds for FD perturbations
+		 * @return this factory, for chaining
 		 */
 		public ScalarFunctionFactory finiteDiffBounds(FiniteDifferenceBounds finiteDiffBounds) {
 			this.finiteDiffBounds = finiteDiffBounds;
@@ -231,16 +216,21 @@ public class ScalarFunction {
 		}
 
 		/**
-		 * Absolute step size to use, possibly adjusted to fit into the bounds.
-	     * For ``method='3-point'`` the sign of `epsilon` is ignored. By default
-	     * relative steps are used, only if ``epsilon is not None`` are absolute
-	     * steps used.
+		 * Absolute step size for FD gradient/Hessian, taking precedence over
+		 * the relative step. May be {@code null} (use relative step instead).
+		 *
+		 * @param epsilon absolute step size ({@code n x 1}); may be {@code null}
+		 * @return this factory, for chaining
 		 */
 		public ScalarFunctionFactory epsilon(Matrix epsilon) {
 			this.epsilon = epsilon;
 			return this;
 		}
 
+		/**
+		 * @return a fully-configured {@link ScalarFunction} ready for use
+		 * @throws RuntimeException if neither analytic nor FD gradient/Hessian was set
+		 */
 		public ScalarFunction build() {
 
 			// Actually check for nulls to safeguard against calling grad(null) or hess(null).
@@ -265,6 +255,7 @@ public class ScalarFunction {
 		}
 	}
 
+	/** Default {@link ScalarFunctionFactory}; create one and call {@link ScalarFunctionFactory#build()}. */
 	public static final ScalarFunctionFactory FACTORY;
 	static {
 		FACTORY = new ScalarFunctionFactory();
@@ -483,6 +474,10 @@ public class ScalarFunction {
 
 
 
+	/**
+	 * @param x current iterate ({@code n x 1})
+	 * @return cached objective value {@code f(x)}
+	 */
 	public double fun(Matrix x) {
 		if (!this.x.equalsContent(x)) {
 			updateXImpl.accept(x);
@@ -491,6 +486,10 @@ public class ScalarFunction {
 		return this.f;
 	}
 
+	/**
+	 * @param x current iterate ({@code n x 1})
+	 * @return cached gradient {@code gradf(x)} ({@code n x 1})
+	 */
 	public Matrix grad(Matrix x) {
 		if (!this.x.equalsContent(x)) {
 			updateXImpl.accept(x);
@@ -499,6 +498,10 @@ public class ScalarFunction {
 		return this.g;
 	}
 
+	/**
+	 * @param x current iterate ({@code n x 1})
+	 * @return cached Hessian {@code grad^2f(x)} ({@code n x n})
+	 */
 	public Matrix hess(Matrix x) {
 		if (!this.x.equalsContent(x)) {
 			updateXImpl.accept(x);
@@ -507,42 +510,52 @@ public class ScalarFunction {
 		return this.H;
 	}
 
+	/** @return total number of {@code fun} evaluations performed so far */
 	public int numFunctionEvals() {
 		return numFunctionEvals;
 	}
 
+	/** @return total number of gradient evaluations performed so far */
 	public int numGradientEvals() {
 		return numGradientEvals;
 	}
 
+	/** @return total number of Hessian evaluations performed so far */
 	public int numHessianEvals() {
 		return numHessianEvals;
 	}
 
+	/** @return the most recently cached {@code f(x)} */
 	public double f() {
 		return f;
 	}
 
 	/**
-	 * DANGER ZONE: write access to internal state!
-	 * @return
+	 * DANGER ZONE: returns the live internal gradient buffer; callers must
+	 * not mutate it.
+	 *
+	 * @return the most recently cached gradient ({@code n x 1})
 	 */
 	public Matrix g() {
 		return g;
 	}
 
 	/**
-	 * DANGER ZONE: write access to internal state!
-	 * @return
+	 * DANGER ZONE: returns the live internal Hessian buffer; callers must
+	 * not mutate it.
+	 *
+	 * @return the most recently cached Hessian ({@code n x n})
 	 */
 	public Matrix H() {
 		return H;
 	}
 
+	/** @return the lowest objective value seen across all evaluations */
 	public double lowestF() {
 		return lowestF;
 	}
 
+	/** @return a defensive copy of the iterate that produced {@link #lowestF()} */
 	public Matrix lowestX() {
 		return Matrix.Factory.copyFromMatrix(lowestX);
 	}

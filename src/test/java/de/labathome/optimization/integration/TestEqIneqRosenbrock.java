@@ -56,17 +56,17 @@ class TestEqIneqRosenbrock {
 				new double[] {1.0}, new double[] {1.0});
 
 		Matrix x0 = Matrix.Factory.linkToArray(new double[] {-1.0, -0.5});
-		// Project x0 to satisfy 2x + y = 1 — interior-point methods need a strictly
+		// Project x0 to satisfy 2x + y = 1 -- interior-point methods need a strictly
 		// feasible start with respect to the equality constraint as well.
 		// 2*(-1) + (-0.5) = -2.5; offset (1 - (-2.5))/||(2,1)||^2 = 3.5/5 = 0.7.
-		// shift by 0.7 * (2, 1) = (1.4, 0.7) -> x0_proj = (0.4, 0.2). Check: 2*0.4 + 0.2 = 1 ✓
+		// shift by 0.7 * (2, 1) = (1.4, 0.7) -> x0_proj = (0.4, 0.2). Check: 2*0.4 + 0.2 = 1 OK
 		Matrix x0Feas = Matrix.Factory.linkToArray(new double[] {0.4, 0.2});
 		OptimizeResult r = MinimizeTrustConstr.minimize(rosen, rosenG, rosenH, x0Feas,
 				new Object[] {eq, ineq}, 2000, 1.0e-8, 1.0e-8);
 
 		Assertions.assertEquals(0.41494, r.x.getAsDouble(0, 0), 1.0e-2);
 		Assertions.assertEquals(0.17011, r.x.getAsDouble(1, 0), 1.0e-2);
-		// KKT at the optimum: g + Jeq^T v + Jineq^T λ = 0. Mixed eq/ineq
+		// KKT at the optimum: g + Jeq^T v + Jineq^T lambda = 0. Mixed eq/ineq
 		// exercises both halves of the augmented-system multiplier slice.
 		Assertions.assertNotNull(r.lagrangianGrad);
 		Assertions.assertTrue(r.lagrangianGrad.normInf() < 1.0e-3,
@@ -75,7 +75,7 @@ class TestEqIneqRosenbrock {
 
 	@Test
 	void rosenbrockWithIneqOnly() {
-		// scipy::IneqRosenbrock — minimize Rosenbrock s.t. x[0] + 2 x[1] <= 1.
+		// scipy::IneqRosenbrock -- minimize Rosenbrock s.t. x[0] + 2 x[1] <= 1.
 		// Optimum: ~ (0.5022, 0.2489).
 		Function<Matrix, Double> rosen = x -> {
 			double a = x.getAsDouble(0, 0);

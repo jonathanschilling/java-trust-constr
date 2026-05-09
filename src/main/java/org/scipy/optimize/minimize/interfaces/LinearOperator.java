@@ -2,6 +2,11 @@ package org.scipy.optimize.minimize.interfaces;
 
 import org.scipy.optimize.minimize.matrix.Matrix;
 
+/**
+ * Matrix-free linear operator: applies an underlying linear map to a vector
+ * without materialising the matrix. Mirrors scipy's
+ * {@code scipy.sparse.linalg.LinearOperator}.
+ */
 @FunctionalInterface
 public interface LinearOperator {
 

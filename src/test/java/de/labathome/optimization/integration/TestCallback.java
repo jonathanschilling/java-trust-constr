@@ -97,7 +97,7 @@ class TestCallback {
 		Assertions.assertEquals(3, callbackInvocations[0]);
 		Assertions.assertEquals(3, r.nIter);
 		// Should NOT have converged in 3 iterations on Rosenbrock from (0.5, 1.5)
-		// — the callback overrode tolerance-based stopping.
+		// -- the callback overrode tolerance-based stopping.
 		Assertions.assertTrue(r.fun > 1.0e-3,
 				"Callback-stopped run shouldn't have converged; fun=" + r.fun);
 	}

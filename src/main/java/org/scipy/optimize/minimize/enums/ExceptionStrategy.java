@@ -1,10 +1,15 @@
 package org.scipy.optimize.minimize.enums;
 
+/**
+ * What BFGS / SR1 should do when the curvature condition
+ * {@code (delta_grad * delta_x) &le; threshold} is violated.
+ */
 public enum ExceptionStrategy {
 
-	/** 'skip_update' */
+	/** Skip the Hessian update entirely (scipy {@code 'skip_update'}). */
 	SKIP_UPDATE,
 
-	/** 'skip_update' */
+	/** Damp the update by interpolating with the previous matrix
+	 *  (scipy {@code 'damp_update'}). */
 	DAMP_UPDATE;
 }

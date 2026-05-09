@@ -64,7 +64,7 @@ class TestNonlinearConstraint {
 		//   row 2: [-inf, inf]        -> dropped
 		//   row 3: [-inf, 3] upper    -> 1 ineq row
 		//   row 4: [-5, inf] lower    -> 1 ineq row
-		// So nEq = 1, nIneq = 4 — same as scipy's CanonicalConstraint.
+		// So nEq = 1, nIneq = 4 -- same as scipy's CanonicalConstraint.
 		java.util.function.Function<Matrix, Matrix> fun = x -> {
 			double a = x.getAsDouble(0, 0);
 			return Matrix.Factory.linkToArray(new double[] {
@@ -119,8 +119,8 @@ class TestNonlinearConstraint {
 		// Mirrors the Hessian assertion in scipy
 		// _trustregion_constr/tests/test_canonical_constraint.py::test_nonlinear_constraint:
 		// the canonical (vEq, vIneq) multipliers must be packed back to the
-		// original m-vector of row multipliers — eq rows get vEq directly,
-		// upper-bound ineq rows get +vIneq, lower-bound ineq rows get -vIneq —
+		// original m-vector of row multipliers -- eq rows get vEq directly,
+		// upper-bound ineq rows get +vIneq, lower-bound ineq rows get -vIneq --
 		// before being passed to the user's hess(x, v).
 		//
 		// Five rows, lb = [-10, 3, -inf, -inf, -5], ub = [10, 3, inf, 3, inf]:

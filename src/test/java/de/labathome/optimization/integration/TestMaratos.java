@@ -12,7 +12,7 @@ import org.scipy.optimize.minimize.matrix.Matrix;
 import de.labathome.optimization.RelAbsAssertions;
 
 /**
- * Maratos test problem (Nocedal &amp; Wright, problem 15.4) — the canonical
+ * Maratos test problem (Nocedal &amp; Wright, problem 15.4) -- the canonical
  * trust-constr stress-test for the equality-constrained SQP path.
  *
  * <pre>
@@ -64,10 +64,10 @@ class TestMaratos {
 		NonlinearConstraint c = new NonlinearConstraint(constrFun, constrJac, constrHess,
 				new double[] {1.0}, new double[] {1.0}, null);
 
-		// scipy starts at angle 60°: x0 = (cos 60°, sin 60°) = (0.5, sqrt(3)/2). The
+		// scipy starts at angle 60 deg: x0 = (cos 60 deg, sin 60 deg) = (0.5, sqrt(3)/2). The
 		// SOC + analytic constraint Hessian let the algorithm converge in 5 iterations
 		// (scipy converges in 8 from the same start).
-		double rad = Math.PI / 3;  // 60°
+		double rad = Math.PI / 3;  // 60 deg
 		Matrix x0 = Matrix.Factory.linkToArray(new double[] {Math.cos(rad), Math.sin(rad)});
 		OptimizeResult r = MinimizeTrustConstr.minimize(fun, grad, hess, x0, c,
 				100, 1.0e-10, 1.0e-10);

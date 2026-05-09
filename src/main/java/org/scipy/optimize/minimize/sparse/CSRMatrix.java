@@ -12,11 +12,11 @@ import java.util.Arrays;
  * indptr.length == rows + 1
  * indptr[i] .. indptr[i+1] is the half-open range of {@code indices}/{@code data}
  *     entries belonging to row i.
- * indices[k] is the column of the k-th stored entry (0 <= indices[k] < cols).
+ * indices[k] is the column of the k-th stored entry (0 &le; indices[k] &lt; cols).
  * data[k]    is the value of the k-th stored entry.
  * </pre>
  *
- * Within a row the entries are kept sorted by column index — this matches the
+ * Within a row the entries are kept sorted by column index -- this matches the
  * canonical form scipy returns from {@code csr_array(...)} after
  * {@code sum_duplicates() / sort_indices()}, and several operations (e.g.
  * {@link #toDense()}, {@link #matvec(double[])}) rely on it being safe to walk
@@ -88,8 +88,11 @@ public final class CSRMatrix {
 		this.data = data.clone();
 	}
 
+	/** @return number of rows */
 	public int rows() { return rows; }
+	/** @return number of columns */
 	public int cols() { return cols; }
+	/** @return number of stored (structural) non-zero entries */
 	public int nnz() { return data.length; }
 
 	/** @return a defensive copy of the row pointer array. */
@@ -104,17 +107,14 @@ public final class CSRMatrix {
 	double[] dataRef() { return data; }
 
 	/**
-	 * Build a CSR matrix from a dense 2D array. Zeros are dropped. The input
-	 * array must be rectangular ({@code dense[i].length == cols} for all i).
-	 *
-	 * @param dense [m][n] row-major dense values
-	 * @return CSR matrix
-	 */
-	/**
 	 * Build from any {@link org.scipy.optimize.minimize.matrix.Matrix}. Routes
 	 * sparse {@link org.scipy.optimize.minimize.matrix.SparseMatrix} sources
 	 * directly to {@link org.scipy.optimize.minimize.matrix.SparseMatrix#toCSR}
-	 * (no dense materialisation); dense sources go through {@link #fromDense(double[][])}.
+	 * (no dense materialisation); dense sources go through
+	 * {@link #fromDense(double[][])}.
+	 *
+	 * @param m source matrix
+	 * @return CSR view of the same content
 	 */
 	public static CSRMatrix fromMatrix(org.scipy.optimize.minimize.matrix.Matrix m) {
 		int rows = (int) m.getRowCount();
@@ -128,6 +128,13 @@ public final class CSRMatrix {
 		return fromDense(m.toDoubleArray());
 	}
 
+	/**
+	 * Build a CSR matrix from a row-major dense {@code double[][]}. Zeros are
+	 * dropped. The input must be rectangular.
+	 *
+	 * @param dense {@code [m][n]} row-major dense values
+	 * @return CSR matrix with the same non-zero pattern as {@code dense}
+	 */
 	public static CSRMatrix fromDense(double[][] dense) {
 		int m = dense.length;
 		int n = m == 0 ? 0 : dense[0].length;
@@ -162,6 +169,8 @@ public final class CSRMatrix {
 	/**
 	 * Materialize as a dense {@code [rows][cols]} array. Newly allocated each
 	 * call.
+	 *
+	 * @return fresh row-major dense view
 	 */
 	public double[][] toDense() {
 		double[][] out = new double[rows][cols];
@@ -176,6 +185,8 @@ public final class CSRMatrix {
 	/**
 	 * {@code n x n} identity in CSR.
 	 *
+	 * @param n dimension; must be non-negative
+	 * @return the {@code n x n} identity matrix
 	 * @see <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.eye_array.html">scipy.sparse.eye_array</a>
 	 */
 	public static CSRMatrix eye(int n) {
@@ -235,7 +246,12 @@ public final class CSRMatrix {
 		return y;
 	}
 
-	/** Element-wise scalar multiply. Returns a new matrix. */
+	/**
+	 * Element-wise scalar multiply (allocates a new matrix).
+	 *
+	 * @param s scalar factor
+	 * @return {@code s * this}
+	 */
 	public CSRMatrix multiply(double s) {
 		double[] newData = new double[data.length];
 		for (int k = 0; k < data.length; ++k) {
@@ -245,16 +261,21 @@ public final class CSRMatrix {
 	}
 
 	/**
-	 * Transpose. Returns a CSC matrix backed by the natural transpose
-	 * relationship: {@code A.transpose()} has the same nnz as {@code A}, with
-	 * rows and columns swapped. CSC is the natural output because a CSR row
-	 * traversal of {@code A} is a CSC column traversal of {@code A^T}.
+	 * Transpose: returns a CSC matrix with the same non-zeros, rows/columns
+	 * swapped. CSC is the natural output because a CSR row traversal of
+	 * {@code A} is a CSC column traversal of {@code A^T}.
+	 *
+	 * @return {@code A^T} as a {@link CSCMatrix}
 	 */
 	public CSCMatrix transpose() {
 		return new CSCMatrix(cols, rows, indptr.clone(), indices.clone(), data.clone());
 	}
 
-	/** Convert to CSC of the same matrix (not the transpose). */
+	/**
+	 * Convert to CSC of the <em>same</em> matrix (not the transpose).
+	 *
+	 * @return CSC representation of this matrix
+	 */
 	public CSCMatrix toCSC() {
 		int[] outIndptr = new int[cols + 1];
 		for (int k = 0; k < indices.length; ++k) {
@@ -278,7 +299,13 @@ public final class CSRMatrix {
 		return new CSCMatrix(rows, cols, outIndptr, outIndices, outData);
 	}
 
-	/** Start an incremental DOK-style build. See {@link Builder}. */
+	/**
+	 * Start an incremental DOK-style build. See {@link Builder}.
+	 *
+	 * @param rows number of rows in the resulting matrix
+	 * @param cols number of columns in the resulting matrix
+	 * @return a fresh {@link Builder}
+	 */
 	public static Builder builder(int rows, int cols) {
 		return new Builder(rows, cols);
 	}
@@ -307,7 +334,9 @@ public final class CSRMatrix {
 			this.cols = cols;
 		}
 
+		/** @return number of rows the resulting CSR will have */
 		public int rows() { return rows; }
+		/** @return number of columns the resulting CSR will have */
 		public int cols() { return cols; }
 
 		private long key(int i, int j) {
@@ -321,6 +350,11 @@ public final class CSRMatrix {
 		/**
 		 * Store {@code v} at {@code (i, j)}. Setting to {@code 0.0} removes
 		 * the entry. Repeated calls overwrite (this is set, not add).
+		 *
+		 * @param i 0-based row index
+		 * @param j 0-based column index
+		 * @param v value to store
+		 * @return this builder, for chaining
 		 */
 		public Builder set(int i, int j, double v) {
 			long k = key(i, j);
@@ -332,15 +366,28 @@ public final class CSRMatrix {
 			return this;
 		}
 
-		/** Read back the value at {@code (i, j)}; defaults to {@code 0.0}. */
+		/**
+		 * Read back the value at {@code (i, j)}; defaults to {@code 0.0}.
+		 *
+		 * @param i 0-based row index
+		 * @param j 0-based column index
+		 * @return current value at {@code (i, j)}, or {@code 0.0}
+		 */
 		public double get(int i, int j) {
 			Double v = entries.get(key(i, j));
 			return v == null ? 0.0 : v;
 		}
 
+		/** @return current number of stored non-zero entries */
 		public int nnz() { return entries.size(); }
 
-		/** Compress the DOK contents into a canonical CSR representation. */
+		/**
+		 * Compress the DOK contents into a canonical CSR representation
+		 * (column indices sorted within each row, no duplicates, no
+		 * explicit zeros).
+		 *
+		 * @return the compressed {@link CSRMatrix}
+		 */
 		public CSRMatrix build() {
 			int nnz = entries.size();
 			int[] indptr = new int[rows + 1];

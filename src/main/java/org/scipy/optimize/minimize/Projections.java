@@ -15,6 +15,13 @@ import org.scipy.optimize.minimize.matrix.Matrix;
 import org.scipy.optimize.minimize.matrix.QRResult;
 import org.scipy.optimize.minimize.matrix.SVDResult;
 
+/**
+ * Linear operators that project onto the null space, range, and least-squares
+ * solution set of a constraint Jacobian. Counterpart to scipy's
+ * {@code _trustregion_constr.projections}. Pick the underlying factorisation
+ * (QR / SVD / Cholesky / augmented system) via {@link
+ * org.scipy.optimize.minimize.enums.ProjectionMethod}.
+ */
 public class Projections {
 
 	/**
@@ -59,21 +66,52 @@ public class Projections {
 		return orth;
 	}
 
+	/**
+	 * Convenience overload: auto-select factorisation method, defaults for
+	 * orthogonality / refinement / numerical-zero tolerances.
+	 *
+	 * @param A constraint Jacobian
+	 * @return three-element array {@code {nullSpace, leastSquares, rowSpace}}
+	 */
 	public static LinearOperator[] projections(Matrix A)  {
 		ProjectionMethod method = null;
 		return projections(A, method);
 	}
 
+	/**
+	 * Convenience overload with an explicit factorisation method.
+	 *
+	 * @param A      constraint Jacobian
+	 * @param method projection-Jacobian factorisation method (or {@code null} to auto-select)
+	 * @return three-element array {@code {nullSpace, leastSquares, rowSpace}}
+	 */
 	public static LinearOperator[] projections(Matrix A, ProjectionMethod method)  {
 		double orthTol = 1.0e-12;
 		return projections(A, method, orthTol);
 	}
 
+	/**
+	 * Convenience overload exposing the orthogonality tolerance.
+	 *
+	 * @param A       constraint Jacobian
+	 * @param method  projection-Jacobian factorisation method
+	 * @param orthTol tolerance for orthogonality refinement
+	 * @return three-element array {@code {nullSpace, leastSquares, rowSpace}}
+	 */
 	public static LinearOperator[] projections(Matrix A, ProjectionMethod method, double orthTol)  {
 		int maxRefine = 3;
 		return projections(A, method, orthTol, maxRefine);
 	}
 
+	/**
+	 * Convenience overload exposing the maximum number of refinement iterations.
+	 *
+	 * @param A         constraint Jacobian
+	 * @param method    projection-Jacobian factorisation method
+	 * @param orthTol   tolerance for orthogonality refinement
+	 * @param maxRefine maximum number of iterative-refinement passes
+	 * @return three-element array {@code {nullSpace, leastSquares, rowSpace}}
+	 */
 	public static LinearOperator[] projections(Matrix A, ProjectionMethod method, double orthTol, int maxRefine)  {
 		double tolerance = 1.0e-15;
 		return projections(A, method, orthTol, maxRefine, tolerance);
@@ -123,11 +161,10 @@ public class Projections {
 
 		// Pick a default method if the caller hasn't. Prefer QR for dense and
 		// AugmentedSystem for sparse. Note: since the AugmentedSystem path now
-		// goes through the in-tree CSR module (regardless of whether A is a
-		// UJMP dense or sparse Matrix), AugmentedSystem and SVD/QR are
-		// interchangeable for any A — the historical sparse-only / dense-only
-		// gates from scipy don't apply to this port and are no longer
-		// enforced here.
+		// goes through the in-tree CSR module (regardless of whether A is dense
+		// or sparse), AugmentedSystem and SVD/QR are interchangeable for any A
+		// -- the historical sparse-only / dense-only gates from scipy don't
+		// apply to this port and are no longer enforced here.
 		if (method == null) {
 			method = A.isSparse()
 					? ProjectionMethod.AUGMENTED_SYSTEM
@@ -143,8 +180,8 @@ public class Projections {
 		// Also short-circuit when A is non-empty but effectively all-zero
 		// (e.g. a constraint with a singular Jacobian at x0, the scenario
 		// from scipy test_issue_18882). The mathematical content is the same
-		// as the zero-row case — A has rank 0, so its nullspace is all of
-		// R^n and the LS / row-space operators degenerate to zero — but the
+		// as the zero-row case -- A has rank 0, so its nullspace is all of
+		// R^n and the LS / row-space operators degenerate to zero -- but the
 		// result lives in R^m rather than R^0 since the constraint count m
 		// doesn't actually change.
 		if (A.getRowCount() == 0) {
@@ -380,10 +417,11 @@ public class Projections {
 
 		// check for inf-norm of last row in R factor:
 		// if less than tolerance, use SVD factorization
-		Matrix lastRowOfR = Matrix.Factory.zeros(1, R.getColumnCount());
-		long rowsR = R.getRowCount();
-		for (long[] pos: lastRowOfR.allCoordinates()) {
-			lastRowOfR.setAsDouble(R.getAsDouble(rowsR-1, pos[1]), pos);
+		int colsR = (int) R.getColumnCount();
+		int lastR = (int) R.getRowCount() - 1;
+		Matrix lastRowOfR = Matrix.Factory.zeros(1, colsR);
+		for (int j = 0; j < colsR; ++j) {
+			lastRowOfR.setAsDouble(R.getAsDouble(lastR, j), 0, j);
 		}
 		if (lastRowOfR.normInf() < tolerance) {
 			System.out.println("Singular Jacobian matrix. Using SVD decomposition to \n" +
@@ -469,8 +507,11 @@ public class Projections {
 		SVDResult svd = LinAlg.svd(DenseMatrix.copyFromMatrix(A));
 		final DenseMatrix U = svd.U();
 		final DenseMatrix Vt = svd.Vt();
-		// Build the (m × n) pseudo-inverse-of-S diagonal matrix from reciprocals.
-		// Mirrors UJMP's getreciprocalS().transpose(): n×m diagonal → transposed is m×n.
+		// Build the (m x n) pseudo-inverse-of-S diagonal matrix from
+		// reciprocals: place 1/s_i (or 0 below the LAPACK numerical-zero
+		// cutoff) on the leading diagonal of an otherwise-zero mxn matrix.
+		// This is the {@code S^+} (Moore-Penrose pseudo-inverse of Sum) used to
+		// build {@code A^+ = V S^+ U^T} below.
 		final int mDim = U.rows();
 		final int nDim = Vt.cols();
 		final DenseMatrix invS;

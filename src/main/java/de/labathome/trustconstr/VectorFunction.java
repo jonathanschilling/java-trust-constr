@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 Jonathan Schilling
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package de.labathome.trustconstr;
 
 import java.util.Optional;
@@ -56,7 +71,13 @@ public class VectorFunction implements VectorFunctionLike {
 		private Matrix finiteDiffRelStep;
 		private FiniteDifferenceBounds finiteDiffBounds;
 
-		private VectorFunctionFactory() {
+		/**
+		 * Public so callers can construct a fresh factory per build instead
+		 * of mutating the shared {@link VectorFunction#FACTORY} singleton.
+		 * Same fix pattern as {@link ScalarFunction.ScalarFunctionFactory}
+		 * and the BFGS/SR1 factories.
+		 */
+		public VectorFunctionFactory() {
 			hasJac = false;
 			hasHess = false;
 			sparseJacobian = Optional.empty();
@@ -323,13 +344,17 @@ public class VectorFunction implements VectorFunctionLike {
 			} else {
 				jacSparsity = null;
 			}
-			options = FiniteDifferenceOptions.FACTORY
+			// Fresh factory per build -- the static FACTORY singleton retains
+			// state across calls (e.g. .bounds() throws on second use).
+			options = new FiniteDifferenceOptions.FiniteDifferenceOptionsFactory()
 					.method(jacFD)
 					.relStep(finiteDiffRelStep)
 					.sparsity(jacSparsity)
 					.build();
 		} else if (hessFD != null) {
-			options = FiniteDifferenceOptions.FACTORY
+			// Fresh factory per build -- the static FACTORY singleton retains
+			// state across calls (e.g. .bounds() throws on second use).
+			options = new FiniteDifferenceOptions.FiniteDifferenceOptionsFactory()
 					.method(hessFD)
 					.relStep(finiteDiffRelStep)
 					.asLinearOperator(true)

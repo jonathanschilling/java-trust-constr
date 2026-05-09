@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 Jonathan Schilling
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package de.labathome.trustconstr.records;
 
 import de.labathome.trustconstr.matrix.Matrix;
@@ -9,9 +24,9 @@ import de.labathome.trustconstr.matrix.Matrix;
  */
 public class FiniteDifferenceBounds {
 
-	private Matrix lb;
-	private Matrix ub;
-	private boolean keepFeasible;
+	private final Matrix lb;
+	private final Matrix ub;
+	private final boolean keepFeasible;
 
 	/**
 	 * @param lb           per-variable lower bound ({@code n &times; 1})
@@ -20,8 +35,10 @@ public class FiniteDifferenceBounds {
 	 *                     strictly inside the box
 	 */
 	public FiniteDifferenceBounds(Matrix lb, Matrix ub, boolean keepFeasible) {
-		this.lb = lb;
-		this.ub = ub;
+		// Defensive copy so mutating the input after construction can't
+		// silently change the FD bounds.
+		this.lb = Matrix.Factory.copyFromMatrix(lb);
+		this.ub = Matrix.Factory.copyFromMatrix(ub);
 		this.keepFeasible = keepFeasible;
 	}
 
@@ -37,14 +54,14 @@ public class FiniteDifferenceBounds {
 		return new FiniteDifferenceBounds(lb, ub, false);
 	}
 
-	/** @return lower bounds ({@code n &times; 1}) */
+	/** @return defensive copy of the lower bounds ({@code n &times; 1}) */
 	public Matrix lb() {
-		return lb;
+		return Matrix.Factory.copyFromMatrix(lb);
 	}
 
-	/** @return upper bounds ({@code n &times; 1}) */
+	/** @return defensive copy of the upper bounds ({@code n &times; 1}) */
 	public Matrix ub() {
-		return ub;
+		return Matrix.Factory.copyFromMatrix(ub);
 	}
 
 	/** @return whether perturbations must stay strictly inside the box */

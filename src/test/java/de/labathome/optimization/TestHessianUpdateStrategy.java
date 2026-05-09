@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026 Jonathan Schilling
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package de.labathome.optimization;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,8 +48,10 @@ class TestHessianUpdateStrategy {
 	void bfgsSkipUpdateLeavesMatrixUnchanged() {
 		// scipy test_BFGS_skip_update: with a high min_curvature, an update
 		// where the curvature condition is violated should leave the matrix
-		// unchanged.
-		BFGS hess = BFGS.FACTORY
+		// unchanged. Use a fresh BFGSFactory rather than the shared static
+		// FACTORY singleton -- the factory carries mutable state that leaks
+		// across tests if reused.
+		BFGS hess = new BFGS.BFGSFactory()
 				.exceptionStrategy(ExceptionStrategy.SKIP_UPDATE)
 				.minCurvature(10.0)  // very high, so all updates skip
 				.build();
@@ -65,7 +82,8 @@ class TestHessianUpdateStrategy {
 	@Test
 	void sr1SkipUpdateLeavesMatrixUnchanged() {
 		// scipy test_SR1_skip_update: same idea for SR1 with min_denominator.
-		SR1 hess = SR1.FACTORY
+		// Fresh SR1Factory -- avoids state leak through SR1.FACTORY.
+		SR1 hess = new SR1.SR1Factory()
 				.minDenominator(1e50)  // huge denominator threshold -> always skip
 				.build();
 		hess.initialize(2, HessianApproximationType.HESSIAN);

@@ -8,79 +8,31 @@ The reference Python implementation is checked out as a git submodule at
 `scipy/`. Each Java class mirrors its scipy counterpart (e.g.
 `Projections.java` <-> `projections.py`).
 
-## Build
+## Getting it
 
-Maven, Java 17.
+Maven:
 
-```bash
-git submodule update --init           # populate the scipy reference
-mvn compile
-mvn test
+```xml
+<dependency>
+    <groupId>de.labathome</groupId>
+    <artifactId>java-trust-constr</artifactId>
+    <version>1.0.0</version>
+</dependency>
 ```
 
-The parent POM `de.labathome:de-labathome-parent:1.1.0` is on Maven Central,
-so a fresh `mvn` resolves everything from a public mirror -- no local install
-of the parent is needed.
+Gradle:
 
-## Javadoc
-
-Published to GitHub Pages at <https://jonathanschilling.github.io/java-trust-constr/>.
-The `.github/workflows/javadoc.yml` workflow rebuilds and pushes to the
-`gh-pages` branch on every push to `master` and every `v*` release tag.
-
-## Publishing to Maven Central
-
-The legacy OSSRH service (`oss.sonatype.org`) was shut down on 2025-06-30; the
-parent POM was modernised to use the **Central Portal**
-(`central.sonatype.com`) via the official
-`org.sonatype.central:central-publishing-maven-plugin`.
-
-One-time setup:
-
-1. **Create / claim the namespace** at <https://central.sonatype.com>. The
-   `de.labathome` namespace must show up under "View Namespaces" -- if it
-   doesn't (e.g. you signed up after the OSSRH sunset and never published
-   under this namespace), submit it and add the issued `OSSRH-NNNNN`
-   verification key as a `TXT` record on the apex `labathome.de` domain.
-2. **Generate a user token** (Portal -> "Generate User Token"). This produces a
-   `username`/`password` pair shown once; if lost, regenerate.
-3. **Add a `<server>` entry** to `~/.m2/settings.xml`:
-
-   ```xml
-   <server>
-     <id>central</id>
-     <username><!-- token username --></username>
-     <password><!-- token password --></password>
-   </server>
-   ```
-
-4. **GPG**: have a primary signing key with no `usage: S` sub-key (Central
-   only verifies against the primary key; sub-keys silently fail). Push the
-   public key to `keyserver.ubuntu.com`:
-
-   ```bash
-   gpg --keyserver keyserver.ubuntu.com --send-keys <KEYID>
-   ```
-
-   Add `<server id="...">` plus `<gpg.keyname>` to `settings.xml` so the
-   passphrase isn't prompted interactively.
-
-Then publish a release:
-
-```bash
-mvn clean deploy -P release
+```groovy
+implementation 'de.labathome:java-trust-constr:1.0.0'
 ```
 
-The `release` profile in the parent POM activates `maven-gpg-plugin` 3.2.7
-and `central-publishing-maven-plugin` 0.10.0, which uploads the validated
-bundle to the Portal. With `<autoPublish>false</autoPublish>` (the default
-in the parent), the bundle waits for a manual "Publish" click in the Portal
-UI; flip to `true` to release as soon as validation passes.
+Requires Java 17 or newer. Pulls in `dev.ludovic.netlib:blas` and
+`dev.ludovic.netlib:lapack` 3.2.0 transitively for BLAS / LAPACK kernels.
 
 ## Quick start
 
 The public entry points live in
-[`MinimizeTrustConstr`](src/main/java/org/scipy/optimize/minimize/MinimizeTrustConstr.java).
+[`MinimizeTrustConstr`](src/main/java/de/labathome/trustconstr/MinimizeTrustConstr.java).
 Pick the convenience overload that matches what you have:
 
 ### Analytic gradient and Hessian
@@ -207,7 +159,7 @@ OptimizeResult r = MinimizeTrustConstr.minimizeTrustConstr(
 
 ## Result
 
-[`OptimizeResult`](src/main/java/org/scipy/optimize/minimize/records/OptimizeResult.java)
+[`OptimizeResult`](src/main/java/de/labathome/trustconstr/records/OptimizeResult.java)
 exposes the scipy-style fields:
 
 | Field                       | Meaning                                                |
@@ -227,6 +179,16 @@ exposes the scipy-style fields:
 
 `println(result)` prints a one-line summary.
 
+## Javadoc
+
+API reference: <https://jonathanschilling.github.io/java-trust-constr/>.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
+
+---
+
 ## Architecture
 
 See [CLAUDE.md](CLAUDE.md) for codebase architecture: the `Projections /
@@ -234,3 +196,85 @@ QPSubproblem / EqualityConstrainedSQP / BarrierSubproblem /
 TrustRegionInteriorPoint` decomposition, the in-tree `sparse` module
 (`CSRMatrix`, `CSCMatrix`, `SparseAssembly`, `DenseSolve`), known gaps, and the
 catalogue of integration tests.
+
+---
+
+## Building from source
+
+Maven, Java 17.
+
+```bash
+git submodule update --init           # populate the scipy reference
+mvn compile
+mvn test
+```
+
+The parent POM `de.labathome:de-labathome-parent:1.1.0` is on Maven Central,
+so a fresh `mvn` resolves everything from a public mirror -- no local install
+of the parent is needed.
+
+The `scipy/` submodule is only required by the Python helper that
+regenerates reference values for the unit tests
+(`src/test/python/regenerate_references.py`); it's not needed to build, run
+the test suite, or build the javadoc.
+
+## Continuous integration
+
+Two GitHub Actions workflows:
+
+- **`.github/workflows/ci.yml`** -- runs `mvn -B test` plus a javadoc lint
+  check and an ASCII-only invariant check on every push to `master` and on
+  every pull request.
+- **`.github/workflows/javadoc.yml`** -- rebuilds the javadoc and pushes it
+  to the `gh-pages` branch on every push to `master` and every `v*` release
+  tag. The published artefact is at
+  <https://jonathanschilling.github.io/java-trust-constr/>.
+
+## Publishing to Maven Central
+
+The legacy OSSRH service (`oss.sonatype.org`) was shut down on 2025-06-30; the
+parent POM was modernised to use the **Central Portal**
+(`central.sonatype.com`) via the official
+`org.sonatype.central:central-publishing-maven-plugin`.
+
+One-time setup:
+
+1. **Create / claim the namespace** at <https://central.sonatype.com>. The
+   `de.labathome` namespace must show up under "View Namespaces" -- if it
+   doesn't (e.g. you signed up after the OSSRH sunset and never published
+   under this namespace), submit it and add the issued `OSSRH-NNNNN`
+   verification key as a `TXT` record on the apex `labathome.de` domain.
+2. **Generate a user token** (Portal -> "Generate User Token"). This produces a
+   `username`/`password` pair shown once; if lost, regenerate.
+3. **Add a `<server>` entry** to `~/.m2/settings.xml`:
+
+   ```xml
+   <server>
+     <id>central</id>
+     <username><!-- token username --></username>
+     <password><!-- token password --></password>
+   </server>
+   ```
+
+4. **GPG**: have a primary signing key with no `usage: S` sub-key (Central
+   only verifies against the primary key; sub-keys silently fail). Push the
+   public key to `keyserver.ubuntu.com`:
+
+   ```bash
+   gpg --keyserver keyserver.ubuntu.com --send-keys <KEYID>
+   ```
+
+   Add `<server id="...">` plus `<gpg.keyname>` to `settings.xml` so the
+   passphrase isn't prompted interactively.
+
+Then publish a release:
+
+```bash
+mvn clean deploy -P release
+```
+
+The `release` profile in the parent POM activates `maven-gpg-plugin` 3.2.7
+and `central-publishing-maven-plugin` 0.10.0, which uploads the validated
+bundle to the Portal. With `<autoPublish>false</autoPublish>` (the default
+in the parent), the bundle waits for a manual "Publish" click in the Portal
+UI; flip to `true` to release as soon as validation passes.

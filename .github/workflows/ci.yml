@@ -34,7 +34,15 @@ jobs:
             install: ''
             argline: '-Ddev.ludovic.netlib.blas.nativeLib=NONEXISTENT -Ddev.ludovic.netlib.lapack.nativeLib=NONEXISTENT'
           - name: native
-            install: 'sudo apt-get update && sudo apt-get install -y --no-install-recommends libopenblas0 liblapack3'
+            # libopenblas0-serial is self-contained: it provides BOTH the
+            # `libblas.so.3` and `liblapack.so.3` SONAMEs from the same
+            # OpenBLAS build (registered via update-alternatives). Picking
+            # the serial variant -- not -pthread -- avoids JNI/pthread
+            # interactions inside the forked surefire JVM that previously
+            # segfaulted when the BLAS came from libopenblas0-pthread and
+            # the LAPACK from a separate liblapack3 package (mixed-vendor
+            # ABI mismatch in workspace handling).
+            install: 'sudo apt-get update && sudo apt-get install -y --no-install-recommends libopenblas0-serial'
             argline: ''
 
     steps:

@@ -4,11 +4,11 @@ import java.util.Arrays;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.LinAlg;
+import org.scipy.optimize.minimize.matrix.MatrixOps;
 import org.scipy.optimize.minimize.NumDiff;
 import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
 import org.scipy.optimize.minimize.records.AdjustedDifferencingScheme;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 
 class TestAdjustSchemeToBounds {
@@ -30,22 +30,22 @@ class TestAdjustSchemeToBounds {
 
 		// 1. one-sided, 1 step
 		AdjustedDifferencingScheme ads = NumDiff.adjustSchemeToBounds(x0, h, 1, FiniteDifferenceMethod.ONE_SIDED, infLower, infUpper);
-		RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(h), LinAlg.col(ads.hAdjusted()), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(h.toColumnArray(), ads.hAdjusted().toColumnArray(), tolerance);
 		Assertions.assertArrayEquals(allTrue, ads.useOneSided());
 
 		// 2. one-sided, 2 steps
 		ads = NumDiff.adjustSchemeToBounds(x0, h, 2, FiniteDifferenceMethod.ONE_SIDED, infLower, infUpper);
-		RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(h), LinAlg.col(ads.hAdjusted()), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(h.toColumnArray(), ads.hAdjusted().toColumnArray(), tolerance);
 		Assertions.assertArrayEquals(allTrue, ads.useOneSided());
 
 		// 3. two-sided, 1 step
 		ads = NumDiff.adjustSchemeToBounds(x0, h, 1, FiniteDifferenceMethod.TWO_SIDED, infLower, infUpper);
-		RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(h), LinAlg.col(ads.hAdjusted()), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(h.toColumnArray(), ads.hAdjusted().toColumnArray(), tolerance);
 		Assertions.assertArrayEquals(allFalse, ads.useOneSided());
 
 		// 4. two-sided, 2 steps
 		ads = NumDiff.adjustSchemeToBounds(x0, h, 2, FiniteDifferenceMethod.TWO_SIDED, infLower, infUpper);
-		RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(h), LinAlg.col(ads.hAdjusted()), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(h.toColumnArray(), ads.hAdjusted().toColumnArray(), tolerance);
 		Assertions.assertArrayEquals(allFalse, ads.useOneSided());
 	}
 
@@ -62,17 +62,17 @@ class TestAdjustSchemeToBounds {
 		boolean[] allFalse = new boolean[n];
 
 		AdjustedDifferencingScheme ads = NumDiff.adjustSchemeToBounds(x0, h, 1, FiniteDifferenceMethod.ONE_SIDED, lb, ub);
-		RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(h), LinAlg.col(ads.hAdjusted()), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(h.toColumnArray(), ads.hAdjusted().toColumnArray(), tolerance);
 
 		ads = NumDiff.adjustSchemeToBounds(x0, h, 2, FiniteDifferenceMethod.ONE_SIDED, lb, ub);
-		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.1, -0.1, 0.1}, LinAlg.col(ads.hAdjusted()), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.1, -0.1, 0.1}, ads.hAdjusted().toColumnArray(), tolerance);
 
 		ads = NumDiff.adjustSchemeToBounds(x0, h, 1, FiniteDifferenceMethod.TWO_SIDED, lb, ub);
-		RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(h), LinAlg.col(ads.hAdjusted()), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(h.toColumnArray(), ads.hAdjusted().toColumnArray(), tolerance);
 		Assertions.assertArrayEquals(allFalse, ads.useOneSided());
 
 		ads = NumDiff.adjustSchemeToBounds(x0, h, 2, FiniteDifferenceMethod.TWO_SIDED, lb, ub);
-		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.1, -0.1, 0.1}, LinAlg.col(ads.hAdjusted()), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.1, -0.1, 0.1}, ads.hAdjusted().toColumnArray(), tolerance);
 		Assertions.assertArrayEquals(new boolean[] {false, true, true}, ads.useOneSided());
 	}
 
@@ -87,19 +87,19 @@ class TestAdjustSchemeToBounds {
 
 		// Make sure that one single-sided step fits between x0 and bounds.
 		AdjustedDifferencingScheme ads = NumDiff.adjustSchemeToBounds(x0, h, 1, FiniteDifferenceMethod.ONE_SIDED, lb, ub);
-		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.05, -0.06}, LinAlg.col(ads.hAdjusted()), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.05, -0.06}, ads.hAdjusted().toColumnArray(), tolerance);
 
 		// Make sure that two single-sided steps fit between x0 and bounds.
 		// --> steps have to be half the size than in above test case
 		ads = NumDiff.adjustSchemeToBounds(x0, h, 2, FiniteDifferenceMethod.ONE_SIDED, lb, ub);
-		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.025, -0.03}, LinAlg.col(ads.hAdjusted()), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.025, -0.03}, ads.hAdjusted().toColumnArray(), tolerance);
 
 		ads = NumDiff.adjustSchemeToBounds(x0, h, 1, FiniteDifferenceMethod.TWO_SIDED, lb, ub);
-		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.03, -0.03}, LinAlg.col(ads.hAdjusted()), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.03, -0.03}, ads.hAdjusted().toColumnArray(), tolerance);
 		Assertions.assertArrayEquals(new boolean[] {false, true}, ads.useOneSided());
 
 		ads = NumDiff.adjustSchemeToBounds(x0, h, 2, FiniteDifferenceMethod.TWO_SIDED, lb, ub);
-		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.015, -0.015}, LinAlg.col(ads.hAdjusted()), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.015, -0.015}, ads.hAdjusted().toColumnArray(), tolerance);
 		Assertions.assertArrayEquals(new boolean[] {false, true}, ads.useOneSided());
 	}
 }

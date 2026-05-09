@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.scipy.optimize.minimize.MinimizeTrustConstr;
 import org.scipy.optimize.minimize.NonlinearConstraint;
 import org.scipy.optimize.minimize.records.OptimizeResult;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 import de.labathome.optimization.RelAbsAssertions;
 

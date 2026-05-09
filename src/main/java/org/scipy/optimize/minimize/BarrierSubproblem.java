@@ -14,10 +14,10 @@ import org.scipy.optimize.minimize.records.GradientAndJacobian;
 import org.scipy.optimize.minimize.records.State;
 import org.scipy.optimize.minimize.sparse.CSRMatrix;
 import org.scipy.optimize.minimize.sparse.SparseAssembly;
-import org.scipy.optimize.minimize.sparse.UjmpBridge;
-import org.ujmp.core.Matrix;
-import org.ujmp.core.SparseMatrix;
-import org.ujmp.core.calculation.Calculation.Ret;
+
+import org.scipy.optimize.minimize.matrix.Matrix;
+import org.scipy.optimize.minimize.matrix.SparseMatrix;
+import org.scipy.optimize.minimize.matrix.Ret;
 
 /**
  * Barrier optimization problem:
@@ -381,10 +381,10 @@ public class BarrierSubproblem {
 		if (nIneq == 0) {
 			return jEq;
 		}
-		CSRMatrix jEqCsr = UjmpBridge.toCSR(jEq);
-		CSRMatrix jIneqCsr = UjmpBridge.toCSR(jIneq);
-		double[] sArr = UjmpBridge.colToArray(s);
+		CSRMatrix jEqCsr = CSRMatrix.fromMatrix(jEq);
+		CSRMatrix jIneqCsr = CSRMatrix.fromMatrix(jIneq);
+		double[] sArr = s.toColumnArray();
 		CSRMatrix combined = SparseAssembly.assembleJacobianWithSlacks(jEqCsr, jIneqCsr, sArr);
-		return UjmpBridge.toUjmp(combined);
+		return Matrix.Factory.linkToArray(combined.toDense());
 	}
 }

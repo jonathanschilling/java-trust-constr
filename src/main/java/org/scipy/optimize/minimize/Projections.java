@@ -7,12 +7,12 @@ import org.scipy.optimize.minimize.interfaces.LinearOperator;
 import org.scipy.optimize.minimize.sparse.CSRMatrix;
 import org.scipy.optimize.minimize.sparse.DenseSolve;
 import org.scipy.optimize.minimize.sparse.SparseAssembly;
-import org.scipy.optimize.minimize.sparse.UjmpBridge;
-import org.ujmp.core.Matrix;
-import org.ujmp.core.calculation.Calculation.Ret;
-import org.ujmp.core.doublematrix.calculation.general.decomposition.Chol.CholMatrix;
-import org.ujmp.core.doublematrix.calculation.general.decomposition.QR.QRMatrix;
-import org.ujmp.core.doublematrix.calculation.general.decomposition.SVD.SVDMatrix;
+
+import org.scipy.optimize.minimize.matrix.Matrix;
+import org.scipy.optimize.minimize.matrix.Ret;
+import org.scipy.optimize.minimize.matrix.CholMatrix;
+import org.scipy.optimize.minimize.matrix.QRMatrix;
+import org.scipy.optimize.minimize.matrix.SVDMatrix;
 
 public class Projections {
 
@@ -255,7 +255,7 @@ public class Projections {
 		// Form augmented KKT system in CSR via the new sparse-aware block constructor:
 		// [ I  A^T ]
 		// [ A   0  ]
-		CSRMatrix aCsr = UjmpBridge.toCSR(A);
+		CSRMatrix aCsr = CSRMatrix.fromMatrix(A);
 		CSRMatrix aTCsr = aCsr.transpose().toCSR();
 		final CSRMatrix kkt = SparseAssembly.blockArray(new CSRMatrix[][] {
 				{ CSRMatrix.eye(n), aTCsr },
@@ -287,7 +287,7 @@ public class Projections {
 		LinearOperator nullSpace = new LinearOperator() {
 			@Override
 			public Matrix apply(Matrix xMat) {
-				double[] x = UjmpBridge.colToArray(xMat);
+				double[] x = xMat.toColumnArray();
 				// v = [x; 0]
 				double[] v = new double[n + m];
 				System.arraycopy(x, 0, v, 0, n);
@@ -299,7 +299,7 @@ public class Projections {
 				// Iterative refinement to improve roundoff errors
 				// (Bjorck "Numerical Methods for Least Squares Problems" 1996, alg. 5.2).
 				int k = 0;
-				while (orthogonality(A, UjmpBridge.arrayToCol(z)) > orthTol) {
+				while (orthogonality(A, Matrix.Factory.linkToArray(z)) > orthTol) {
 					if (k >= maxRefine) {
 						break;
 					}
@@ -316,7 +316,7 @@ public class Projections {
 					z = Arrays.copyOfRange(luSol, 0, n);
 					k++;
 				}
-				return UjmpBridge.arrayToCol(z);
+				return Matrix.Factory.linkToArray(z);
 			}
 		};
 
@@ -329,12 +329,12 @@ public class Projections {
 		LinearOperator leastSquares = new LinearOperator() {
 			@Override
 			public Matrix apply(Matrix xMat) {
-				double[] x = UjmpBridge.colToArray(xMat);
+				double[] x = xMat.toColumnArray();
 				// v = [x; 0]
 				double[] v = new double[n + m];
 				System.arraycopy(x, 0, v, 0, n);
 				double[] luSol = lu.solve(v);
-				return UjmpBridge.arrayToCol(Arrays.copyOfRange(luSol, n, n + m));
+				return Matrix.Factory.linkToArray(Arrays.copyOfRange(luSol, n, n + m));
 			}
 		};
 
@@ -347,12 +347,12 @@ public class Projections {
 		LinearOperator rowSpace = new LinearOperator() {
 			@Override
 			public Matrix apply(Matrix xMat) {
-				double[] x = UjmpBridge.colToArray(xMat);
+				double[] x = xMat.toColumnArray();
 				// v = [0; x]
 				double[] v = new double[n + m];
 				System.arraycopy(x, 0, v, n, m);
 				double[] luSol = lu.solve(v);
-				return UjmpBridge.arrayToCol(Arrays.copyOfRange(luSol, 0, n));
+				return Matrix.Factory.linkToArray(Arrays.copyOfRange(luSol, 0, n));
 			}
 		};
 

@@ -12,9 +12,9 @@ import org.scipy.optimize.minimize.interfaces.LinearOperator;
 import org.scipy.optimize.minimize.records.FiniteDifferenceBounds;
 import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
 import org.scipy.optimize.minimize.records.Sparsity;
-import org.ujmp.core.DenseMatrix;
-import org.ujmp.core.Matrix;
-import org.ujmp.core.SparseMatrix;
+import org.scipy.optimize.minimize.matrix.DenseMatrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
+import org.scipy.optimize.minimize.matrix.SparseMatrix;
 
 /**
  * Vector function and its derivatives.

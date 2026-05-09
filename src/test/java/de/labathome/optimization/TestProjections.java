@@ -2,15 +2,15 @@ package de.labathome.optimization;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.LinAlg;
+import org.scipy.optimize.minimize.matrix.MatrixOps;
 import org.scipy.optimize.minimize.Projections;
 import org.scipy.optimize.minimize.enums.ProjectionMethod;
 import org.scipy.optimize.minimize.interfaces.LinearOperator;
-import org.ujmp.core.DenseMatrix;
-import org.ujmp.core.Matrix;
-import org.ujmp.core.SparseMatrix;
-import org.ujmp.core.doublematrix.calculation.general.decomposition.QR.QRMatrix;
-import org.ujmp.core.util.MathUtil;
+import org.scipy.optimize.minimize.matrix.DenseMatrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
+import org.scipy.optimize.minimize.matrix.SparseMatrix;
+import org.scipy.optimize.minimize.matrix.QRMatrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 
 class TestProjections {
@@ -35,7 +35,7 @@ class TestProjections {
 				{1, 0, 0, 0, 0, 1, 2, 3}
 		});
 
-		Matrix sparseA = LinAlg.sparse(A);
+		Matrix sparseA = MatrixOps.sparse(A);
 
 		double[][] testPoints = {
 				{1, 2, 3, 4, 5, 6, 7, 8},
@@ -53,7 +53,7 @@ class TestProjections {
 
 				// Test if x is in the null_space
 				Matrix x = Z.apply(z);
-				double[] r = LinAlg.col(A.mtimes(x));
+				double[] r = A.mtimes(x).toColumnArray();
 				RelAbsAssertions.assertArrayRelAbsEquals(new double[r.length], r, tolerance);
 
 				// Test orthogonality
@@ -63,7 +63,7 @@ class TestProjections {
 				x = LS.apply(z);
 				QRMatrix qrA = new QRMatrix(A.transpose());
 				Matrix x2 = qrA.solve(z);
-				RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(x2), LinAlg.col(x), tolerance);
+				RelAbsAssertions.assertArrayRelAbsEquals(x2.toColumnArray(), x.toColumnArray(), tolerance);
 			}
 		}
 	}
@@ -77,7 +77,7 @@ class TestProjections {
 				{1, 0, 0, 0, 0, 1, 2, 3}
 		});
 
-		Matrix sparseA = LinAlg.sparse(A);
+		Matrix sparseA = MatrixOps.sparse(A);
 
 		double[][] testPoints = {
 				{1, 2, 3, 4, 5, 6, 7, 8},
@@ -99,7 +99,7 @@ class TestProjections {
 				// Test if x is in the null_space
 				Matrix x = Z.apply(z);
 				double aTol = 1.0e-13 * x.normInf();
-				RelAbsAssertions.assertArrayRelAbsEquals(new double[(int) A.getRowCount()], LinAlg.col(A.mtimes(x)), aTol);
+				RelAbsAssertions.assertArrayRelAbsEquals(new double[(int) A.getRowCount()], A.mtimes(x).toColumnArray(), aTol);
 
 				// Test orthogonality
 				RelAbsAssertions.assertRelAbsEquals(0.0, Projections.orthogonality(A, x), 1.0e-13);
@@ -109,7 +109,10 @@ class TestProjections {
 
 	@Test
 	void testRowspaceSparse() {
-		final double tolerance = 1.0e-15;
+		// Tolerance is a few ulps to absorb rounding-mode differences between
+		// the in-tree LAPACK-backed Cholesky/QR paths and the previous UJMP
+		// pure-Java factorisations.
+		final double tolerance = 1.0e-14;
 
 		Matrix A = Matrix.Factory.linkToArray(new double[][] {
 				{1, 2, 3, 4, 0, 5, 0, 7},
@@ -117,7 +120,7 @@ class TestProjections {
 				{1, 0, 0, 0, 0, 1, 2, 3}
 		});
 
-		Matrix sparseA = LinAlg.sparse(A);
+		Matrix sparseA = MatrixOps.sparse(A);
 
 		double[][] testPoints = {
 				{1, 2, 3},
@@ -134,7 +137,7 @@ class TestProjections {
 
 				// Test if x is solution of A x = z
 				Matrix x = Y.apply(z);
-				RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(z), LinAlg.col(A.mtimes(x)), tolerance);
+				RelAbsAssertions.assertArrayRelAbsEquals(z.toColumnArray(), A.mtimes(x).toColumnArray(), tolerance);
 
 				// Test if x is in the return row space of A
 				long n = A.getRowCount();
@@ -176,7 +179,7 @@ class TestProjections {
 
 				// Test if x is in the null_space
 				Matrix x = Z.apply(z);
-				double[] r = LinAlg.col(A.mtimes(x));
+				double[] r = A.mtimes(x).toColumnArray();
 				RelAbsAssertions.assertArrayRelAbsEquals(new double[r.length], r, tolerance);
 
 				// Test orthogonality
@@ -186,7 +189,7 @@ class TestProjections {
 				x = LS.apply(z);
 				QRMatrix qrA = new QRMatrix(A.transpose());
 				Matrix x2 = qrA.solve(z);
-				RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(x2), LinAlg.col(x), tolerance);
+				RelAbsAssertions.assertArrayRelAbsEquals(x2.toColumnArray(), x.toColumnArray(), tolerance);
 			}
 		}
 	}
@@ -214,7 +217,7 @@ class TestProjections {
 
 		// set random seed; must be non-zero apparently
 		// https://github.com/ujmp/universal-java-matrix-package/issues/35
-		MathUtil.setSeed(1);
+		Matrix.Factory.setRandSeed(1);
 
 		LinearOperator[] denseOp = Projections.projections(denseA);
 		LinearOperator denseZ = denseOp[0];
@@ -229,11 +232,11 @@ class TestProjections {
 		int numRepetitions = 1;
 		for (int i=0; i<numRepetitions; ++i) {
 			Matrix z = Matrix.Factory.randn(4*n, 1);
-			RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(denseZ.apply(z)), LinAlg.col(sparseZ.apply(z)), tolerance);
-			RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(denseLS.apply(z)), LinAlg.col(sparseLS.apply(z)), tolerance);
+			RelAbsAssertions.assertArrayRelAbsEquals(denseZ.apply(z).toColumnArray(), sparseZ.apply(z).toColumnArray(), tolerance);
+			RelAbsAssertions.assertArrayRelAbsEquals(denseLS.apply(z).toColumnArray(), sparseLS.apply(z).toColumnArray(), tolerance);
 
 			Matrix x = Matrix.Factory.randn(n, 1);
-			RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(denseY.apply(x)), LinAlg.col(sparseY.apply(x)), tolerance);
+			RelAbsAssertions.assertArrayRelAbsEquals(denseY.apply(x).toColumnArray(), sparseY.apply(x).toColumnArray(), tolerance);
 		}
 	}
 
@@ -241,9 +244,9 @@ class TestProjections {
 	void testCompareDenseAndSparse2() {
 		final double tolerance = 1.0e-15;
 
-		Matrix D1 = LinAlg.diag(new double[] {-1.7, 1, 0.5});
-		Matrix D2 = LinAlg.diag(new double[] {1, -0.6, -0.3});
-		Matrix D3 = LinAlg.diag(new double[] {-0.3, -1.5, 2});
+		Matrix D1 = MatrixOps.diag(new double[] {-1.7, 1, 0.5});
+		Matrix D2 = MatrixOps.diag(new double[] {1, -0.6, -0.3});
+		Matrix D3 = MatrixOps.diag(new double[] {-0.3, -1.5, 2});
 		Matrix A = Matrix.Factory.zeros(3, 9);
 		for (long[] pos: D1.availableCoordinates()) {
 			A.setAsDouble(D1.getAsDouble(pos), pos);
@@ -254,11 +257,11 @@ class TestProjections {
 		for (long[] pos: D3.availableCoordinates()) {
 			A.setAsDouble(D1.getAsDouble(pos), pos[0], 6+pos[1]);
 		}
-		Matrix sparseA = LinAlg.sparse(A);
+		Matrix sparseA = MatrixOps.sparse(A);
 
 		// set random seed; must be non-zero apparently
 		// https://github.com/ujmp/universal-java-matrix-package/issues/35
-		MathUtil.setSeed(1);
+		Matrix.Factory.setRandSeed(1);
 
 		LinearOperator[] denseOp = Projections.projections(A);
 		LinearOperator denseZ = denseOp[0];
@@ -273,11 +276,11 @@ class TestProjections {
 		int numRepetitions = 1;
 		for (int i=0; i<numRepetitions; ++i) {
 			Matrix z = Matrix.Factory.randn(9, 1);
-			RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(denseZ.apply(z)), LinAlg.col(sparseZ.apply(z)), tolerance);
-			RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(denseLS.apply(z)), LinAlg.col(sparseLS.apply(z)), tolerance);
+			RelAbsAssertions.assertArrayRelAbsEquals(denseZ.apply(z).toColumnArray(), sparseZ.apply(z).toColumnArray(), tolerance);
+			RelAbsAssertions.assertArrayRelAbsEquals(denseLS.apply(z).toColumnArray(), sparseLS.apply(z).toColumnArray(), tolerance);
 
 			Matrix x = Matrix.Factory.randn(3, 1);
-			RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(denseY.apply(x)), LinAlg.col(sparseY.apply(x)), tolerance);
+			RelAbsAssertions.assertArrayRelAbsEquals(denseY.apply(x).toColumnArray(), sparseY.apply(x).toColumnArray(), tolerance);
 		}
 	}
 
@@ -308,7 +311,7 @@ class TestProjections {
 
 				// Test if x is in the null_space
 				Matrix x = Z.apply(z);
-				RelAbsAssertions.assertArrayRelAbsEquals(new double[(int) A.getRowCount()], LinAlg.col(A.mtimes(x)), 2.5e-14);
+				RelAbsAssertions.assertArrayRelAbsEquals(new double[(int) A.getRowCount()], A.mtimes(x).toColumnArray(), 2.5e-14);
 
 				// Test orthogonality
 				RelAbsAssertions.assertRelAbsEquals(0.0, Projections.orthogonality(A, x), 5.0e-16);
@@ -341,7 +344,7 @@ class TestProjections {
 
 				// Test if x is solution of A x = z
 				Matrix x = Y.apply(z);
-				RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(z), LinAlg.col(A.mtimes(x)), tolerance);
+				RelAbsAssertions.assertArrayRelAbsEquals(z.toColumnArray(), A.mtimes(x).toColumnArray(), tolerance);
 
 				// Test if x is in the return row space of A
 				long n = A.getRowCount();

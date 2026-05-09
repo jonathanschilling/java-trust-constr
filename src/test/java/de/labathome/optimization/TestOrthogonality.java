@@ -1,9 +1,9 @@
 package de.labathome.optimization;
 
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.LinAlg;
+import org.scipy.optimize.minimize.matrix.MatrixOps;
 import org.scipy.optimize.minimize.Projections;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 
 class TestOrthogonality {
@@ -48,7 +48,7 @@ class TestOrthogonality {
 		});
 
 		// convert A to sparse matrix
-		Matrix sparseA = LinAlg.sparse(A);
+		Matrix sparseA = MatrixOps.sparse(A);
 
 		double[][] testVectors = {
 				{ -1.98931144, -1.56363389,

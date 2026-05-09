@@ -110,6 +110,24 @@ public final class CSRMatrix {
 	 * @param dense [m][n] row-major dense values
 	 * @return CSR matrix
 	 */
+	/**
+	 * Build from any {@link org.scipy.optimize.minimize.matrix.Matrix}. Routes
+	 * sparse {@link org.scipy.optimize.minimize.matrix.SparseMatrix} sources
+	 * directly to {@link org.scipy.optimize.minimize.matrix.SparseMatrix#toCSR}
+	 * (no dense materialisation); dense sources go through {@link #fromDense(double[][])}.
+	 */
+	public static CSRMatrix fromMatrix(org.scipy.optimize.minimize.matrix.Matrix m) {
+		int rows = (int) m.getRowCount();
+		int cols = (int) m.getColumnCount();
+		if (rows == 0 || cols == 0) {
+			return SparseAssembly.zeros(rows, cols);
+		}
+		if (m instanceof org.scipy.optimize.minimize.matrix.SparseMatrix) {
+			return ((org.scipy.optimize.minimize.matrix.SparseMatrix) m).toCSR();
+		}
+		return fromDense(m.toDoubleArray());
+	}
+
 	public static CSRMatrix fromDense(double[][] dense) {
 		int m = dense.length;
 		int n = m == 0 ? 0 : dense[0].length;

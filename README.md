@@ -34,7 +34,7 @@ Pick the convenience overload that matches what you have:
 import org.scipy.optimize.minimize.MinimizeTrustConstr;
 import org.scipy.optimize.minimize.LinearConstraint;
 import org.scipy.optimize.minimize.records.OptimizeResult;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 // minimize x^2 + y^2  subject to  x + y == 2  ->  optimum at (1, 1)
 java.util.function.Function<Matrix, Double> fun = x ->

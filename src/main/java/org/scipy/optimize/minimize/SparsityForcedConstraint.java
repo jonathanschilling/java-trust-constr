@@ -2,8 +2,8 @@ package org.scipy.optimize.minimize;
 
 import org.scipy.optimize.minimize.interfaces.Constraint;
 import org.scipy.optimize.minimize.interfaces.Jacobian;
-import org.ujmp.core.Matrix;
-import org.ujmp.core.SparseMatrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
+import org.scipy.optimize.minimize.matrix.SparseMatrix;
 
 /**
  * Decorator that wraps a {@link Constraint} + {@link Jacobian} source and

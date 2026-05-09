@@ -8,8 +8,8 @@ import org.scipy.optimize.minimize.LinearConstraint;
 import org.scipy.optimize.minimize.MinimizeTrustConstr;
 import org.scipy.optimize.minimize.records.OptimizeResult;
 import org.scipy.optimize.minimize.sparse.CSRMatrix;
-import org.ujmp.core.Matrix;
-import org.ujmp.core.SparseMatrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
+import org.scipy.optimize.minimize.matrix.SparseMatrix;
 
 /**
  * Tests that {@link LinearConstraint} preserves sparsity end-to-end when the

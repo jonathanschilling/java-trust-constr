@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.scipy.optimize.minimize.CombinedConstraint;
 import org.scipy.optimize.minimize.LinearConstraint;
 import org.scipy.optimize.minimize.NonlinearConstraint;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 
 /**
@@ -161,13 +161,13 @@ class TestCombinedConstraint {
 		// Two linear constraints, both with sparse A. The combined jacEq
 		// should auto-detect sparsity and allocate a sparse output rather
 		// than a dense one.
-		org.ujmp.core.SparseMatrix A1 = org.ujmp.core.SparseMatrix.Factory.zeros(1, 4);
+		org.scipy.optimize.minimize.matrix.SparseMatrix A1 = org.scipy.optimize.minimize.matrix.SparseMatrix.Factory.zeros(1, 4);
 		A1.setAsDouble(1.0, 0, 0);
 		A1.setAsDouble(2.0, 0, 3);
 		LinearConstraint c1 = new LinearConstraint(A1,
 				new double[] {0.0}, new double[] {0.0});
 
-		org.ujmp.core.SparseMatrix A2 = org.ujmp.core.SparseMatrix.Factory.zeros(1, 4);
+		org.scipy.optimize.minimize.matrix.SparseMatrix A2 = org.scipy.optimize.minimize.matrix.SparseMatrix.Factory.zeros(1, 4);
 		A2.setAsDouble(3.0, 0, 1);
 		LinearConstraint c2 = new LinearConstraint(A2,
 				new double[] {0.0}, new double[] {0.0});
@@ -189,7 +189,7 @@ class TestCombinedConstraint {
 		// dense (the dense source's part can't be embedded into a sparse
 		// allocator without extra copying — auto-detect picks the lower
 		// common denominator).
-		org.ujmp.core.SparseMatrix A1 = org.ujmp.core.SparseMatrix.Factory.zeros(1, 4);
+		org.scipy.optimize.minimize.matrix.SparseMatrix A1 = org.scipy.optimize.minimize.matrix.SparseMatrix.Factory.zeros(1, 4);
 		A1.setAsDouble(1.0, 0, 0);
 		LinearConstraint c1 = new LinearConstraint(A1,
 				new double[] {0.0}, new double[] {0.0});

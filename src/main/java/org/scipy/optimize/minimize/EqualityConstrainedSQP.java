@@ -13,8 +13,8 @@ import org.scipy.optimize.minimize.records.GradientAndJacobian;
 import org.scipy.optimize.minimize.records.IntersectionResult;
 import org.scipy.optimize.minimize.records.State;
 import org.scipy.optimize.minimize.records.StatefulResult;
-import org.ujmp.core.Matrix;
-import org.ujmp.core.calculation.Calculation.Ret;
+import org.scipy.optimize.minimize.matrix.Matrix;
+import org.scipy.optimize.minimize.matrix.Ret;
 
 /** Byrd-Omojokun Trust-Region SQP method */
 public class EqualityConstrainedSQP {
@@ -161,8 +161,8 @@ public class EqualityConstrainedSQP {
 			// BOX_FACTOR * lb <= dn <= BOX_FACTOR * ub.
 			Matrix dn = QPSubproblem.modifiedDogleg(A, Y, b,
 					TR_FACTOR*trustRadius,
-					LinAlg.col(trustLb.times(BOX_FACTOR)),
-					LinAlg.col(trustUb.times(BOX_FACTOR)));
+					trustLb.times(BOX_FACTOR).toColumnArray(),
+					trustUb.times(BOX_FACTOR).toColumnArray());
 
 			// Tangential Step - `dt`
 			// Solve the QP problem:
@@ -178,7 +178,7 @@ public class EqualityConstrainedSQP {
 			Matrix lbT = trustLb.minus(dn);
 			Matrix ubT = trustUb.minus(dn);
 			CGInfo dtResult = QPSubproblem.projectedCG(H, c_t, Z, Y, b_t,
-					trustRadiusT, LinAlg.col(lbT), LinAlg.col(ubT), Double.NaN); // default tolerance
+					trustRadiusT, lbT.toColumnArray(), ubT.toColumnArray(), Double.NaN); // default tolerance
 			Matrix dt = dtResult.x;
 
 			// Compute update (normal + tangential steps).
@@ -232,7 +232,7 @@ public class EqualityConstrainedSQP {
 
 				// Make sure increment is inside box constraints
 				IntersectionResult r = QPSubproblem.boxIntersections(
-						LinAlg.col(d), LinAlg.col(y), LinAlg.col(trustLb), LinAlg.col(trustUb));
+						d.toColumnArray(), y.toColumnArray(), trustLb.toColumnArray(), trustUb.toColumnArray());
 				double t = r.tB();
 
 				// Compute tentative point

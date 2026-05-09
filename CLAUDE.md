@@ -32,19 +32,25 @@ Tests use JUnit 5 plus `MinervaAssertions` from an internal `minerva.tests.junit
 
 ## Matrix library and the in-tree sparse module
 
-The legacy linear algebra goes through **UJMP** (`org.ujmp.core.Matrix`). For BLAS/LAPACK the project uses **`dev.ludovic.netlib`** (luhenry/netlib, 3.2.0). The previous `com.github.fommil.netlib` dependency has been retired.
+All linear algebra is now in-tree: the project depends only on **`dev.ludovic.netlib`** (luhenry/netlib, 3.2.0) for BLAS/LAPACK kernels. UJMP, JavaOneLineUtils, and the previous `LinAlg`/`UjmpBridge` adapter classes have all been retired.
 
-UJMP is being incrementally retired in favour of an in-tree sparse module at **`org.scipy.optimize.minimize.sparse`** (a faithful Java port of the slice of `scipy.sparse` that trust-constr actually uses). The previously-mentioned ojAlgo migration is **no longer planned** — the sparse module is the path forward. Key pieces:
+The matrix abstraction lives at **`org.scipy.optimize.minimize.matrix`**:
+
+- `Matrix` — abstract base with the operations the trust-constr port actually uses (`getAsDouble`/`setAsDouble`, arithmetic, `subMatrix`/`selectColumns`, the boolean-matrix algebra `lt`/`gt`/`le`/`ge`/`eq`/`and`/`or`/`not`, plus `solve(rhs)` via LAPACK `dgesv`). The `Ret` enum (`LINK`/`NEW`/`ORIG`) is preserved for API compatibility — `Ret.ORIG` is honoured for in-place ops where it matters (e.g. `abs(Ret.ORIG)`); the others always return a fresh result.
+- `DMatrix` — concrete dense, backed by `double[][]` row-major. Hot kernel `mtimes(DMatrix)` calls BLAS `dgemm`.
+- `SparseMatrix` — concrete sparse, backed by a Dictionary-of-Keys (`HashMap<Long, Double>`). Cheap `setAsDouble` build phase; `toCSR()` materialises to the CSR fast path for compute.
+- `QRMatrix`, `SVDMatrix`, `CholMatrix` — LAPACK-backed factorisations (`dgeqrf`+`dorgqr`, `dgesvd`, `dpotrf`+`dpotrs`) used by `Projections.projections`.
+- `MatrixOps` — small static helpers (`norm2(double[])`, `dot(double[], double[])`, `diag`, `sparse(Matrix)`).
+
+The scipy-`sparse`-style fast path is at **`org.scipy.optimize.minimize.sparse`**:
 
 - `CSRMatrix`, `CSCMatrix` — primitive-array (`int[] indptr/indices`, `double[] data`) sparse storage matching scipy's `csr_array`/`csc_array`.
 - `SparseAssembly` — `vstack`, `hstack`, `blockArray` (the `[[A,B],[C,D]]` shape from `projections.py:99`), and `assembleJacobianWithSlacks` (the optimised KKT-Jacobian build from `tr_interior_point.py:_assemble_sparse_jacobian`).
 - `DenseSolve` — LAPACK `dgetrf`/`dgetrs` wrapper for the KKT solve. Currently materialises the assembled CSR/CSC matrix to dense before factoring; replacing this with a true sparse LU is a single-call-site swap.
 - `SparseLinearOperator` — adapts a CSR/CSC matvec to the existing `interfaces.LinearOperator`.
-- `UjmpBridge` — UJMP↔CSR/CSC conversions used at the boundary of classes still typed in `Matrix`.
+- `CSRMatrix.fromMatrix(Matrix)` is the bridge into the CSR fast path; routes through `SparseMatrix.toCSR()` when the source is already sparse, otherwise materialises via `toDoubleArray()` then `fromDense`.
 
-`LinAlg.java` is still temporary, but its retirement is tied to UJMP retirement, not an ojAlgo migration. Three trust-constr KKT paths have already been moved off UJMP onto the new module: `Projections.augmentedSystemProjections`, `QPSubproblem.eqpKktFact`, `BarrierSubproblem.computeJacobian`. These are the templates for the rest of the migration.
-
-`LinearConstraint.jacEq`/`jacIneq` preserve sparsity end-to-end: when the user provides a sparse UJMP `Matrix` for `A` (e.g. via `SparseMatrix.Factory.zeros(...)`), the row-selected output is built as a UJMP sparse matrix rather than densifying through `Matrix.Factory.zeros`. `Projections.projections` detects `A.isSparse()` and routes through the AUGMENTED_SYSTEM factorization. `jacEqCSR()` / `jacIneqCSR()` build CSR directly from the sparse non-zeros (no dense intermediate). Asserted in `TestSparseLinearConstraint` (4 cases: jacEq sparsity preservation, jacIneq sign-flip + sparsity, direct CSR build, end-to-end hyperplane Rosenbrock with sparse A). `CombinedConstraint.jacEq`/`jacIneq` likewise auto-detect: if every contributing source produces a sparse part, the combined output is allocated as a `SparseMatrix`; if any source is dense, the combined output is dense. Asserted in `TestCombinedConstraint` (`jacEqStaysSparseWhenAllSourcesAreSparse`, `jacEqIsDenseWhenAnySourceIsDense`).
+`LinearConstraint.jacEq`/`jacIneq` preserve sparsity end-to-end: when the user provides a sparse `A` (via `SparseMatrix.Factory.zeros(...)`), the row-selected output is built as a `SparseMatrix` rather than densifying through `Matrix.Factory.zeros`. `Projections.projections` detects `A.isSparse()` and routes through the AUGMENTED_SYSTEM factorization. `jacEqCSR()` / `jacIneqCSR()` build CSR directly from the sparse non-zeros (no dense intermediate). Asserted in `TestSparseLinearConstraint` (4 cases). `CombinedConstraint.jacEq`/`jacIneq` likewise auto-detect: if every contributing source produces a sparse part, the combined output is allocated as a `SparseMatrix`; if any source is dense, the combined output is dense. Asserted in `TestCombinedConstraint`.
 
 ## Porting conventions
 

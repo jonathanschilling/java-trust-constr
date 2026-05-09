@@ -10,7 +10,7 @@ import org.scipy.optimize.minimize.NonlinearConstraint;
 import org.scipy.optimize.minimize.enums.TrustConstrMethod;
 import org.scipy.optimize.minimize.records.Bounds;
 import org.scipy.optimize.minimize.records.OptimizeResult;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 /**
  * End-to-end tests for the inequality-constrained dispatch in

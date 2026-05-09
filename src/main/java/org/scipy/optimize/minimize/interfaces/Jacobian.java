@@ -1,6 +1,6 @@
 package org.scipy.optimize.minimize.interfaces;
 
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 public interface Jacobian {
 	public Matrix jacEq(Matrix x);

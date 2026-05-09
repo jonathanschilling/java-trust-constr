@@ -8,7 +8,7 @@ import org.scipy.optimize.minimize.LinearConstraint;
 import org.scipy.optimize.minimize.MinimizeTrustConstr;
 import org.scipy.optimize.minimize.NonlinearConstraint;
 import org.scipy.optimize.minimize.records.OptimizeResult;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 /**
  * Tests for the multi-constraint overload of

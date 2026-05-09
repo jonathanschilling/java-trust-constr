@@ -1,7 +1,7 @@
 package org.scipy.optimize.minimize.records;
 
 import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 public final class FiniteDifferenceOptions {
 

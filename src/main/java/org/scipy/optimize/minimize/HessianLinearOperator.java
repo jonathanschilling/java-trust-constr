@@ -3,7 +3,7 @@ package org.scipy.optimize.minimize;
 import java.util.function.BiFunction;
 
 import org.scipy.optimize.minimize.interfaces.HessianProduct;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 /**
  * Adapter that exposes a matrix-free {@link HessianProduct} as a

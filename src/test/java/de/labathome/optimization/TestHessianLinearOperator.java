@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.scipy.optimize.minimize.HessianLinearOperator;
 import org.scipy.optimize.minimize.interfaces.HessianProduct;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 
 class TestHessianLinearOperator {

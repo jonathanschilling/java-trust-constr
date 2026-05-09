@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.scipy.optimize.minimize.NumDiff;
 import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
 import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 
 class TestApproxDerivativesDense {

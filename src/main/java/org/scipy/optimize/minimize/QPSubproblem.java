@@ -10,8 +10,9 @@ import org.scipy.optimize.minimize.records.IntersectionResult;
 import org.scipy.optimize.minimize.sparse.CSRMatrix;
 import org.scipy.optimize.minimize.sparse.DenseSolve;
 import org.scipy.optimize.minimize.sparse.SparseAssembly;
-import org.scipy.optimize.minimize.sparse.UjmpBridge;
-import org.ujmp.core.Matrix;
+
+import org.scipy.optimize.minimize.matrix.Matrix;
+import org.scipy.optimize.minimize.matrix.MatrixOps;
 
 public class QPSubproblem {
 
@@ -48,8 +49,8 @@ public class QPSubproblem {
 		// 1. build explicit KKT matrix in CSR form using sparse-aware block assembly:
 		// [ G A^T ]
 		// [ A  0  ]
-		CSRMatrix hCsr = UjmpBridge.toCSR(H);
-		CSRMatrix aCsr = UjmpBridge.toCSR(A);
+		CSRMatrix hCsr = CSRMatrix.fromMatrix(H);
+		CSRMatrix aCsr = CSRMatrix.fromMatrix(A);
 		CSRMatrix aTCsr = aCsr.transpose().toCSR();
 		CSRMatrix kkt = SparseAssembly.blockArray(new CSRMatrix[][] {
 				{ hCsr, aTCsr },
@@ -120,7 +121,7 @@ public class QPSubproblem {
 	public static IntersectionResult sphereIntersections(double[] z, double[] d, double trustRadius, boolean entireLine) {
 
 		// special case when d == 0
-		if (LinAlg.norm2(d) == 0.0) {
+		if (MatrixOps.norm2(d) == 0.0) {
 			return new IntersectionResult(0.0, 0.0, false);
 		}
 
@@ -137,9 +138,9 @@ public class QPSubproblem {
 			return new IntersectionResult(tA, tB, true);
 		}
 
-		double a = LinAlg.dot(d, d);
-		double b = 2.0 * LinAlg.dot(z, d);
-		double c = LinAlg.dot(z, z) - trustRadius * trustRadius;
+		double a = MatrixOps.dot(d, d);
+		double b = 2.0 * MatrixOps.dot(z, d);
+		double c = MatrixOps.dot(z, z) - trustRadius * trustRadius;
 		double discriminant = b * b - 4 * a * c;
 		if (discriminant < 0.0) {
 			// line does not hit the ball (?)
@@ -226,7 +227,7 @@ public class QPSubproblem {
 	public static IntersectionResult boxIntersections(double[] zIn, double[] dIn, double[] lbIn, double[] ubIn, boolean entireLine) {
 
 		// special case when d == 0
-		if (LinAlg.norm2(dIn) == 0.0) {
+		if (MatrixOps.norm2(dIn) == 0.0) {
 			return new IntersectionResult(0.0, 0.0, false);
 		}
 
@@ -419,7 +420,7 @@ public class QPSubproblem {
 			throw new RuntimeException("Y must be of type Matrix or LinearOperator");
 		}
 
-		if (insideBoxBoundaries(newtonPoint.transpose().toDoubleArray()[0], lb, ub)
+		if (insideBoxBoundaries(newtonPoint.toColumnArray(), lb, ub)
 				&& newtonPoint.norm2() <= trustRadius) {
 			return newtonPoint;
 		}
@@ -439,14 +440,14 @@ public class QPSubproblem {
 		// Check the segment between cauchy_point and newton_point for a possible solution.
 		Matrix z = cauchyPoint;
 		Matrix p = newtonPoint.minus(cauchyPoint);
-		IntersectionResult r1 = boxSphereIntersections(LinAlg.col(z), LinAlg.col(p), lb, ub, trustRadius);
+		IntersectionResult r1 = boxSphereIntersections(z.toColumnArray(), p.toColumnArray(), lb, ub, trustRadius);
 		double alpha = r1.tB();
 
 		if (!r1.intersect()) {
 			// Check the segment between the origin and cauchy_point for a possible solution.
 			z = origin;
 			p = cauchyPoint;
-			IntersectionResult r2 = boxSphereIntersections(LinAlg.col(z), LinAlg.col(p), lb, ub, trustRadius);
+			IntersectionResult r2 = boxSphereIntersections(z.toColumnArray(), p.toColumnArray(), lb, ub, trustRadius);
 			alpha = r2.tB();
 		}
 		Matrix x1 = z.plus(p.times(alpha));
@@ -454,7 +455,7 @@ public class QPSubproblem {
 		// Check the segment between origin and newton_point for a possible solution.
 		z = origin;
 		p = newtonPoint;
-		IntersectionResult r3 = boxSphereIntersections(LinAlg.col(z), LinAlg.col(p), lb, ub, trustRadius);
+		IntersectionResult r3 = boxSphereIntersections(z.toColumnArray(), p.toColumnArray(), lb, ub, trustRadius);
 		alpha = r3.tB();
 		Matrix x2 = z.plus(p.times(alpha));
 
@@ -726,7 +727,7 @@ public class QPSubproblem {
 					throw new RuntimeException("Negative curvature not allowed for unrestricted problems.");
 				} else {
 					// Find intersection with constraints
-					IntersectionResult ir = boxSphereIntersections(LinAlg.col(result.x), LinAlg.col(p), lb, ub, trustRadius, true);
+					IntersectionResult ir = boxSphereIntersections(result.x.toColumnArray(), p.toColumnArray(), lb, ub, trustRadius, true);
 					double alpha = ir.tB();
 
 					// Update solution
@@ -736,7 +737,7 @@ public class QPSubproblem {
 
 					// Reinforce variables are inside box constraints.
 	                // This is only necessary because of roundoff errors.
-					result.x = UjmpBridge.arrayToCol(reinforceBoxBoundaries(LinAlg.col(result.x), lb, ub));
+					result.x = Matrix.Factory.linkToArray(reinforceBoxBoundaries(result.x.toColumnArray(), lb, ub));
 
 					// Attribute information
 					result.stopCond = PCGStoppingCondition.NEGATIVE_CURVATURE;
@@ -752,7 +753,7 @@ public class QPSubproblem {
 			// Stop criteria - Hits boundary
 			if (xNext.norm2() >= trustRadius) {
 				// Find intersection with box constraints
-				IntersectionResult ir = boxSphereIntersections(LinAlg.col(result.x), LinAlg.col(p.times(alpha)), lb, ub, trustRadius);
+				IntersectionResult ir = boxSphereIntersections(result.x.toColumnArray(), p.times(alpha).toColumnArray(), lb, ub, trustRadius);
 				double theta = ir.tB();
 
 				// Update solution
@@ -762,7 +763,7 @@ public class QPSubproblem {
 
 				// Reinforce variables are inside box constraints.
                 // This is only necessary because of roundoff errors.
-				result.x = UjmpBridge.arrayToCol(reinforceBoxBoundaries(LinAlg.col(result.x), lb, ub));
+				result.x = Matrix.Factory.linkToArray(reinforceBoxBoundaries(result.x.toColumnArray(), lb, ub));
 
 				// Attribute information
 				result.stopCond = PCGStoppingCondition.TRUST_REGION_BOUNDARY_REACHED;
@@ -771,7 +772,7 @@ public class QPSubproblem {
 			}
 
 			// Check if {@code x} is inside the box and start counter if it is not.
-			if (insideBoxBoundaries(LinAlg.col(xNext), lb, ub)) {
+			if (insideBoxBoundaries(xNext.toColumnArray(), lb, ub)) {
 				counter = 0;
 			} else {
 				counter++;
@@ -779,7 +780,7 @@ public class QPSubproblem {
 
 			// Whenever outside box constraints keep looking for intersections.
 			if (counter > 0) {
-				IntersectionResult ir = boxSphereIntersections(LinAlg.col(result.x), LinAlg.col(p.times(alpha)), lb, ub, trustRadius);
+				IntersectionResult ir = boxSphereIntersections(result.x.toColumnArray(), p.times(alpha).toColumnArray(), lb, ub, trustRadius);
 				double theta = ir.tB();
 
 				if (ir.intersect()) {
@@ -787,7 +788,7 @@ public class QPSubproblem {
 
 					// Reinforce variables are inside box constraints.
 	                // This is only necessary because of roundoff errors.
-					lastFeasibleX = UjmpBridge.arrayToCol(reinforceBoxBoundaries(LinAlg.col(lastFeasibleX), lb, ub));
+					lastFeasibleX = Matrix.Factory.linkToArray(reinforceBoxBoundaries(lastFeasibleX.toColumnArray(), lb, ub));
 
 					counter = 0;
 				}
@@ -833,7 +834,7 @@ public class QPSubproblem {
 			H_p = H.apply(p);
 		}
 
-		if (!insideBoxBoundaries(LinAlg.col(result.x), lb, ub)) {
+		if (!insideBoxBoundaries(result.x.toColumnArray(), lb, ub)) {
 			result.x = lastFeasibleX;
 			result.hitsBoundary = true;
 		}

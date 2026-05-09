@@ -2,9 +2,9 @@ package de.labathome.optimization;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.LinAlg;
+import org.scipy.optimize.minimize.matrix.MatrixOps;
 import org.scipy.optimize.minimize.NonlinearConstraint;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 
 class TestNonlinearConstraint {
@@ -32,7 +32,7 @@ class TestNonlinearConstraint {
 
 		Matrix x = Matrix.Factory.linkToArray(new double[] {0.6, 0.8});
 		// f(x) = 0.36 + 0.64 = 1; constrEq = 1 - 1 = 0
-		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.0}, LinAlg.col(c.constrEq(x)), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.0}, c.constrEq(x).toColumnArray(), TOL);
 		// jacEq = [2*0.6, 2*0.8] = [1.2, 1.6]
 		RelAbsAssertions.assertArrayRelAbsEquals(new double[][] { {1.2, 1.6} }, c.jacEq(x).toDoubleArray(), TOL);
 	}
@@ -50,7 +50,7 @@ class TestNonlinearConstraint {
 
 		Matrix x = Matrix.Factory.linkToArray(new double[] {7.0});
 		// constrIneq = +1*(7 - 5) = 2  (positive => violated)
-		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {2.0}, LinAlg.col(c.constrIneq(x)), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {2.0}, c.constrIneq(x).toColumnArray(), TOL);
 	}
 
 	@Test
@@ -85,7 +85,7 @@ class TestNonlinearConstraint {
 
 		// constrEq = (fx[1] - lb[1],) = (4 - 3,) = (1,)
 		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {1.0},
-				LinAlg.col(c.constrEq(x0)), TOL);
+				c.constrEq(x0).toColumnArray(), TOL);
 
 		// constrIneq order (scipy 4-block: less, greater, interval-upper, interval-lower):
 		//   row 3 upper (less):     +1 * (4 - 3) = 1
@@ -93,7 +93,7 @@ class TestNonlinearConstraint {
 		//   row 0 upper (interval): +1 * (4 - 10) = -6
 		//   row 0 lower (interval): -1 * (4 - (-10)) = -14
 		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {1.0, -9.0, -6.0, -14.0},
-				LinAlg.col(c.constrIneq(x0)), TOL);
+				c.constrIneq(x0).toColumnArray(), TOL);
 	}
 
 	@Test
@@ -111,7 +111,7 @@ class TestNonlinearConstraint {
 		Matrix x = Matrix.Factory.linkToArray(new double[] {0.5});
 		// constrIneq = [+1*(0.5 - 1), -1*(0.5 - 0)] = [-0.5, -0.5]
 		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {-0.5, -0.5},
-				LinAlg.col(c.constrIneq(x)), TOL);
+				c.constrIneq(x).toColumnArray(), TOL);
 	}
 
 	@Test

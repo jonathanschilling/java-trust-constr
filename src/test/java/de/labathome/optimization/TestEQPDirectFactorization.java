@@ -2,7 +2,7 @@ package de.labathome.optimization;
 
 import org.junit.jupiter.api.Test;
 import org.scipy.optimize.minimize.QPSubproblem;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 
 class TestEQPDirectFactorization {
@@ -38,8 +38,8 @@ class TestEQPDirectFactorization {
 		});
 
 		Matrix[] xLambda = QPSubproblem.eqpKktFact(H, c, A, b);
-		final double[] x = xLambda[0].transpose().toDoubleArray()[0];
-		final double[] lambda = xLambda[1].transpose().toDoubleArray()[0];
+		final double[] x = xLambda[0].toColumnArray();
+		final double[] lambda = xLambda[1].toColumnArray();
 
 		final double[] expectedX = { 2.0, -1.0, 1.0 };
 		final double[] expectedLambda = { 3.0, -2.0 };

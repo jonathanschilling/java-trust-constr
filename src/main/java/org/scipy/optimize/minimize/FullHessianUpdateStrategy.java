@@ -2,8 +2,8 @@ package org.scipy.optimize.minimize;
 
 import org.scipy.optimize.minimize.enums.HessianApproximationType;
 import org.scipy.optimize.minimize.interfaces.HessianUpdateStrategy;
-import org.ujmp.core.DenseMatrix;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.DenseMatrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 /**
  * Hessian update strategy with full dimensional internal representation.

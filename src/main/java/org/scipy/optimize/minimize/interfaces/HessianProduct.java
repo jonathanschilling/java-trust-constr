@@ -1,6 +1,6 @@
 package org.scipy.optimize.minimize.interfaces;
 
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 /**
  * A matrix-free Hessian: given the current point {@code x} and a vector

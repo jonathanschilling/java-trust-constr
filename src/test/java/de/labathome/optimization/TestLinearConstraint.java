@@ -2,9 +2,9 @@ package de.labathome.optimization;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.LinAlg;
+import org.scipy.optimize.minimize.matrix.MatrixOps;
 import org.scipy.optimize.minimize.LinearConstraint;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 
 class TestLinearConstraint {
@@ -23,7 +23,7 @@ class TestLinearConstraint {
 
 		Matrix x = Matrix.Factory.linkToArray(new double[] {1.0, 2.0});
 		// A x = [1+4, 3+8] = [5, 11];  constrEq = A x - lb = [0, 5]
-		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.0, 5.0}, LinAlg.col(c.constrEq(x)), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.0, 5.0}, c.constrEq(x).toColumnArray(), TOL);
 		RelAbsAssertions.assertArrayRelAbsEquals(new double[][] { {1, 2}, {3, 4} }, c.jacEq(x).toDoubleArray(), TOL);
 	}
 
@@ -37,7 +37,7 @@ class TestLinearConstraint {
 
 		Matrix x = Matrix.Factory.linkToArray(new double[] {2.0, 9.0});
 		// constrIneq[i] = +1 * (A[i] x - ub[i]) = [-1, 2]
-		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {-1.0, 2.0}, LinAlg.col(c.constrIneq(x)), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {-1.0, 2.0}, c.constrIneq(x).toColumnArray(), TOL);
 		// jacIneq = +1 * A
 		RelAbsAssertions.assertArrayRelAbsEquals(new double[][] { {1, 0}, {0, 1} }, c.jacIneq(x).toDoubleArray(), TOL);
 	}
@@ -52,7 +52,7 @@ class TestLinearConstraint {
 
 		Matrix x = Matrix.Factory.linkToArray(new double[] {2.0, 0.5});
 		// constrIneq[i] = -1 * (A[i] x - lb[i]) = [-(2-1), -(0.5-1)] = [-1, 0.5]
-		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {-1.0, 0.5}, LinAlg.col(c.constrIneq(x)), TOL);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {-1.0, 0.5}, c.constrIneq(x).toColumnArray(), TOL);
 		RelAbsAssertions.assertArrayRelAbsEquals(new double[][] { {-1, 0}, {0, -1} }, c.jacIneq(x).toDoubleArray(), TOL);
 	}
 
@@ -88,7 +88,7 @@ class TestLinearConstraint {
 		Matrix x = Matrix.Factory.linkToArray(new double[] {1.0, 1.0});
 		RelAbsAssertions.assertArrayRelAbsEquals(
 				new double[] {0.0, -2.0},
-				LinAlg.col(c.constrIneq(x)),
+				c.constrIneq(x).toColumnArray(),
 				TOL);
 		// jacIneq rows: +A (upper) and -A (lower).
 		RelAbsAssertions.assertArrayRelAbsEquals(

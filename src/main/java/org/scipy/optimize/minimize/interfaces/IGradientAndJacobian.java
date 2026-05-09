@@ -1,7 +1,7 @@
 package org.scipy.optimize.minimize.interfaces;
 
 import org.scipy.optimize.minimize.records.GradientAndJacobian;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 @FunctionalInterface
 public interface IGradientAndJacobian {

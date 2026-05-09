@@ -1,6 +1,6 @@
 package org.scipy.optimize.minimize.records;
 
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 public final class Bounds {
 

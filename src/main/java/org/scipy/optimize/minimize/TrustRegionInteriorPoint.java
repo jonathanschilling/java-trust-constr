@@ -12,8 +12,8 @@ import org.scipy.optimize.minimize.records.FunctionAndConstraint;
 import org.scipy.optimize.minimize.records.GradientAndJacobian;
 import org.scipy.optimize.minimize.records.State;
 import org.scipy.optimize.minimize.records.StatefulResult;
-import org.ujmp.core.Matrix;
-import org.ujmp.core.calculation.Calculation.Ret;
+import org.scipy.optimize.minimize.matrix.Matrix;
+import org.scipy.optimize.minimize.matrix.Ret;
 
 /**
  * Trust-region interior point method.

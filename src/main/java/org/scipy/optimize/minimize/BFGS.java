@@ -3,7 +3,7 @@ package org.scipy.optimize.minimize;
 import dev.ludovic.netlib.blas.BLAS;
 
 import org.scipy.optimize.minimize.enums.ExceptionStrategy;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 /**
  * Broyden-Fletcher-Goldfarb-Shanno (BFGS) Hessian update strategy.

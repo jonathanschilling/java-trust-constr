@@ -2,7 +2,7 @@ package org.scipy.optimize.minimize;
 
 import dev.ludovic.netlib.blas.BLAS;
 
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 /**
  * Symmetric-rank-1 Hessian update strategy.

@@ -1,6 +1,6 @@
 package org.scipy.optimize.minimize.interfaces;
 
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 @FunctionalInterface
 public interface LinearOperator {

@@ -29,7 +29,7 @@ import org.scipy.optimize.minimize.records.PreparedConstraint;
 import org.scipy.optimize.minimize.records.State;
 import org.scipy.optimize.minimize.records.StateIP;
 import org.scipy.optimize.minimize.records.StatefulResult;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 /** Java port of scipy.optimize.minimize(method='trust-constr') */
 public class MinimizeTrustConstr {
@@ -824,13 +824,13 @@ public class MinimizeTrustConstr {
 		Matrix lagrGrad = Matrix.Factory.copyFromMatrix(r.grad);
 		Matrix vAll = sr.v();
 		if (vAll != null && nEq > 0) {
-			Matrix vEq = vAll.subMatrix(org.ujmp.core.calculation.Calculation.Ret.NEW,
+			Matrix vEq = vAll.subMatrix(org.scipy.optimize.minimize.matrix.Ret.NEW,
 					0, 0, nEq - 1, 0);
 			Matrix Jeq = jac.jacEq(sr.x());
 			lagrGrad = lagrGrad.plus(Jeq.transpose().mtimes(vEq));
 		}
 		if (vAll != null && nIneq > 0) {
-			Matrix vIneq = vAll.subMatrix(org.ujmp.core.calculation.Calculation.Ret.NEW,
+			Matrix vIneq = vAll.subMatrix(org.scipy.optimize.minimize.matrix.Ret.NEW,
 					nEq, 0, nEq + nIneq - 1, 0);
 			Matrix Jineq = jac.jacIneq(sr.x());
 			lagrGrad = lagrGrad.plus(Jineq.transpose().mtimes(vIneq));

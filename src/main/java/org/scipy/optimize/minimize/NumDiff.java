@@ -16,10 +16,10 @@ import org.scipy.optimize.minimize.interfaces.LinearOperator;
 import org.scipy.optimize.minimize.records.AdjustedDifferencingScheme;
 import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
 import org.scipy.optimize.minimize.records.Sparsity;
-import org.ujmp.core.Matrix;
-import org.ujmp.core.SparseMatrix;
-import org.ujmp.core.calculation.Calculation.Ret;
-import org.ujmp.core.enums.ValueType;
+import org.scipy.optimize.minimize.matrix.Matrix;
+import org.scipy.optimize.minimize.matrix.SparseMatrix;
+import org.scipy.optimize.minimize.matrix.Ret;
+import org.scipy.optimize.minimize.matrix.ValueType;
 
 public class NumDiff {
 

@@ -6,8 +6,8 @@ import java.util.function.Function;
 import org.scipy.optimize.minimize.interfaces.Constraint;
 import org.scipy.optimize.minimize.interfaces.Jacobian;
 import org.scipy.optimize.minimize.records.Bounds;
-import org.scipy.optimize.minimize.sparse.UjmpBridge;
-import org.ujmp.core.Matrix;
+
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 /**
  * Nonlinear constraint of the form
@@ -187,7 +187,7 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 	public double[] ub() { return ub.clone(); }
 	public boolean[] keepFeasible() { return keepFeasible.clone(); }
 	public Bounds bounds() {
-		return new Bounds(UjmpBridge.arrayToCol(lb), UjmpBridge.arrayToCol(ub), false);
+		return new Bounds(Matrix.Factory.linkToArray(lb), Matrix.Factory.linkToArray(ub), false);
 	}
 
 	public int nEq() { return eqRows.length; }
@@ -255,7 +255,7 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 		for (int k = 0; k < ineqRows.length; ++k) {
 			v[ineqRows[k]] += ineqSign[k] * vIneq[k];
 		}
-		Matrix vMat = UjmpBridge.arrayToCol(v);
+		Matrix vMat = Matrix.Factory.linkToArray(v);
 		return hess.apply(x, vMat);
 	}
 

@@ -4,8 +4,8 @@ import java.util.List;
 
 import org.scipy.optimize.minimize.interfaces.Constraint;
 import org.scipy.optimize.minimize.interfaces.Jacobian;
-import org.ujmp.core.Matrix;
-import org.ujmp.core.SparseMatrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
+import org.scipy.optimize.minimize.matrix.SparseMatrix;
 
 /**
  * Concatenation of several {@link LinearConstraint} / {@link NonlinearConstraint}

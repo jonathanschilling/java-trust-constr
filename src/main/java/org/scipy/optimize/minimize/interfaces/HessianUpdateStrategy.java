@@ -3,7 +3,7 @@ package org.scipy.optimize.minimize.interfaces;
 import java.util.function.BiFunction;
 
 import org.scipy.optimize.minimize.enums.HessianApproximationType;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 /**
  * Interface for implementing Hessian update strategies.

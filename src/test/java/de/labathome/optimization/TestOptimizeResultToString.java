@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.scipy.optimize.minimize.enums.PCGStoppingCondition;
 import org.scipy.optimize.minimize.enums.TrustConstrMethod;
 import org.scipy.optimize.minimize.records.OptimizeResult;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 class TestOptimizeResultToString {
 

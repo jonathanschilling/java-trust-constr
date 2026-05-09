@@ -8,13 +8,13 @@ import java.util.function.Function;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.LinAlg;
+import org.scipy.optimize.minimize.matrix.MatrixOps;
 import org.scipy.optimize.minimize.NumDiff;
 import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
-import org.ujmp.core.DenseMatrix;
-import org.ujmp.core.Matrix;
-import org.ujmp.core.SparseMatrix;
-import org.ujmp.core.calculation.Calculation.Ret;
+import org.scipy.optimize.minimize.matrix.DenseMatrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
+import org.scipy.optimize.minimize.matrix.SparseMatrix;
+import org.scipy.optimize.minimize.matrix.Ret;
 
 
 class TestNumDiff {
@@ -128,11 +128,11 @@ class TestNumDiff {
 			};
 
 			Matrix absStep = NumDiff.computeAbsoluteStep(null, x0, f0, method);
-			RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, LinAlg.col(absStep), tolerance);
+			RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, absStep.toColumnArray(), tolerance);
 
 			Matrix signX0 = x0.times(-1).ge(Ret.LINK, 0).toIntMatrix().times(2).minus(1);
 			absStep = NumDiff.computeAbsoluteStep(null, x0.times(-1), f0, method);
-			RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, LinAlg.col(absStep.times(signX0)), tolerance);
+			RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, absStep.times(signX0).toColumnArray(), tolerance);
 		}
 
 		// if a relative step is provided it should be used
@@ -145,10 +145,10 @@ class TestNumDiff {
 		};
 
 		Matrix absStep = NumDiff.computeAbsoluteStep(Matrix.Factory.linkToArray(relSteps), x0, f0, FiniteDifferenceMethod.TWO_POINT);
-		RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, LinAlg.col(absStep), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, absStep.toColumnArray(), tolerance);
 
 		Matrix signX0 = x0.times(-1).ge(Ret.LINK, 0).toIntMatrix().times(2).minus(1);
 		absStep = NumDiff.computeAbsoluteStep(Matrix.Factory.linkToArray(relSteps), x0.times(-1), f0, FiniteDifferenceMethod.TWO_POINT);
-		RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, LinAlg.col(absStep.times(signX0)), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, absStep.times(signX0).toColumnArray(), tolerance);
 	}
 }

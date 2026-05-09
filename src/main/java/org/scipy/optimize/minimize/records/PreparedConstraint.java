@@ -4,7 +4,7 @@ import java.util.Optional;
 
 import org.scipy.optimize.minimize.VectorFunction;
 import org.scipy.optimize.minimize.interfaces.Constraint;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 public class PreparedConstraint {
 

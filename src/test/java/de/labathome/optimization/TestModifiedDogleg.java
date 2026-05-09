@@ -1,12 +1,12 @@
 package de.labathome.optimization;
 
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.LinAlg;
+import org.scipy.optimize.minimize.matrix.MatrixOps;
 import org.scipy.optimize.minimize.Projections;
 import org.scipy.optimize.minimize.QPSubproblem;
 import org.scipy.optimize.minimize.interfaces.LinearOperator;
-import org.ujmp.core.Matrix;
-import org.ujmp.core.doublematrix.DoubleMatrix2D;
+import org.scipy.optimize.minimize.matrix.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 
 class TestModifiedDogleg {
@@ -15,7 +15,7 @@ class TestModifiedDogleg {
 	void testCauchyPointEqualToNewtonPoint() {
 		final double tolerance = 1.0e-8;
 
-		DoubleMatrix2D A = Matrix.Factory.importFromArray(new double[][] { { 1.0, 8.0 } });
+		Matrix A = Matrix.Factory.importFromArray(new double[][] { { 1.0, 8.0 } });
 		Matrix b = Matrix.Factory.importFromArray(new double[][] { { -16.0 } });
 
 		LinearOperator[] projections = Projections.projections(A);
@@ -27,21 +27,21 @@ class TestModifiedDogleg {
 		Matrix x1 = QPSubproblem.modifiedDogleg(A, Y, b, 2.0,
 				new double[] {Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY},
 				new double[] {Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY});
-		RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(newtonPoint), LinAlg.col(x1), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(newtonPoint.toColumnArray(), x1.toColumnArray(), tolerance);
 
 		// Spherical constraint active
 		Matrix x2 = QPSubproblem.modifiedDogleg(A, Y, b, 1.0,
 				new double[] {Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY},
 				new double[] {Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY});
 		Matrix normNewtonPt = newtonPoint.divide(newtonPoint.norm2());
-		RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(normNewtonPt), LinAlg.col(x2), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(normNewtonPt.toColumnArray(), x2.toColumnArray(), tolerance);
 
 		// Box constraints active
 		Matrix x3 = QPSubproblem.modifiedDogleg(A, Y, b, 2.0,
 				new double[] {Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY},
 				new double[] {0.1, Double.POSITIVE_INFINITY});
 		Matrix boxPoint = newtonPoint.times(0.1 / newtonPoint.getAsDouble(0, 0));
-		RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(boxPoint), LinAlg.col(x3), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(boxPoint.toColumnArray(), x3.toColumnArray(), tolerance);
 	}
 
 	@Test
@@ -67,7 +67,7 @@ class TestModifiedDogleg {
 		Matrix x1 = QPSubproblem.modifiedDogleg(A, Y, b, 3.0,
 				new double[] {Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY},
 				new double[] {Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY});
-		RelAbsAssertions.assertArrayRelAbsEquals(LinAlg.col(newtonPoint), LinAlg.col(x1), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(newtonPoint.toColumnArray(), x1.toColumnArray(), tolerance);
 
 		// line between cauchy_point and newton_point contains best point (spherical constraint is active).
 		Matrix x2 = QPSubproblem.modifiedDogleg(A, Y, b, 2.0,
@@ -76,7 +76,7 @@ class TestModifiedDogleg {
 		Matrix z = cauchyPoint;
 		Matrix d = newtonPoint.minus(cauchyPoint);
 		Matrix t = x2.minus(z).divide(d);
-		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.40807330, 0.40807330, 0.40807330}, LinAlg.col(t), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.40807330, 0.40807330, 0.40807330}, t.toColumnArray(), tolerance);
 		RelAbsAssertions.assertRelAbsEquals(2.0, x2.norm2(), tolerance);
 
 		// line between cauchy_point and newton_point contains best point (box constraint is active).
@@ -86,7 +86,7 @@ class TestModifiedDogleg {
 		z = cauchyPoint;
 		d = newtonPoint.minus(cauchyPoint);
 		t = x3.minus(z).divide(d);
-		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.7498195, 0.7498195, 0.7498195}, LinAlg.col(t), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.7498195, 0.7498195, 0.7498195}, t.toColumnArray(), tolerance);
 		RelAbsAssertions.assertRelAbsEquals(-1.0, x3.getAsDouble(0, 0), tolerance);
 
 		// line between origin and cauchy_point contains best point (spherical constraint is active).
@@ -96,7 +96,7 @@ class TestModifiedDogleg {
 		z = origin;
 		d = cauchyPoint;
 		t = x4.minus(z).divide(d);
-		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.573936265, 0.573936265, 0.573936265}, LinAlg.col(t), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.573936265, 0.573936265, 0.573936265}, t.toColumnArray(), tolerance);
 		RelAbsAssertions.assertRelAbsEquals(1.0, x4.norm2(), tolerance);
 
 		// line between origin and newton_point contains best point (box constraint is active).
@@ -106,7 +106,7 @@ class TestModifiedDogleg {
 		z = origin;
 		d = newtonPoint;
 		t = x5.minus(z).divide(d);
-		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.4478827364, 0.4478827364, 0.4478827364}, LinAlg.col(t), tolerance);
+		RelAbsAssertions.assertArrayRelAbsEquals(new double[] {0.4478827364, 0.4478827364, 0.4478827364}, t.toColumnArray(), tolerance);
 		RelAbsAssertions.assertRelAbsEquals(1.0, x5.getAsDouble(1, 0), tolerance);
 	}
 }

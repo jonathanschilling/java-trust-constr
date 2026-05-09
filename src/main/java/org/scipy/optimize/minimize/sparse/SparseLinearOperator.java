@@ -1,8 +1,8 @@
 package org.scipy.optimize.minimize.sparse;
 
-import org.scipy.optimize.minimize.LinAlg;
+import org.scipy.optimize.minimize.matrix.MatrixOps;
 import org.scipy.optimize.minimize.interfaces.LinearOperator;
-import org.ujmp.core.Matrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
 
 /**
  * Adapter from a {@link CSRMatrix} or {@link CSCMatrix} to the existing
@@ -23,7 +23,7 @@ public final class SparseLinearOperator {
 	/** {@code y = A x}. */
 	public static LinearOperator forMatvec(CSRMatrix a) {
 		return x -> {
-			double[] xArr = LinAlg.col(x);
+			double[] xArr = x.toColumnArray();
 			double[] yArr = a.matvec(xArr);
 			return Matrix.Factory.linkToArray(yArr).transpose();
 		};
@@ -32,7 +32,7 @@ public final class SparseLinearOperator {
 	/** {@code y = A x}. */
 	public static LinearOperator forMatvec(CSCMatrix a) {
 		return x -> {
-			double[] xArr = LinAlg.col(x);
+			double[] xArr = x.toColumnArray();
 			double[] yArr = a.matvec(xArr);
 			return Matrix.Factory.linkToArray(yArr).transpose();
 		};
@@ -41,7 +41,7 @@ public final class SparseLinearOperator {
 	/** {@code y = A^T x}. */
 	public static LinearOperator forRmatvec(CSRMatrix a) {
 		return x -> {
-			double[] xArr = LinAlg.col(x);
+			double[] xArr = x.toColumnArray();
 			double[] yArr = a.rmatvec(xArr);
 			return Matrix.Factory.linkToArray(yArr).transpose();
 		};
@@ -50,7 +50,7 @@ public final class SparseLinearOperator {
 	/** {@code y = A^T x}. */
 	public static LinearOperator forRmatvec(CSCMatrix a) {
 		return x -> {
-			double[] xArr = LinAlg.col(x);
+			double[] xArr = x.toColumnArray();
 			double[] yArr = a.rmatvec(xArr);
 			return Matrix.Factory.linkToArray(yArr).transpose();
 		};

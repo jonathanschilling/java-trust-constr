@@ -32,7 +32,7 @@ To populate the submodule on a fresh clone: `git submodule update --init`.
 
 ## Build & test
 
-Maven project, Java 17. The child POM overrides the parent's Java 1.8 default via `maven-compiler-plugin` 3.11.0 with `<release>17</release>`, and pins surefire to 3.2.5 so the test forks work on a 17 JRE. Inherits from parent POM `de.labathome:de-labathome-parent` (must be installed locally -- this is not a public artifact).
+Maven project, Java 17. Inherits from parent POM `de.labathome:de-labathome-parent:1.1.0`, which lives on Maven Central. The parent already defaults to Java 17 (via `maven.compiler.release=17`), pins surefire 3.2.5, source 3.3.1, javadoc 3.11.2, jar 3.4.2, and provides the `release` profile that signs with GPG and publishes via the `central-publishing-maven-plugin` (see `## Publishing to Maven Central` in README.md).
 
 ```
 mvn compile             # build
@@ -43,7 +43,7 @@ mvn -Dtest=TestNumDiff#testGroupColumns test           # single test method
 
 If your default JDK is older than 17, set `JAVA_HOME` for the build, e.g. `JAVA_HOME=/usr/lib/jvm/java-17-openjdk mvn test`.
 
-Tests use JUnit 5 plus an in-tree `de.labathome.optimization.RelAbsAssertions` helper for rel/abs floating-point comparisons. If `mvn` fails resolving artifacts, the parent POM is not on Maven Central; it needs to be available in a local/internal repo.
+Tests use JUnit 5 plus an in-tree `de.labathome.optimization.RelAbsAssertions` helper for rel/abs floating-point comparisons.
 
 ## Code layout
 

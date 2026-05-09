@@ -18,9 +18,9 @@ mvn compile
 mvn test
 ```
 
-The parent POM `de.labathome:de-labathome-parent:1.1.0` is not yet published to
-Maven Central -- install it locally first by running `mvn install` in the
-parent's checkout.
+The parent POM `de.labathome:de-labathome-parent:1.1.0` is on Maven Central,
+so a fresh `mvn` resolves everything from a public mirror -- no local install
+of the parent is needed.
 
 ## Javadoc
 

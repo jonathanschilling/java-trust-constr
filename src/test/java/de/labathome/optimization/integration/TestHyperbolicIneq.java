@@ -1,5 +1,7 @@
 package de.labathome.optimization.integration;
 
+import java.util.function.BiFunction;
+
 import java.util.function.Function;
 
 import org.junit.jupiter.api.Assertions;
@@ -55,7 +57,7 @@ class TestHyperbolicIneq {
 		};
 		// Hessian of v[0] * c(x) = v[0] * (1/(x[0]+1) - x[1]):
 		//   d^2/dx[0]^2 = v[0] * 2/(x[0]+1)^3, others zero.
-		java.util.function.BiFunction<Matrix, Matrix, Matrix> cHess = (x, v) -> {
+		BiFunction<Matrix, Matrix, Matrix> cHess = (x, v) -> {
 			double a = x.getAsDouble(0, 0);
 			double v0 = v.getAsDouble(0, 0);
 			double h00 = 2.0 * v0 / Math.pow(a + 1.0, 3.0);

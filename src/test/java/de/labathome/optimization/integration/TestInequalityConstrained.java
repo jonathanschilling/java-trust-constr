@@ -29,11 +29,11 @@ class TestInequalityConstrained {
 		// Confirms: a constraint with inequality rows produces an OptimizeResult whose
 		// method field is TRUST_REGION_INTERIOR_POINT (i.e., the dispatch chose the
 		// right path). We don't assert convergence here -- see the @Disabled cases.
-		java.util.function.Function<Matrix, Double> q = x ->
+		Function<Matrix, Double> q = x ->
 				x.getAsDouble(0, 0) * x.getAsDouble(0, 0);
-		java.util.function.Function<Matrix, Matrix> qg = x ->
+		Function<Matrix, Matrix> qg = x ->
 				Matrix.Factory.linkToArray(new double[] { 2 * x.getAsDouble(0, 0) });
-		java.util.function.Function<Matrix, Matrix> qh = x ->
+		Function<Matrix, Matrix> qh = x ->
 				Matrix.Factory.linkToArray(new double[][] { {2} });
 		Matrix A = Matrix.Factory.linkToArray(new double[][] { { 1.0 } });
 		LinearConstraint ineq = new LinearConstraint(A,
@@ -50,11 +50,11 @@ class TestInequalityConstrained {
 
 	@Test
 	void scalarQuadraticUnderActiveLowerBound() {
-		java.util.function.Function<Matrix, Double> q = x ->
+		Function<Matrix, Double> q = x ->
 				x.getAsDouble(0, 0) * x.getAsDouble(0, 0);
-		java.util.function.Function<Matrix, Matrix> qg = x ->
+		Function<Matrix, Matrix> qg = x ->
 				Matrix.Factory.linkToArray(new double[] { 2 * x.getAsDouble(0, 0) });
-		java.util.function.Function<Matrix, Matrix> qh = x ->
+		Function<Matrix, Matrix> qh = x ->
 				Matrix.Factory.linkToArray(new double[][] { {2} });
 		Matrix A = Matrix.Factory.linkToArray(new double[][] { { 1.0 } });
 		LinearConstraint ineq = new LinearConstraint(A,
@@ -69,19 +69,19 @@ class TestInequalityConstrained {
 	void rosenbrockUnderInactiveBound() {
 		// Rosenbrock with x[0] >= -2: bound is inactive at the optimum (1, 1).
 		// Tests that the IP path doesn't wander when the constraint is loose.
-		java.util.function.Function<Matrix, Double> rosen = x -> {
+		Function<Matrix, Double> rosen = x -> {
 			double a = x.getAsDouble(0, 0);
 			double b = x.getAsDouble(1, 0);
 			return (1 - a) * (1 - a) + 100.0 * (b - a * a) * (b - a * a);
 		};
-		java.util.function.Function<Matrix, Matrix> rosenG = x -> {
+		Function<Matrix, Matrix> rosenG = x -> {
 			double a = x.getAsDouble(0, 0);
 			double b = x.getAsDouble(1, 0);
 			return Matrix.Factory.linkToArray(new double[] {
 					-2.0 * (1.0 - a) - 400.0 * a * (b - a * a),
 					200.0 * (b - a * a) });
 		};
-		java.util.function.Function<Matrix, Matrix> rosenH = x -> {
+		Function<Matrix, Matrix> rosenH = x -> {
 			double a = x.getAsDouble(0, 0);
 			double b = x.getAsDouble(1, 0);
 			return Matrix.Factory.linkToArray(new double[][] {
@@ -130,19 +130,19 @@ class TestInequalityConstrained {
 	void rosenbrockUnderActiveBound() {
 		// Rosenbrock with x[0] >= 2.  Constrained optimum: x=(2, 4), f=1.
 		// (At x=2 the parabola y=x^2 is followed; outside, f grows.)
-		java.util.function.Function<Matrix, Double> rosen = x -> {
+		Function<Matrix, Double> rosen = x -> {
 			double a = x.getAsDouble(0, 0);
 			double b = x.getAsDouble(1, 0);
 			return (1 - a) * (1 - a) + 100.0 * (b - a * a) * (b - a * a);
 		};
-		java.util.function.Function<Matrix, Matrix> rosenG = x -> {
+		Function<Matrix, Matrix> rosenG = x -> {
 			double a = x.getAsDouble(0, 0);
 			double b = x.getAsDouble(1, 0);
 			return Matrix.Factory.linkToArray(new double[] {
 					-2.0 * (1.0 - a) - 400.0 * a * (b - a * a),
 					200.0 * (b - a * a) });
 		};
-		java.util.function.Function<Matrix, Matrix> rosenH = x -> {
+		Function<Matrix, Matrix> rosenH = x -> {
 			double a = x.getAsDouble(0, 0);
 			double b = x.getAsDouble(1, 0);
 			return Matrix.Factory.linkToArray(new double[][] {
@@ -236,11 +236,11 @@ class TestInequalityConstrained {
 
 	@Test
 	void quadraticUnderActiveLowerBound() {
-		java.util.function.Function<Matrix, Double> q = x ->
+		Function<Matrix, Double> q = x ->
 				x.getAsDouble(0, 0) * x.getAsDouble(0, 0) + x.getAsDouble(1, 0) * x.getAsDouble(1, 0);
-		java.util.function.Function<Matrix, Matrix> qg = x ->
+		Function<Matrix, Matrix> qg = x ->
 				Matrix.Factory.linkToArray(new double[] { 2 * x.getAsDouble(0, 0), 2 * x.getAsDouble(1, 0) });
-		java.util.function.Function<Matrix, Matrix> qh = x ->
+		Function<Matrix, Matrix> qh = x ->
 				Matrix.Factory.linkToArray(new double[][] { {2, 0}, {0, 2} });
 
 		Matrix A = Matrix.Factory.linkToArray(new double[][] { { 1.0, 0.0 } });

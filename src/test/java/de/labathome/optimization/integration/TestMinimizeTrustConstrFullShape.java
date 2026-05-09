@@ -1,5 +1,7 @@
 package de.labathome.optimization.integration;
 
+import java.util.function.Function;
+
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.ToDoubleBiFunction;
@@ -134,11 +136,11 @@ class TestMinimizeTrustConstrFullShape {
 				+ x.getAsDouble(1, 0) * x.getAsDouble(1, 0);
 
 		// Constraint x^2 - y^2 >= 1 (unit hyperbola).
-		java.util.function.Function<Matrix, Matrix> cFun = x ->
+		Function<Matrix, Matrix> cFun = x ->
 				Matrix.Factory.linkToArray(new double[] {
 						x.getAsDouble(0, 0) * x.getAsDouble(0, 0)
 						- x.getAsDouble(1, 0) * x.getAsDouble(1, 0)});
-		java.util.function.Function<Matrix, Matrix> cJac = x ->
+		Function<Matrix, Matrix> cJac = x ->
 				Matrix.Factory.linkToArray(new double[][] {
 						{2 * x.getAsDouble(0, 0), -2 * x.getAsDouble(1, 0)}});
 		NonlinearConstraint c = new NonlinearConstraint(cFun, cJac,

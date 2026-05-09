@@ -391,7 +391,7 @@ public class ScalarFunction {
 
 			// TODO: LinearOperator as Hessian
 
-			java.util.function.Function<Matrix, Matrix> hessWrapped = (Matrix x) -> {
+			Function<Matrix, Matrix> hessWrapped = (Matrix x) -> {
 				numHessianEvals++;
 				return hess.apply(Matrix.Factory.copyFromMatrix(x), args);
 			};

@@ -1,5 +1,10 @@
 package org.scipy.optimize.minimize.sparse;
 
+import java.util.HashMap;
+import java.util.Map;
+import org.scipy.optimize.minimize.matrix.Matrix;
+import org.scipy.optimize.minimize.matrix.SparseMatrix;
+
 import java.util.Arrays;
 
 /**
@@ -116,14 +121,14 @@ public final class CSRMatrix {
 	 * @param m source matrix
 	 * @return CSR view of the same content
 	 */
-	public static CSRMatrix fromMatrix(org.scipy.optimize.minimize.matrix.Matrix m) {
+	public static CSRMatrix fromMatrix(Matrix m) {
 		int rows = (int) m.getRowCount();
 		int cols = (int) m.getColumnCount();
 		if (rows == 0 || cols == 0) {
 			return SparseAssembly.zeros(rows, cols);
 		}
-		if (m instanceof org.scipy.optimize.minimize.matrix.SparseMatrix) {
-			return ((org.scipy.optimize.minimize.matrix.SparseMatrix) m).toCSR();
+		if (m instanceof SparseMatrix) {
+			return ((SparseMatrix) m).toCSR();
 		}
 		return fromDense(m.toDoubleArray());
 	}
@@ -324,7 +329,7 @@ public final class CSRMatrix {
 
 		private final int rows;
 		private final int cols;
-		private final java.util.HashMap<Long, Double> entries = new java.util.HashMap<>();
+		private final HashMap<Long, Double> entries = new HashMap<>();
 
 		private Builder(int rows, int cols) {
 			if (rows < 0 || cols < 0) {
@@ -407,7 +412,7 @@ public final class CSRMatrix {
 
 			// Place entries; cursor per row = indptr[i] + offset.
 			int[] cursor = indptr.clone();
-			for (java.util.Map.Entry<Long, Double> e : entries.entrySet()) {
+			for (Map.Entry<Long, Double> e : entries.entrySet()) {
 				long k = e.getKey();
 				int i = (int) (k / cols);
 				int j = (int) (k - (long) i * cols);

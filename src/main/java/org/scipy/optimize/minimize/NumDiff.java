@@ -3,8 +3,13 @@ package org.scipy.optimize.minimize;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.function.BiFunction;
 import java.util.function.DoubleUnaryOperator;
 import java.util.function.Function;
@@ -14,6 +19,7 @@ import java.util.function.UnaryOperator;
 import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
 import org.scipy.optimize.minimize.interfaces.LinearOperator;
 import org.scipy.optimize.minimize.records.AdjustedDifferencingScheme;
+import org.scipy.optimize.minimize.records.ApproxDerivativeResult;
 import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
 import org.scipy.optimize.minimize.records.Sparsity;
 import org.scipy.optimize.minimize.matrix.DenseMatrix;
@@ -541,7 +547,7 @@ public class NumDiff {
 					return Matrix.Factory.zeros(f0.getSize());
 				}
 				Matrix dx = relStep.divide(p.norm2());
-				Matrix x = x0.plus(dx.times(relStep));
+				Matrix x = x0.plus(dx.times(p));
 				Matrix df = fun.apply(x).minus(f0);
 				return df.divide(dx);
 			};
@@ -717,5 +723,240 @@ public class NumDiff {
 			}
 		}
 		return J;
+	}
+
+	/**
+	 * Strict scipy {@code approx_derivative(..., as_linear_operator=True)}
+	 * counterpart: returns a matrix-free {@link LinearOperator} that applies
+	 * the FD Jacobian {@code J(x0) * p} on demand. Bounds are not supported
+	 * in this mode (mirrors scipy).
+	 *
+	 * @param fun     vector-valued function {@code (x, args) -> f(x, args)}
+	 * @param x0      evaluation point ({@code n x 1})
+	 * @param f0      precomputed {@code fun(x0, args)} ({@code m x 1});
+	 *                {@code null} to evaluate inside
+	 * @param options FD configuration (only {@code method} and {@code relStep}
+	 *                are honored)
+	 * @param args    extra args forwarded to {@code fun}
+	 * @return matrix-free FD-Jacobian linear operator
+	 */
+	public static LinearOperator approxDerivativeAsLinearOperator(
+			BiFunction<Matrix, Object, Matrix> fun, Matrix x0, Matrix f0,
+			FiniteDifferenceOptions options, Object args) {
+		switch (options.method()) {
+		case TWO_POINT:
+		case THREE_POINT:
+		case COMPLEX_STEP:
+			break;
+		default:
+			throw new RuntimeException("Can only use TWO_POINT, THREE_POINT or COMPLEX_STEP");
+		}
+		Matrix lb = options.bounds().lb();
+		Matrix ub = options.bounds().ub();
+		int n = (int) x0.getRowCount();
+		for (int i = 0; i < n; ++i) {
+			double l = lb.getAsDouble(i, 0);
+			double u = ub.getAsDouble(i, 0);
+			if (l != Double.NEGATIVE_INFINITY || u != Double.POSITIVE_INFINITY) {
+				throw new RuntimeException(
+						"Bounds not supported when as_linear_operator is true.");
+			}
+		}
+		UnaryOperator<Matrix> funWrapped = x -> fun.apply(x, args);
+		Matrix f0Local = (f0 != null) ? f0 : funWrapped.apply(x0);
+		final Matrix relStep;
+		if (options.relStep() == null) {
+			relStep = Matrix.Factory.ones(x0.getSize())
+					.times(epsForMethod(double.class, double.class, options.method()));
+		} else {
+			relStep = options.relStep();
+		}
+		return linearOperatorDifference(funWrapped, x0, f0Local, relStep, options.method());
+	}
+
+	/**
+	 * Strict scipy {@code approx_derivative(..., workers=...)} counterpart:
+	 * computes a dense FD Jacobian column-by-column with the per-column
+	 * evaluations dispatched in parallel through {@code executor}. Returns
+	 * the same {@code m x n} Jacobian as the serial overload.
+	 *
+	 * <p>Thread safety: {@code fun} must be safe to invoke concurrently
+	 * (matches scipy's caveat for {@code workers} mode).
+	 *
+	 * <p>Sparse-FD and {@code as_linear_operator} modes are not supported by
+	 * this overload; use the dedicated methods for those.
+	 *
+	 * @param fun      vector-valued function {@code (x, args) -> f(x, args)}
+	 * @param x0       evaluation point ({@code n x 1})
+	 * @param f0       precomputed {@code fun(x0, args)} ({@code m x 1});
+	 *                 {@code null} to evaluate inside
+	 * @param options  FD configuration
+	 * @param args     extra args
+	 * @param executor pool to dispatch per-column evaluations on; {@code null}
+	 *                 falls back to the serial path
+	 * @return dense FD Jacobian ({@code m x n})
+	 */
+	public static Matrix approxDerivativeWithWorkers(
+			BiFunction<Matrix, Object, Matrix> fun, Matrix x0, Matrix f0,
+			FiniteDifferenceOptions options, Object args,
+			ExecutorService executor) {
+		if (executor == null) {
+			return approxDerivative(fun, x0, f0, options, args);
+		}
+		if (options.asLinearOperator()) {
+			throw new IllegalArgumentException(
+					"workers and as_linear_operator are mutually exclusive");
+		}
+		if (options.sparsity() != null) {
+			throw new IllegalArgumentException(
+					"workers + sparsity not supported (use serial path)");
+		}
+		switch (options.method()) {
+		case TWO_POINT:
+		case THREE_POINT:
+			break;
+		default:
+			throw new RuntimeException(
+					"workers parallelisation supports TWO_POINT and THREE_POINT only");
+		}
+		// Validation copied from the serial path.
+		Matrix lb = options.bounds().lb();
+		Matrix ub = options.bounds().ub();
+		int n = (int) x0.getRowCount();
+		for (int i = 0; i < n; ++i) {
+			double xi = x0.getAsDouble(i, 0);
+			if (xi < lb.getAsDouble(i, 0) || xi > ub.getAsDouble(i, 0)) {
+				throw new RuntimeException("x0 violates bound constraints.");
+			}
+		}
+		UnaryOperator<Matrix> funWrapped = x -> fun.apply(x, args);
+		Matrix f0Local = (f0 != null) ? f0 : funWrapped.apply(x0);
+
+		final Matrix absStep = (options.absStep() != null)
+				? options.absStep()
+				: computeAbsoluteStep(options.relStep(), x0, f0Local, options.method());
+		final AdjustedDifferencingScheme ads;
+		switch (options.method()) {
+		case TWO_POINT:
+			ads = adjustSchemeToBounds(x0, absStep, 1, FiniteDifferenceMethod.ONE_SIDED, lb, ub);
+			break;
+		case THREE_POINT:
+			ads = adjustSchemeToBounds(x0, absStep, 1, FiniteDifferenceMethod.TWO_SIDED, lb, ub);
+			break;
+		default:
+			throw new IllegalStateException();
+		}
+		return parallelDenseDifference(
+				funWrapped, x0, f0Local, ads.hAdjusted(), ads.useOneSided(),
+				options.method(), executor);
+	}
+
+	/**
+	 * Strict scipy {@code approx_derivative(..., full_output=True)} counterpart:
+	 * returns the FD Jacobian alongside an info dict carrying metadata about
+	 * the computation. The info dict has at minimum {@code "nfev"}
+	 * (function-evaluation count) and {@code "method"} keys.
+	 *
+	 * @param fun     vector-valued function
+	 * @param x0      evaluation point ({@code n x 1})
+	 * @param f0      precomputed {@code fun(x0, args)} ({@code m x 1});
+	 *                {@code null} to evaluate inside
+	 * @param options FD configuration
+	 * @param args    extra args
+	 * @return Jacobian and info dict bundled in {@link ApproxDerivativeResult}
+	 */
+	public static ApproxDerivativeResult approxDerivativeFullOutput(
+			BiFunction<Matrix, Object, Matrix> fun, Matrix x0, Matrix f0,
+			FiniteDifferenceOptions options, Object args) {
+		final int[] nfev = {0};
+		BiFunction<Matrix, Object, Matrix> counted = (x, a) -> {
+			nfev[0]++;
+			return fun.apply(x, a);
+		};
+		Matrix f0Local = f0;
+		if (f0Local == null) {
+			f0Local = counted.apply(x0, args);
+		}
+		Matrix J = approxDerivative(counted, x0, f0Local, options, args);
+		Map<String, Object> info = new HashMap<>();
+		info.put("nfev", nfev[0]);
+		info.put("method", options.method());
+		return new ApproxDerivativeResult(J, info);
+	}
+
+	/**
+	 * Parallel column-loop variant of {@link #denseDifference}. Each column
+	 * evaluation submits a {@link Future} to {@code executor}, and the
+	 * Jacobian is assembled after all futures complete.
+	 */
+	private static Matrix parallelDenseDifference(Function<Matrix, Matrix> fun,
+			Matrix x0, Matrix f0, Matrix absStep, boolean[] useOneSided,
+			FiniteDifferenceMethod method, ExecutorService executor) {
+		int m = (int) f0.getRowCount();
+		int n = (int) x0.getRowCount();
+		Matrix Jt = Matrix.Factory.zeros(n, m);
+		double[] absStepArr = absStep.toColumnArray();
+
+		List<Future<double[]>> futures = new ArrayList<>(n);
+		for (int i = 0; i < n; ++i) {
+			final int col = i;
+			final double hi = absStepArr[i];
+			final boolean oneSided = useOneSided[col];
+			futures.add(executor.submit(() -> {
+				Matrix hI = Matrix.Factory.zeros(n, 1);
+				hI.setAsDouble(hi, col, 0);
+				double dx;
+				Matrix df;
+				switch (method) {
+				case TWO_POINT: {
+					Matrix x = x0.plus(hI);
+					dx = x.getAsDouble(col, 0) - x0.getAsDouble(col, 0);
+					df = fun.apply(x).minus(f0);
+					break;
+				}
+				case THREE_POINT: {
+					if (oneSided) {
+						Matrix x1 = x0.plus(hI);
+						Matrix x2 = x0.plus(hI.times(2.0));
+						dx = x2.getAsDouble(col, 0) - x0.getAsDouble(col, 0);
+						Matrix f1 = fun.apply(x1);
+						Matrix f2 = fun.apply(x2);
+						df = f0.times(-3.0).plus(f1.times(4.0)).minus(f2);
+					} else {
+						Matrix x1 = x0.minus(hI);
+						Matrix x2 = x0.plus(hI);
+						dx = x2.getAsDouble(col, 0) - x1.getAsDouble(col, 0);
+						Matrix f1 = fun.apply(x1);
+						Matrix f2 = fun.apply(x2);
+						df = f2.minus(f1);
+					}
+					break;
+				}
+				default:
+					throw new RuntimeException("only TWO_POINT and THREE_POINT supported in parallel mode");
+				}
+				double[] columnResult = new double[m];
+				for (int p = 0; p < m; ++p) {
+					columnResult[p] = df.getAsDouble(p, 0) / dx;
+				}
+				return columnResult;
+			}));
+		}
+		for (int i = 0; i < n; ++i) {
+			try {
+				double[] columnResult = futures.get(i).get();
+				for (int p = 0; p < m; ++p) {
+					Jt.setAsDouble(columnResult[p], i, p);
+				}
+			} catch (InterruptedException ie) {
+				Thread.currentThread().interrupt();
+				throw new RuntimeException("interrupted while computing FD Jacobian", ie);
+			} catch (ExecutionException ee) {
+				Throwable cause = ee.getCause();
+				if (cause instanceof RuntimeException) throw (RuntimeException) cause;
+				throw new RuntimeException("error in parallel FD column eval", cause);
+			}
+		}
+		return Jt.transpose();
 	}
 }

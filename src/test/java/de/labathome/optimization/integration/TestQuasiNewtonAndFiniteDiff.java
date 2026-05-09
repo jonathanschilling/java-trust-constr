@@ -1,5 +1,8 @@
 package de.labathome.optimization.integration;
 
+import java.util.function.BiFunction;
+import org.scipy.optimize.minimize.NonlinearConstraint;
+
 import java.util.function.Function;
 
 import org.junit.jupiter.api.Assertions;
@@ -193,13 +196,13 @@ class TestQuasiNewtonAndFiniteDiff {
 				- x.getAsDouble(1, 0) * x.getAsDouble(1, 0)});
 		Function<Matrix, Matrix> cJac = x -> Matrix.Factory.linkToArray(new double[][] {
 				{2 * x.getAsDouble(0, 0), -2 * x.getAsDouble(1, 0)}});
-		java.util.function.BiFunction<Matrix, Matrix, Matrix> cHess = (x, v) -> {
+		BiFunction<Matrix, Matrix, Matrix> cHess = (x, v) -> {
 			double v0 = v.getAsDouble(0, 0);
 			return Matrix.Factory.linkToArray(new double[][] {
 					{2 * v0, 0}, {0, -2 * v0}});
 		};
-		org.scipy.optimize.minimize.NonlinearConstraint c =
-				new org.scipy.optimize.minimize.NonlinearConstraint(
+		NonlinearConstraint c =
+				new NonlinearConstraint(
 						cFun, cJac, cHess,
 						new double[] {1.0},
 						new double[] {Double.POSITIVE_INFINITY},

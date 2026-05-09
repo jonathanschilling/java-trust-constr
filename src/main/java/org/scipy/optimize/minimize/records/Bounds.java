@@ -41,4 +41,24 @@ public final class Bounds {
 	public boolean keepFeasible() {
 		return keepFeasible;
 	}
+
+	/**
+	 * Lower and upper residuals at {@code x}: {@code sl = x - lb} (positive
+	 * iff lower bound satisfied), {@code sb = ub - x} (positive iff upper
+	 * bound satisfied). Mirrors scipy's {@code Bounds.residual(x)}.
+	 *
+	 * @param x current iterate ({@code n x 1})
+	 * @return {@code (sl, sb)} as a {@link Residual}
+	 */
+	public Residual residual(Matrix x) {
+		long n = lb.getRowCount();
+		double[] sl = new double[(int) n];
+		double[] sb = new double[(int) n];
+		for (int i = 0; i < n; ++i) {
+			double xi = x.getAsDouble(i, 0);
+			sl[i] = xi - lb.getAsDouble(i, 0);
+			sb[i] = ub.getAsDouble(i, 0) - xi;
+		}
+		return new Residual(sl, sb);
+	}
 }

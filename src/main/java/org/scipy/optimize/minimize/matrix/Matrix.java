@@ -1,5 +1,7 @@
 package org.scipy.optimize.minimize.matrix;
 
+import java.util.Arrays;
+
 /**
  * Abstract dense/sparse matrix base. Two concrete subclasses:
  * <ul>
@@ -388,7 +390,7 @@ public abstract class Matrix {
 		 */
 		public static DenseMatrix fill(double v, long rows, long cols) {
 			DenseMatrix m = DenseMatrix.zeros((int) rows, (int) cols);
-			java.util.Arrays.fill(m.data(), v);
+			Arrays.fill(m.data(), v);
 			return m;
 		}
 

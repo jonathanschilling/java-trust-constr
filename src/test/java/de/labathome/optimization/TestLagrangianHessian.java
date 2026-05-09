@@ -1,0 +1,79 @@
+package de.labathome.optimization;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.util.function.Function;
+
+import org.junit.jupiter.api.Test;
+import org.scipy.optimize.minimize.LagrangianHessian;
+import org.scipy.optimize.minimize.interfaces.LinearOperator;
+import org.scipy.optimize.minimize.matrix.DenseMatrix;
+import org.scipy.optimize.minimize.matrix.Matrix;
+
+/**
+ * Unit tests for {@link LagrangianHessian} -- the Java port's counterpart to
+ * scipy's {@code _trustregion_constr/minimize_trustregion_constr.py:LagrangianHessian}.
+ */
+class TestLagrangianHessian {
+
+	private static final double TOL = 1e-12;
+
+	@Test
+	void appliesObjectiveOnlyWhenNoConstraintHessian() {
+		// H_obj = diag(2, 3). Constraint hess returns null.
+		Function<Matrix, Matrix> objHess = x -> DenseMatrix.fromRows(
+				new double[][] {{2, 0}, {0, 3}});
+		LagrangianHessian.ConstraintHessian noHess = (x, vEq, vIneq) -> null;
+		LagrangianHessian lh = new LagrangianHessian(2, objHess, noHess);
+
+		Matrix x = DenseMatrix.column(1.0, 1.0);
+		LinearOperator op = lh.apply(x, new double[0], new double[0]);
+		Matrix p = DenseMatrix.column(1.0, 0.0);
+		// H @ p = (2, 0)
+		Matrix Hp = op.apply(p);
+		RelAbsAssertions.assertRelAbsEquals(2.0, Hp.getAsDouble(0, 0), TOL);
+		RelAbsAssertions.assertRelAbsEquals(0.0, Hp.getAsDouble(1, 0), TOL);
+	}
+
+	@Test
+	void sumsObjectiveAndConstraintHessians() {
+		// H_obj = I, H_constr(x, vEq) = vEq[0] * diag(4, 4).
+		Function<Matrix, Matrix> objHess = x -> DenseMatrix.fromRows(
+				new double[][] {{1, 0}, {0, 1}});
+		LagrangianHessian.ConstraintHessian cHess = (x, vEq, vIneq) -> {
+			double v = vEq[0];
+			return DenseMatrix.fromRows(new double[][] {{4 * v, 0}, {0, 4 * v}});
+		};
+		LagrangianHessian lh = new LagrangianHessian(2, objHess, cHess);
+
+		Matrix x = DenseMatrix.column(0.0, 0.0);
+		double[] vEq = {0.5};
+		LinearOperator op = lh.apply(x, vEq, new double[0]);
+
+		// H = I + 0.5*4*I = I + 2*I = 3*I
+		Matrix p = DenseMatrix.column(1.0, 1.0);
+		Matrix Hp = op.apply(p);
+		RelAbsAssertions.assertRelAbsEquals(3.0, Hp.getAsDouble(0, 0), TOL);
+		RelAbsAssertions.assertRelAbsEquals(3.0, Hp.getAsDouble(1, 0), TOL);
+
+		assertEquals(2, lh.n());
+	}
+
+	@Test
+	void worksForLargerProblem() {
+		final int n = 4;
+		Function<Matrix, Matrix> objHess = x -> Matrix.Factory.eye(n, n);
+		LagrangianHessian.ConstraintHessian noHess = (xx, vEq, vIneq) -> null;
+		LagrangianHessian lh = new LagrangianHessian(n, objHess, noHess);
+
+		Matrix x = DenseMatrix.column(0.0, 0.0, 0.0, 0.0);
+		LinearOperator op = lh.apply(x, new double[0], new double[0]);
+		Matrix p = DenseMatrix.column(1.0, 2.0, 3.0, 4.0);
+		Matrix Hp = op.apply(p);
+		// H = I -> Hp = p
+		for (int i = 0; i < n; ++i) {
+			RelAbsAssertions.assertRelAbsEquals(p.getAsDouble(i, 0),
+					Hp.getAsDouble(i, 0), TOL, "row " + i);
+		}
+	}
+}

@@ -1,14 +1,17 @@
 package org.scipy.optimize.minimize.matrix;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+
+import org.scipy.optimize.minimize.sparse.CSRMatrix;
 
 /**
  * Sparse matrix backed by a Dictionary-of-Keys (DOK) representation:
  * a {@link HashMap} keyed by the encoded {@code (row, col)} index. Supports
  * cheap incremental {@link #setAsDouble} (the equivalent of scipy's
  * {@code lil_matrix} build phase) and converts to
- * {@link org.scipy.optimize.minimize.sparse.CSRMatrix} for compute-heavy
+ * {@link CSRMatrix} for compute-heavy
  * paths via {@link #toCSR()}.
  *
  * <p>Compute kernels ({@link #mtimes(Matrix)}, {@link #plus(Matrix)} etc.)
@@ -72,12 +75,12 @@ public class SparseMatrix extends Matrix {
 
 	/**
 	 * Materialise this sparse matrix to a
-	 * {@link org.scipy.optimize.minimize.sparse.CSRMatrix} (canonical CSR
+	 * {@link CSRMatrix} (canonical CSR
 	 * form: column indices sorted within each row, no explicit zeros).
 	 *
 	 * @return a CSR view of the same content
 	 */
-	public org.scipy.optimize.minimize.sparse.CSRMatrix toCSR() {
+	public CSRMatrix toCSR() {
 		// Two-pass: count nnz per row to size indptr/indices/data.
 		int[] rowCount = new int[rows];
 		for (Long k : entries.keySet()) {
@@ -94,7 +97,7 @@ public class SparseMatrix extends Matrix {
 		int[] cursor = indptr.clone();
 		// Sort by (row, col) within each row by inserting in column-ascending order.
 		// First pass: collect keys per row.
-		java.util.ArrayList<long[]> perRow = new java.util.ArrayList<>(rows);
+		ArrayList<long[]> perRow = new ArrayList<>(rows);
 		for (int i = 0; i < rows; ++i) {
 			perRow.add(new long[rowCount[i] * 2]);  // pairs (col, encoded key)
 		}
@@ -130,7 +133,7 @@ public class SparseMatrix extends Matrix {
 				data[slot] = Double.longBitsToDouble(arr[p * 2 + 1]);
 			}
 		}
-		return new org.scipy.optimize.minimize.sparse.CSRMatrix(rows, cols, indptr, indices, data);
+		return new CSRMatrix(rows, cols, indptr, indices, data);
 	}
 
 	@Override

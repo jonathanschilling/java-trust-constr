@@ -1,5 +1,8 @@
 package de.labathome.optimization.integration;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.ToDoubleBiFunction;
@@ -242,9 +245,9 @@ class TestTuningKnobs {
 		// verbose>=1 (or disp=true) should auto-install a printing callback
 		// that emits one line per iteration. Capture stdout and check that
 		// at least one matching line appears.
-		java.io.PrintStream origOut = System.out;
-		java.io.ByteArrayOutputStream captured = new java.io.ByteArrayOutputStream();
-		System.setOut(new java.io.PrintStream(captured));
+		PrintStream origOut = System.out;
+		ByteArrayOutputStream captured = new ByteArrayOutputStream();
+		System.setOut(new PrintStream(captured));
 
 		try {
 			LinearConstraint eq = new LinearConstraint(
@@ -271,18 +274,18 @@ class TestTuningKnobs {
 		// Header should appear once.
 		Assertions.assertTrue(output.contains("niter"),
 				"Verbose output should contain header; got:\n" + output);
-		// At least one iteration line. %5d right-pads to 5 chars, so "1"
-		// becomes "    1" (4 spaces).
-		Assertions.assertTrue(output.contains("|    1|"),
+		// At least one iteration line. SQPReport uses 7-char-wide niter
+		// column (mirrors scipy), so "1" becomes "      1" (6 spaces + 1).
+		Assertions.assertTrue(output.contains("|      1|"),
 				"Verbose output should contain iteration 1; got:\n" + output);
 	}
 
 	@Test
 	void dispBumpsVerboseToOne() {
 		// disp=true with verbose=0 should equal verbose=1.
-		java.io.PrintStream origOut = System.out;
-		java.io.ByteArrayOutputStream captured = new java.io.ByteArrayOutputStream();
-		System.setOut(new java.io.PrintStream(captured));
+		PrintStream origOut = System.out;
+		ByteArrayOutputStream captured = new ByteArrayOutputStream();
+		System.setOut(new PrintStream(captured));
 
 		try {
 			LinearConstraint eq = new LinearConstraint(
@@ -311,9 +314,9 @@ class TestTuningKnobs {
 	@Test
 	void verboseSilentWhenZero() {
 		// verbose=0 with disp=false produces no output.
-		java.io.PrintStream origOut = System.out;
-		java.io.ByteArrayOutputStream captured = new java.io.ByteArrayOutputStream();
-		System.setOut(new java.io.PrintStream(captured));
+		PrintStream origOut = System.out;
+		ByteArrayOutputStream captured = new ByteArrayOutputStream();
+		System.setOut(new PrintStream(captured));
 
 		try {
 			LinearConstraint eq = new LinearConstraint(

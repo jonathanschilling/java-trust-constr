@@ -1,5 +1,8 @@
 package de.labathome.optimization.integration;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.ToDoubleBiFunction;
@@ -29,7 +32,7 @@ class TestFdRespectsBounds {
 	@Test
 	void fdPerturbationsRespectBoundsWhenKeepFeasibleTrue() {
 		// Track every x at which the objective is evaluated.
-		java.util.List<double[]> seen = new java.util.ArrayList<>();
+		List<double[]> seen = new ArrayList<>();
 		ToDoubleBiFunction<Matrix, Object> obj = (x, args) -> {
 			seen.add(new double[] {x.getAsDouble(0, 0), x.getAsDouble(1, 0)});
 			double a = x.getAsDouble(0, 0);

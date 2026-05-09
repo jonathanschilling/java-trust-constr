@@ -1,5 +1,7 @@
 package de.labathome.optimization.integration;
 
+import java.util.function.BiFunction;
+
 import java.util.function.Function;
 
 import org.junit.jupiter.api.Assertions;
@@ -56,7 +58,7 @@ class TestMaratos {
 			return Matrix.Factory.linkToArray(new double[][] { {2.0 * a, 2.0 * b} });
 		};
 		// Hessian of v[0] * c(x) = v[0] * (x[0]^2 + x[1]^2) is 2 * v[0] * I.
-		java.util.function.BiFunction<Matrix, Matrix, Matrix> constrHess = (x, v) -> {
+		BiFunction<Matrix, Matrix, Matrix> constrHess = (x, v) -> {
 			double v0 = v.getAsDouble(0, 0);
 			return Matrix.Factory.linkToArray(new double[][] {
 					{2.0 * v0, 0.0}, {0.0, 2.0 * v0} });

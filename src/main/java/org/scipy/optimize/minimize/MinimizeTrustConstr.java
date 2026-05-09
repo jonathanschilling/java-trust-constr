@@ -1,11 +1,18 @@
 package org.scipy.optimize.minimize;
 
+import org.scipy.optimize.minimize.enums.HessianApproximationType;
+import org.scipy.optimize.minimize.interfaces.HessianUpdateStrategy;
+
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.ToDoubleBiFunction;
+import java.util.function.ToDoubleFunction;
 
+import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
 import org.scipy.optimize.minimize.enums.PCGStoppingCondition;
 import org.scipy.optimize.minimize.enums.ProjectionMethod;
 import org.scipy.optimize.minimize.enums.TrustConstrMethod;
@@ -19,9 +26,11 @@ import org.scipy.optimize.minimize.interfaces.Jacobian;
 import org.scipy.optimize.minimize.interfaces.LagrangeHessian;
 import org.scipy.optimize.minimize.interfaces.LinearOperator;
 import org.scipy.optimize.minimize.interfaces.StoppingCriterion;
+import org.scipy.optimize.minimize.interfaces.VectorFunctionLike;
 import org.scipy.optimize.minimize.records.Bounds;
 import org.scipy.optimize.minimize.records.CGInfo;
 import org.scipy.optimize.minimize.records.FiniteDifferenceBounds;
+import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
 import org.scipy.optimize.minimize.records.FunctionAndConstraint;
 import org.scipy.optimize.minimize.records.GradientAndJacobian;
 import org.scipy.optimize.minimize.records.OptimizeResult;
@@ -29,6 +38,9 @@ import org.scipy.optimize.minimize.records.PreparedConstraint;
 import org.scipy.optimize.minimize.records.State;
 import org.scipy.optimize.minimize.records.StateIP;
 import org.scipy.optimize.minimize.records.StatefulResult;
+import org.scipy.optimize.minimize.records.StrictBounds;
+import org.scipy.optimize.minimize.report.IPReport;
+import org.scipy.optimize.minimize.report.SQPReport;
 import org.scipy.optimize.minimize.matrix.DenseMatrix;
 import org.scipy.optimize.minimize.matrix.LinAlg;
 import org.scipy.optimize.minimize.matrix.Matrix;
@@ -73,7 +85,7 @@ public class MinimizeTrustConstr {
 			state.jac = new Matrix[n];
 		}
 		for (int i = 0; i < preparedConstraints.length; ++i) {
-			VectorFunction c = preparedConstraints[i].fun();
+			VectorFunctionLike c = preparedConstraints[i].fun();
 			state.numConstraintEval[i] = c.numFunctionEvals();
 			state.numConstraintJacobianEval[i] = c.numJacobianEvals();
 			state.numConstraintHessianEval[i] = c.numHessianEvals();
@@ -85,7 +97,7 @@ public class MinimizeTrustConstr {
 			state.grad = objective.g();
 
 			for (int i = 0; i < preparedConstraints.length; ++i) {
-				VectorFunction c = preparedConstraints[i].fun();
+				VectorFunctionLike c = preparedConstraints[i].fun();
 				state.v[i] = c.v();
 				state.constr[i] = c.f();
 				state.jac[i] = c.J();
@@ -183,9 +195,9 @@ public class MinimizeTrustConstr {
 	 * @return populated {@link OptimizeResult}
 	 */
 	public static <C extends Constraint & Jacobian> OptimizeResult minimizeEqualityConstrained(
-			java.util.function.Function<Matrix, Double> fun,
-			java.util.function.Function<Matrix, Matrix> grad,
-			java.util.function.Function<Matrix, Matrix> hess,
+			Function<Matrix, Double> fun,
+			Function<Matrix, Matrix> grad,
+			Function<Matrix, Matrix> hess,
 			Matrix x0, C eq,
 			int maxIter, double xtol, double gtol) {
 		if (nIneqOf(eq) != 0) {
@@ -197,9 +209,9 @@ public class MinimizeTrustConstr {
 	}
 
 	private static OptimizeResult minimizeEqualityConstrainedRaw(
-			java.util.function.Function<Matrix, Double> fun,
-			java.util.function.Function<Matrix, Matrix> grad,
-			java.util.function.Function<Matrix, Matrix> hess,
+			Function<Matrix, Double> fun,
+			Function<Matrix, Matrix> grad,
+			Function<Matrix, Matrix> hess,
 			Matrix x0, Object eq, int nEq,
 			int maxIter, double xtol, double gtol,
 			IterationCallback callback,
@@ -229,15 +241,15 @@ public class MinimizeTrustConstr {
 		final int[] funCalls = {0};
 		final int[] gradCalls = {0};
 		final int[] hessCalls = {0};
-		final java.util.function.Function<Matrix, Double> funCounted = x -> {
+		final Function<Matrix, Double> funCounted = x -> {
 			funCalls[0]++;
 			return fun.apply(x);
 		};
-		final java.util.function.Function<Matrix, Matrix> gradCounted = x -> {
+		final Function<Matrix, Matrix> gradCounted = x -> {
 			gradCalls[0]++;
 			return grad.apply(x);
 		};
-		final java.util.function.Function<Matrix, Matrix> hessCounted = x -> {
+		final Function<Matrix, Matrix> hessCounted = x -> {
 			hessCalls[0]++;
 			return hess.apply(x);
 		};
@@ -403,9 +415,9 @@ public class MinimizeTrustConstr {
 	 * @return populated {@link OptimizeResult}
 	 */
 	public static <C extends Constraint & Jacobian> OptimizeResult minimize(
-			java.util.function.Function<Matrix, Double> fun,
-			java.util.function.Function<Matrix, Matrix> grad,
-			java.util.function.Function<Matrix, Matrix> hess,
+			Function<Matrix, Double> fun,
+			Function<Matrix, Matrix> grad,
+			Function<Matrix, Matrix> hess,
 			Matrix x0, C constraint,
 			int maxIter, double xtol, double gtol) {
 		validateConstraintShape(constraint, x0.getRowCount(), null);
@@ -500,7 +512,7 @@ public class MinimizeTrustConstr {
 	 * @return populated {@link OptimizeResult}
 	 */
 	public static <C extends Constraint & Jacobian> OptimizeResult minimize(
-			java.util.function.Function<Matrix, Double> fun,
+			Function<Matrix, Double> fun,
 			Matrix x0, C constraint,
 			int maxIter, double xtol, double gtol) {
 		return minimize(fun, buildFdGrad(fun, x0, null, null), x0, constraint, maxIter, xtol, gtol);
@@ -518,35 +530,58 @@ public class MinimizeTrustConstr {
 	 *                NumDiff default ({@code eps^(1/2)} for 2-point).
 	 * @param fdBounds optional FD bounds -- when non-null, FD perturbations
 	 *                stay within them. Pass {@link
-	 *                org.scipy.optimize.minimize.records.StrictBounds} for
+	 *                StrictBounds} for
 	 *                keep_feasible enforcement; {@code null} or {@code
 	 *                FiniteDifferenceBounds.unbounded(...)} for no clipping.
 	 *                Mirrors scipy's behaviour when {@code Bounds(keep_feasible=True)}
 	 *                is supplied -- gh-11649.
 	 */
-	private static java.util.function.Function<Matrix, Matrix> buildFdGrad(
-			java.util.function.Function<Matrix, Double> fun, Matrix x0, Matrix relStep,
-			org.scipy.optimize.minimize.records.FiniteDifferenceBounds fdBounds) {
+	private static Function<Matrix, Matrix> buildFdGrad(
+			Function<Matrix, Double> fun, Matrix x0, Matrix relStep,
+			FiniteDifferenceBounds fdBounds) {
+		return buildFdGrad(fun, x0, relStep, fdBounds, null);
+	}
+
+	/**
+	 * Variant of {@link #buildFdGrad(java.util.function.Function, Matrix, Matrix,
+	 * FiniteDifferenceBounds)} that
+	 * dispatches the per-column FD evaluations through {@code workers} when
+	 * non-null. Mirrors scipy's {@code workers=N} keyword on
+	 * {@code _minimize_trustregion_constr}.
+	 */
+	private static Function<Matrix, Matrix> buildFdGrad(
+			Function<Matrix, Double> fun, Matrix x0, Matrix relStep,
+			FiniteDifferenceBounds fdBounds,
+			ExecutorService workers) {
 		// Build a fresh factory per call -- the static FACTORY singleton retains
 		// state between invocations (e.g. .bounds() throws "bounds have already
 		// been specified" on the second call), same hazard as ScalarFunction.FACTORY.
-		final org.scipy.optimize.minimize.records.FiniteDifferenceBounds bounds =
+		final FiniteDifferenceBounds bounds =
 				(fdBounds != null) ? fdBounds
-						: org.scipy.optimize.minimize.records.FiniteDifferenceBounds
+						: FiniteDifferenceBounds
 								.unbounded(x0.getRowCount());
-		org.scipy.optimize.minimize.records.FiniteDifferenceOptions.FiniteDifferenceOptionsFactory factory =
-				new org.scipy.optimize.minimize.records.FiniteDifferenceOptions.FiniteDifferenceOptionsFactory()
-						.method(org.scipy.optimize.minimize.enums.FiniteDifferenceMethod.TWO_POINT)
+		FiniteDifferenceOptions.FiniteDifferenceOptionsFactory factory =
+				new FiniteDifferenceOptions.FiniteDifferenceOptionsFactory()
+						.method(FiniteDifferenceMethod.TWO_POINT)
 						.bounds(bounds);
 		if (relStep != null) {
 			factory = factory.relStep(relStep);
 		}
-		final org.scipy.optimize.minimize.records.FiniteDifferenceOptions options = factory.build();
-		final java.util.function.ToDoubleFunction<Matrix> funScalar = m -> fun.apply(m);
+		final FiniteDifferenceOptions options = factory.build();
+		final Function<Matrix, Matrix> funVec = m ->
+				DenseMatrix.column(fun.apply(m));
+		final BiFunction<Matrix, Object, Matrix> funBi = (xx, args) -> funVec.apply(xx);
+		if (workers == null) {
+			final ToDoubleFunction<Matrix> funScalar = m -> fun.apply(m);
+			return x -> {
+				Matrix jac = NumDiff.approxDerivative(funScalar, x, fun.apply(x), options);
+				return jac.transpose();
+			};
+		}
 		return x -> {
-			// approxDerivative returns the Jacobian as 1 x n (Jacobian convention).
-			// The orchestrator expects gradient as n x 1 column, so transpose.
-			Matrix jac = NumDiff.approxDerivative(funScalar, x, fun.apply(x), options);
+			Matrix f0 = funVec.apply(x);
+			Matrix jac = NumDiff.approxDerivativeWithWorkers(
+					funBi, x, f0, options, null, workers);
 			return jac.transpose();
 		};
 	}
@@ -559,12 +594,12 @@ public class MinimizeTrustConstr {
 	 * with the deltas. Returns {@code strategy.getMatrix()} for the dense
 	 * Hessian Matrix expected by the orchestrator.
 	 */
-	private static java.util.function.Function<Matrix, Matrix> buildStrategyHess(
-			java.util.function.Function<Matrix, Matrix> grad,
+	private static Function<Matrix, Matrix> buildStrategyHess(
+			Function<Matrix, Matrix> grad,
 			Matrix x0,
-			org.scipy.optimize.minimize.interfaces.HessianUpdateStrategy strategy) {
+			HessianUpdateStrategy strategy) {
 		strategy.initialize(x0.getRowCount(),
-				org.scipy.optimize.minimize.enums.HessianApproximationType.HESSIAN);
+				HessianApproximationType.HESSIAN);
 		final Matrix[] xPrev = {null};
 		final Matrix[] gPrev = {null};
 		return x -> {
@@ -603,8 +638,8 @@ public class MinimizeTrustConstr {
 	 * @return populated {@link OptimizeResult}
 	 */
 	public static <C extends Constraint & Jacobian> OptimizeResult minimize(
-			java.util.function.Function<Matrix, Double> fun,
-			java.util.function.Function<Matrix, Matrix> grad,
+			Function<Matrix, Double> fun,
+			Function<Matrix, Matrix> grad,
 			Matrix x0, C constraint,
 			int maxIter, double xtol, double gtol) {
 		return minimize(fun, grad, BFGS.FACTORY.build(), x0, constraint,
@@ -630,12 +665,12 @@ public class MinimizeTrustConstr {
 	 * @return populated {@link OptimizeResult}
 	 */
 	public static <C extends Constraint & Jacobian> OptimizeResult minimize(
-			java.util.function.Function<Matrix, Double> fun,
-			java.util.function.Function<Matrix, Matrix> grad,
-			org.scipy.optimize.minimize.interfaces.HessianUpdateStrategy strategy,
+			Function<Matrix, Double> fun,
+			Function<Matrix, Matrix> grad,
+			HessianUpdateStrategy strategy,
 			Matrix x0, C constraint,
 			int maxIter, double xtol, double gtol) {
-		java.util.function.Function<Matrix, Matrix> hess = buildStrategyHess(grad, x0, strategy);
+		Function<Matrix, Matrix> hess = buildStrategyHess(grad, x0, strategy);
 		return minimize(fun, grad, hess, x0, constraint, maxIter, xtol, gtol);
 	}
 
@@ -657,9 +692,9 @@ public class MinimizeTrustConstr {
 	 * @return populated {@link OptimizeResult}
 	 */
 	public static OptimizeResult minimize(
-			java.util.function.Function<Matrix, Double> fun,
-			java.util.function.Function<Matrix, Matrix> grad,
-			java.util.function.Function<Matrix, Matrix> hess,
+			Function<Matrix, Double> fun,
+			Function<Matrix, Matrix> grad,
+			Function<Matrix, Matrix> hess,
 			Matrix x0, Object[] constraints,
 			int maxIter, double xtol, double gtol) {
 		int nVars = (int) x0.getRowCount();
@@ -765,9 +800,9 @@ public class MinimizeTrustConstr {
 	 * with both kinds of rows still works.
 	 */
 	private static <C extends Constraint & Jacobian> OptimizeResult minimizeInequalityConstrained(
-			java.util.function.Function<Matrix, Double> fun,
-			java.util.function.Function<Matrix, Matrix> grad,
-			java.util.function.Function<Matrix, Matrix> hess,
+			Function<Matrix, Double> fun,
+			Function<Matrix, Matrix> grad,
+			Function<Matrix, Matrix> hess,
 			Matrix x0, C constraint,
 			int maxIter, double xtol, double gtol) {
 		return minimizeInequalityConstrainedRaw(fun, grad, hess, x0, constraint,
@@ -776,9 +811,9 @@ public class MinimizeTrustConstr {
 	}
 
 	private static OptimizeResult minimizeInequalityConstrainedRaw(
-			java.util.function.Function<Matrix, Double> fun,
-			java.util.function.Function<Matrix, Matrix> grad,
-			java.util.function.Function<Matrix, Matrix> hess,
+			Function<Matrix, Double> fun,
+			Function<Matrix, Matrix> grad,
+			Function<Matrix, Matrix> hess,
 			Matrix x0, Object constraint, int nEq, int nIneq,
 			int maxIter, double xtol, double gtol, double barrierTol,
 			IterationCallback callback,
@@ -997,6 +1032,85 @@ public class MinimizeTrustConstr {
 			IterationCallback callback, int maxIter, int verbose, Matrix finiteDifferenceRelStep, double initialConstraintPenalty,
 			double initialTrustRadius, double initialBarrierParameter, double initialBarrierTolerance,
 			ProjectionMethod factorizationMethod, boolean disp) {
+		return minimizeTrustConstr(fun, x0, args, grad, hess, hessp, bounds, constraints,
+				xTol, gTol, barrierTol, sparseJacobian, callback, maxIter, verbose,
+				finiteDifferenceRelStep, initialConstraintPenalty, initialTrustRadius,
+				initialBarrierParameter, initialBarrierTolerance, factorizationMethod, disp,
+				/*workers=*/ null);
+	}
+
+	/**
+	 * Strict scipy {@code _minimize_trustregion_constr(..., workers=N)}
+	 * counterpart. Same arguments as
+	 * {@link #minimizeTrustConstr(ToDoubleBiFunction, Matrix, Object, BiFunction,
+	 * BiFunction, HessianProduct, Bounds, Object, double, double, double, Optional,
+	 * IterationCallback, int, int, Matrix, double, double, double, double,
+	 * ProjectionMethod, boolean)}, plus a final {@link
+	 * ExecutorService} for parallel FD evaluation.
+	 *
+	 * <p>{@code workers} only affects the FD-gradient path (when {@code grad} is
+	 * {@code null}); analytic gradients are unaffected.
+	 *
+	 * @param fun                       objective {@code (x, args) -> f}
+	 * @param x0                        starting iterate ({@code n x 1})
+	 * @param args                      extra arguments forwarded to {@code fun}/{@code grad}/{@code hess}
+	 * @param grad                      analytic gradient {@code (x, args) -> grad f(x)}, or {@code null} for FD
+	 * @param hess                      analytic Hessian {@code (x, args) -> H(x)}, or {@code null} for BFGS
+	 * @param hessp                     matrix-free Hessian-vector product {@code (x, p, args) -> H(x) p}, or {@code null}
+	 * @param bounds                    box bounds on the decision variables, or {@code null}
+	 * @param constraints               {@link LinearConstraint}, {@link NonlinearConstraint}, {@code Object[]} mix, or {@code null}
+	 * @param xTol                      step-size convergence tolerance
+	 * @param gTol                      KKT-optimality convergence tolerance
+	 * @param barrierTol                IP-path barrier-parameter convergence tolerance
+	 * @param sparseJacobian            forces sparse / dense Jacobian; {@code Optional.empty()} auto-detects
+	 * @param callback                  per-iteration callback, returns {@code true} to terminate; {@code null} disables
+	 * @param maxIter                   iteration limit
+	 * @param verbose                   verbosity level (0 silent, 1 progress table)
+	 * @param finiteDifferenceRelStep   FD relative step (per-element vector); {@code null} uses the eps-derived default
+	 * @param initialConstraintPenalty  initial merit-function penalty
+	 * @param initialTrustRadius        initial trust-region radius
+	 * @param initialBarrierParameter   IP-path: initial barrier coefficient
+	 * @param initialBarrierTolerance   IP-path: initial barrier-subproblem tolerance
+	 * @param factorizationMethod       projection factorisation; {@code null} picks
+	 *                                  QR for dense / AugmentedSystem for sparse
+	 * @param disp                      bumps {@code verbose} to 1 when it was 0
+	 * @param workers                   executor for parallel FD evaluation; {@code null} = serial
+	 * @return populated {@link OptimizeResult}
+	 */
+	public static OptimizeResult minimizeTrustConstr(ToDoubleBiFunction<Matrix, Object> fun, Matrix x0, Object args,
+			BiFunction<Matrix, Object, Matrix> grad, BiFunction<Matrix, Object, Matrix> hess,
+			HessianProduct hessp, Bounds bounds,
+			Object constraints,
+			double xTol, double gTol, double barrierTol, Optional<Boolean> sparseJacobian,
+			IterationCallback callback, int maxIter, int verbose, Matrix finiteDifferenceRelStep, double initialConstraintPenalty,
+			double initialTrustRadius, double initialBarrierParameter, double initialBarrierTolerance,
+			ProjectionMethod factorizationMethod, boolean disp,
+			ExecutorService workers) {
+		// Plumb workers through a thread-local read inside buildFdGrad. Set it
+		// here, clear it on exit so we don't leak across calls.
+		WORKERS_TL.set(workers);
+		try {
+			return minimizeTrustConstrImpl(fun, x0, args, grad, hess, hessp, bounds, constraints,
+					xTol, gTol, barrierTol, sparseJacobian, callback, maxIter, verbose,
+					finiteDifferenceRelStep, initialConstraintPenalty, initialTrustRadius,
+					initialBarrierParameter, initialBarrierTolerance, factorizationMethod, disp);
+		} finally {
+			WORKERS_TL.remove();
+		}
+	}
+
+	/** Thread-local for plumbing {@code workers} through to {@link #buildFdGrad}. */
+	private static final ThreadLocal<ExecutorService> WORKERS_TL =
+			new ThreadLocal<>();
+
+	private static OptimizeResult minimizeTrustConstrImpl(ToDoubleBiFunction<Matrix, Object> fun, Matrix x0, Object args,
+			BiFunction<Matrix, Object, Matrix> grad, BiFunction<Matrix, Object, Matrix> hess,
+			HessianProduct hessp, Bounds bounds,
+			Object constraints,
+			double xTol, double gTol, double barrierTol, Optional<Boolean> sparseJacobian,
+			IterationCallback callback, int maxIter, int verbose, Matrix finiteDifferenceRelStep, double initialConstraintPenalty,
+			double initialTrustRadius, double initialBarrierParameter, double initialBarrierTolerance,
+			ProjectionMethod factorizationMethod, boolean disp) {
 
 		// Adapter implementation: translate the scipy-shape signature to the
 		// convenience overloads (which carry the actual SQP / IP machinery)
@@ -1019,29 +1133,13 @@ public class MinimizeTrustConstr {
 		// when callback is non-null, the user's callback runs (user-supplied
 		// callback takes precedence over the auto-printer).
 		final int effectiveVerbose = (disp && verbose == 0) ? 1 : verbose;
-		final IterationCallback effectiveCallback;
-		if (callback != null) {
-			effectiveCallback = callback;
-		} else if (effectiveVerbose >= 1) {
-			final boolean[] headerPrinted = {false};
-			effectiveCallback = state -> {
-				if (!headerPrinted[0]) {
-					System.out.println("|niter|f evals|CG iter|  f       |tr radius |  opt   |c viol|");
-					System.out.println("|-----|-------|-------|----------|----------|--------|------|");
-					headerPrinted[0] = true;
-				}
-				System.out.printf("|%5d|%7d|%7d|%10.3e|%10.3e|%8.2e|%6.2e|%n",
-						state.nIter, state.numEval, state.cgNIter,
-						state.fun, state.trustRadius,
-						state.optimality, state.constrViolation);
-				return false;
-			};
-		} else {
-			effectiveCallback = null;
-		}
+		// effectiveCallback is set after constraintArr is built so the auto-
+		// installed verbose printer can dispatch to SQPReport (eq-only) or
+		// IPReport (any inequality). See the assignment below the totalEq
+		// validation block.
 
-		final java.util.function.Function<Matrix, Double> funF = x -> fun.applyAsDouble(x, args);
-		final java.util.function.Function<Matrix, Matrix> gradF =
+		final Function<Matrix, Double> funF = x -> fun.applyAsDouble(x, args);
+		final Function<Matrix, Matrix> gradF =
 				(grad == null) ? null : x -> grad.apply(x, args);
 
 		final BiFunction<Matrix, Object, Matrix> hessBi;
@@ -1052,7 +1150,7 @@ public class MinimizeTrustConstr {
 		} else {
 			hessBi = null;
 		}
-		final java.util.function.Function<Matrix, Matrix> hessF =
+		final Function<Matrix, Matrix> hessF =
 				(hessBi == null) ? null : x -> hessBi.apply(x, args);
 
 		// Normalise constraints into a single Object[] (bounds prepended as a
@@ -1086,10 +1184,26 @@ public class MinimizeTrustConstr {
 		// Validate: more equality constraints than variables only works with
 		// SVD_FACTORIZATION (rank-revealing). Per scipy gh-20665.
 		int totalEq = 0;
+		int totalIneq = 0;
 		for (Object c : constraintArr) {
 			validateConstraintShape(c, nVars, factorizationMethod);
 			validateKeepFeasibleAtStart(c, x0);
 			totalEq += nEqOf(c);
+			totalIneq += nIneqOf(c);
+		}
+
+		// Auto-install verbose printer (deferred from setup-time so we can
+		// dispatch to SQPReport vs IPReport). User-supplied callback always
+		// takes precedence over the auto-printer.
+		final IterationCallback effectiveCallback;
+		if (callback != null) {
+			effectiveCallback = callback;
+		} else if (effectiveVerbose >= 1) {
+			effectiveCallback = (totalIneq == 0)
+					? makeSQPProgressCallback()
+					: makeIPProgressCallback();
+		} else {
+			effectiveCallback = null;
 		}
 		if (factorizationMethod != ProjectionMethod.SVD_FACTORIZATION
 				&& totalEq > nVars) {
@@ -1124,14 +1238,14 @@ public class MinimizeTrustConstr {
 			// always pass a StrictBounds wrapper when bounds are present,
 			// regardless of keep_feasible, since clipping is harmless when
 			// the start is feasible (the dominant case).
-			final org.scipy.optimize.minimize.records.FiniteDifferenceBounds fdBounds =
+			final FiniteDifferenceBounds fdBounds =
 					(bounds != null)
-							? new org.scipy.optimize.minimize.records.StrictBounds(bounds)
+							? new StrictBounds(bounds)
 							: null;
-			final java.util.function.Function<Matrix, Matrix> gradFinal =
+			final Function<Matrix, Matrix> gradFinal =
 					(gradF != null) ? gradF
-							: buildFdGrad(funF, x0, finiteDifferenceRelStep, fdBounds);
-			final java.util.function.Function<Matrix, Matrix> hessFinal;
+							: buildFdGrad(funF, x0, finiteDifferenceRelStep, fdBounds, WORKERS_TL.get());
+			final Function<Matrix, Matrix> hessFinal;
 			if (hessF != null) {
 				hessFinal = hessF;
 			} else {
@@ -1217,6 +1331,62 @@ public class MinimizeTrustConstr {
 			}
 		}
 		return minimize(funF, gradF, hessF, x0, constraintArr, maxIter, xTol, gTol);
+	}
+
+	/**
+	 * Auto-installed verbose printer for the equality-constrained-SQP path.
+	 * Renders each iteration as one row of {@link
+	 * SQPReport}.
+	 *
+	 * @return callback that prints the SQP progress table; never returns
+	 *         {@code true} (so it never requests termination)
+	 */
+	private static IterationCallback makeSQPProgressCallback() {
+		final SQPReport report =
+				new SQPReport();
+		final boolean[] headerPrinted = {false};
+		return state -> {
+			if (!headerPrinted[0]) {
+				report.printHeader();
+				headerPrinted[0] = true;
+			}
+			int cgStop = (state.cgStopCond != null) ? state.cgStopCond.ordinal() : 0;
+			report.printIteration(
+					state.nIter, state.numEval, state.cgNIter,
+					state.fun, state.trustRadius, state.optimality,
+					state.constrViolation, state.constraintPenalty, cgStop);
+			return false;
+		};
+	}
+
+	/**
+	 * Auto-installed verbose printer for the trust-region interior-point path.
+	 * Renders each iteration as one row of {@link
+	 * IPReport}.
+	 *
+	 * @return callback that prints the IP progress table; never returns
+	 *         {@code true} (so it never requests termination)
+	 */
+	private static IterationCallback makeIPProgressCallback() {
+		final IPReport report =
+				new IPReport();
+		final boolean[] headerPrinted = {false};
+		return state -> {
+			if (!headerPrinted[0]) {
+				report.printHeader();
+				headerPrinted[0] = true;
+			}
+			double barrier = (state instanceof StateIP ip)
+					? ip.barrierParameter
+					: 0.0;
+			int cgStop = (state.cgStopCond != null) ? state.cgStopCond.ordinal() : 0;
+			report.printIteration(
+					state.nIter, state.numEval, state.cgNIter,
+					state.fun, state.trustRadius, state.optimality,
+					state.constrViolation, state.constraintPenalty,
+					barrier, cgStop);
+			return false;
+		};
 	}
 
 }

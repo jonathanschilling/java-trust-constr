@@ -1,5 +1,7 @@
 package de.labathome.optimization.integration;
 
+import org.scipy.optimize.minimize.NonlinearConstraint;
+
 import java.util.function.Function;
 
 import org.junit.jupiter.api.Assertions;
@@ -109,29 +111,29 @@ class TestMinimizeConstrainedExtras {
 		// 1 + u1^2/9 - u2^2/16 = 0, starting at (0, 0). At the start, the
 		// constraint is infeasible (= 1) and its Jacobian is (0, 0) -- singular.
 		// Scipy: success=False AND constr_violation > 1e-8.
-		java.util.function.Function<Matrix, Double> obj = u ->
+		Function<Matrix, Double> obj = u ->
 				u.getAsDouble(0, 0) * u.getAsDouble(0, 0)
 				+ u.getAsDouble(1, 0) * u.getAsDouble(1, 0);
-		java.util.function.Function<Matrix, Matrix> objGrad = u ->
+		Function<Matrix, Matrix> objGrad = u ->
 				Matrix.Factory.linkToArray(new double[] {
 						2 * u.getAsDouble(0, 0),
 						2 * u.getAsDouble(1, 0)});
-		java.util.function.Function<Matrix, Matrix> objHess = u ->
+		Function<Matrix, Matrix> objHess = u ->
 				Matrix.Factory.linkToArray(new double[][] {{2, 0}, {0, 2}});
 
-		java.util.function.Function<Matrix, Matrix> cFun = u -> {
+		Function<Matrix, Matrix> cFun = u -> {
 			double u1 = u.getAsDouble(0, 0);
 			double u2 = u.getAsDouble(1, 0);
 			return Matrix.Factory.linkToArray(new double[] {
 					1.0 + u1 * u1 / 9.0 - u2 * u2 / 16.0});
 		};
-		java.util.function.Function<Matrix, Matrix> cJac = u ->
+		Function<Matrix, Matrix> cJac = u ->
 				Matrix.Factory.linkToArray(new double[][] {
 						{2.0 * u.getAsDouble(0, 0) / 9.0,
 						 -2.0 * u.getAsDouble(1, 0) / 16.0}});
 
-		org.scipy.optimize.minimize.NonlinearConstraint c =
-				new org.scipy.optimize.minimize.NonlinearConstraint(cFun, cJac,
+		NonlinearConstraint c =
+				new NonlinearConstraint(cFun, cJac,
 						new double[] {0.0}, new double[] {0.0});
 
 		Matrix u0 = Matrix.Factory.linkToArray(new double[] {0.0, 0.0});
@@ -159,19 +161,19 @@ class TestMinimizeConstrainedExtras {
 		LinearConstraint eq = new LinearConstraint(A,
 				new double[] {1, 1, 1}, new double[] {1, 1, 1});
 
-		java.util.function.Function<Matrix, Double> rosen = x -> {
+		Function<Matrix, Double> rosen = x -> {
 			double a = x.getAsDouble(0, 0);
 			double b = x.getAsDouble(1, 0);
 			return (1 - a) * (1 - a) + 100.0 * (b - a * a) * (b - a * a);
 		};
-		java.util.function.Function<Matrix, Matrix> rosenG = x -> {
+		Function<Matrix, Matrix> rosenG = x -> {
 			double a = x.getAsDouble(0, 0);
 			double b = x.getAsDouble(1, 0);
 			return Matrix.Factory.linkToArray(new double[] {
 					-2.0 * (1.0 - a) - 400.0 * a * (b - a * a),
 					200.0 * (b - a * a)});
 		};
-		java.util.function.Function<Matrix, Matrix> rosenH = x ->
+		Function<Matrix, Matrix> rosenH = x ->
 				Matrix.Factory.linkToArray(new double[][] {{2, 0}, {0, 2}});
 
 		Matrix x0 = Matrix.Factory.linkToArray(new double[] {1.0, 1.0});

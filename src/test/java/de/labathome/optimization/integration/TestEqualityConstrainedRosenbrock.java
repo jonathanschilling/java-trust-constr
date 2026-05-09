@@ -1,5 +1,7 @@
 package de.labathome.optimization.integration;
 
+import java.util.function.Function;
+
 import org.junit.jupiter.api.Test;
 import org.scipy.optimize.minimize.LinearConstraint;
 import org.scipy.optimize.minimize.MinimizeTrustConstr;
@@ -52,11 +54,11 @@ class TestEqualityConstrainedRosenbrock {
 	@Test
 	void simpleQuadraticOnHyperplane() {
 		// minimize x^2 + y^2 subject to x + y = 2  ->  optimum at (1, 1), f = 2
-		java.util.function.Function<Matrix, Double> q = x ->
+		Function<Matrix, Double> q = x ->
 				x.getAsDouble(0, 0) * x.getAsDouble(0, 0) + x.getAsDouble(1, 0) * x.getAsDouble(1, 0);
-		java.util.function.Function<Matrix, Matrix> qg = x ->
+		Function<Matrix, Matrix> qg = x ->
 				Matrix.Factory.linkToArray(new double[] { 2 * x.getAsDouble(0, 0), 2 * x.getAsDouble(1, 0) });
-		java.util.function.Function<Matrix, Matrix> qh = x ->
+		Function<Matrix, Matrix> qh = x ->
 				Matrix.Factory.linkToArray(new double[][] { {2, 0}, {0, 2} });
 
 		Matrix A = Matrix.Factory.linkToArray(new double[][] { { 1.0, 1.0 } });

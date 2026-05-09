@@ -9,6 +9,7 @@ import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
 import org.scipy.optimize.minimize.enums.HessianApproximationType;
 import org.scipy.optimize.minimize.interfaces.HessianUpdateStrategy;
 import org.scipy.optimize.minimize.interfaces.LinearOperator;
+import org.scipy.optimize.minimize.interfaces.VectorFunctionLike;
 import org.scipy.optimize.minimize.records.FiniteDifferenceBounds;
 import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
 import org.scipy.optimize.minimize.records.Sparsity;
@@ -33,7 +34,7 @@ import org.scipy.optimize.minimize.matrix.SparseMatrix;
  *        will be set. However, a subsequent call with a different argument
  *        of *any* of the methods may overwrite the attribute.
  */
-public class VectorFunction {
+public class VectorFunction implements VectorFunctionLike {
 
 	/** Builder for {@link VectorFunction}. */
 	public static class VectorFunctionFactory {
@@ -630,7 +631,14 @@ public class VectorFunction {
 	}
 
 	/** @return number of function dimensions ({@code m} in {@code f : R^n -> R^m}) */
+	@Override
 	public long m() {
 		return m;
+	}
+
+	/** @return number of input dimensions ({@code n} in {@code f : R^n -> R^m}) */
+	@Override
+	public long n() {
+		return n;
 	}
 }

@@ -3,9 +3,12 @@ package org.scipy.optimize.minimize;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
 import org.scipy.optimize.minimize.interfaces.Constraint;
 import org.scipy.optimize.minimize.interfaces.Jacobian;
 import org.scipy.optimize.minimize.records.Bounds;
+import org.scipy.optimize.minimize.records.FiniteDifferenceBounds;
+import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
 
 import org.scipy.optimize.minimize.matrix.Matrix;
 
@@ -214,12 +217,9 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 	private static Function<Matrix, Matrix> fdJacobian(Function<Matrix, Matrix> fun) {
 		return x -> {
 			Matrix f0 = fun.apply(x);
-			org.scipy.optimize.minimize.records.FiniteDifferenceOptions options =
-					new org.scipy.optimize.minimize.records.FiniteDifferenceOptions
-							.FiniteDifferenceOptionsFactory()
-					.method(org.scipy.optimize.minimize.enums.FiniteDifferenceMethod.TWO_POINT)
-					.bounds(org.scipy.optimize.minimize.records.FiniteDifferenceBounds
-							.unbounded(x.getRowCount()))
+			FiniteDifferenceOptions options = new FiniteDifferenceOptions.FiniteDifferenceOptionsFactory()
+					.method(FiniteDifferenceMethod.TWO_POINT)
+					.bounds(FiniteDifferenceBounds.unbounded(x.getRowCount()))
 					.build();
 			return NumDiff.approxDerivative(fun, x, f0, options);
 		};
@@ -231,6 +231,15 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 	public double[] ub() { return ub.clone(); }
 	/** @return defensive copy of the per-row keep-feasible flags */
 	public boolean[] keepFeasible() { return keepFeasible.clone(); }
+	/** @return the user-supplied constraint function {@code R^n -> R^m} */
+	public Function<Matrix, Matrix> userFun() { return fun; }
+	/** @return the user-supplied analytic Jacobian {@code R^n -> R^{m x n}} */
+	public Function<Matrix, Matrix> userJac() { return jac; }
+	/**
+	 * @return the user-supplied constraint Hessian-of-Lagrangian
+	 *         {@code (x, v) -> Sum v[i] H_{c_i}(x)}, or {@code null} if none
+	 */
+	public BiFunction<Matrix, Matrix, Matrix> userHess() { return hess; }
 	/** @return the bounds repackaged as a {@link Bounds} record */
 	public Bounds bounds() {
 		return new Bounds(Matrix.Factory.linkToArray(lb), Matrix.Factory.linkToArray(ub), false);

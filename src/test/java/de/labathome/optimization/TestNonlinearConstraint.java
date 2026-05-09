@@ -1,5 +1,8 @@
 package de.labathome.optimization;
 
+import java.util.function.BiFunction;
+import java.util.function.Function;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.scipy.optimize.minimize.matrix.MatrixOps;
@@ -16,12 +19,12 @@ class TestNonlinearConstraint {
 	@Test
 	void testEqualityScalar() {
 		// fun(x) = x[0]^2 + x[1]^2; constraint: fun(x) == 1 (unit circle)
-		java.util.function.Function<Matrix, Matrix> fun = x -> {
+		Function<Matrix, Matrix> fun = x -> {
 			double x0 = x.getAsDouble(0, 0);
 			double x1 = x.getAsDouble(1, 0);
 			return Matrix.Factory.linkToArray(new double[] { x0 * x0 + x1 * x1 });
 		};
-		java.util.function.Function<Matrix, Matrix> jac = x -> {
+		Function<Matrix, Matrix> jac = x -> {
 			double x0 = x.getAsDouble(0, 0);
 			double x1 = x.getAsDouble(1, 0);
 			return Matrix.Factory.linkToArray(new double[][] { { 2 * x0, 2 * x1 } });
@@ -40,9 +43,9 @@ class TestNonlinearConstraint {
 	@Test
 	void testInequalityUpper() {
 		// fun(x) = x[0]; constraint: fun(x) <= 5
-		java.util.function.Function<Matrix, Matrix> fun = x ->
+		Function<Matrix, Matrix> fun = x ->
 				Matrix.Factory.linkToArray(new double[] { x.getAsDouble(0, 0) });
-		java.util.function.Function<Matrix, Matrix> jac = x ->
+		Function<Matrix, Matrix> jac = x ->
 				Matrix.Factory.linkToArray(new double[][] { { 1.0 } });
 		NonlinearConstraint c = new NonlinearConstraint(fun, jac, new double[] {NEG_INF}, new double[] {5.0});
 		Assertions.assertEquals(0, c.nEq());
@@ -65,12 +68,12 @@ class TestNonlinearConstraint {
 		//   row 3: [-inf, 3] upper    -> 1 ineq row
 		//   row 4: [-5, inf] lower    -> 1 ineq row
 		// So nEq = 1, nIneq = 4 -- same as scipy's CanonicalConstraint.
-		java.util.function.Function<Matrix, Matrix> fun = x -> {
+		Function<Matrix, Matrix> fun = x -> {
 			double a = x.getAsDouble(0, 0);
 			return Matrix.Factory.linkToArray(new double[] {
 					a, a, a, a, a});
 		};
-		java.util.function.Function<Matrix, Matrix> jac = x ->
+		Function<Matrix, Matrix> jac = x ->
 				Matrix.Factory.linkToArray(new double[][] {
 						{1.0}, {1.0}, {1.0}, {1.0}, {1.0}});
 
@@ -99,9 +102,9 @@ class TestNonlinearConstraint {
 	@Test
 	void testTwoSidedSplitsIntoUpperAndLowerRows() {
 		// fun(x) = x[0]; bound: 0 <= x[0] <= 1
-		java.util.function.Function<Matrix, Matrix> fun = x ->
+		Function<Matrix, Matrix> fun = x ->
 				Matrix.Factory.linkToArray(new double[] { x.getAsDouble(0, 0) });
-		java.util.function.Function<Matrix, Matrix> jac = x ->
+		Function<Matrix, Matrix> jac = x ->
 				Matrix.Factory.linkToArray(new double[][] { { 1.0 } });
 		NonlinearConstraint c = new NonlinearConstraint(fun, jac,
 				new double[] {0.0}, new double[] {1.0});
@@ -131,16 +134,16 @@ class TestNonlinearConstraint {
 		//   row 4: lower-only (greater) -> 1 ineq
 		// vIneq order (scipy 4-block): [row3 less, row4 greater, row0 ub, row0 lb].
 		// hess(x, v) gets the row-multiplier-packed v of length m=5.
-		java.util.function.Function<Matrix, Matrix> fun = x -> {
+		Function<Matrix, Matrix> fun = x -> {
 			double a = x.getAsDouble(0, 0);
 			return Matrix.Factory.linkToArray(new double[] {a, a, a, a, a});
 		};
-		java.util.function.Function<Matrix, Matrix> jac = x ->
+		Function<Matrix, Matrix> jac = x ->
 				Matrix.Factory.linkToArray(new double[][] {
 						{1.0}, {1.0}, {1.0}, {1.0}, {1.0}});
 		// Expose only rows 0 and 3 with curvature; others contribute 0.
 		// Total = 2*v[0] + 4*v[3] at the scalar position [0,0].
-		java.util.function.BiFunction<Matrix, Matrix, Matrix> hess = (x, v) -> {
+		BiFunction<Matrix, Matrix, Matrix> hess = (x, v) -> {
 			double total = 2.0 * v.getAsDouble(0, 0) + 4.0 * v.getAsDouble(3, 0);
 			return Matrix.Factory.linkToArray(new double[][] {{total}});
 		};

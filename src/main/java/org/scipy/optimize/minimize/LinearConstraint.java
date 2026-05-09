@@ -1,8 +1,11 @@
 package org.scipy.optimize.minimize;
 
+import java.util.Arrays;
+
 import org.scipy.optimize.minimize.interfaces.Constraint;
 import org.scipy.optimize.minimize.interfaces.Jacobian;
 import org.scipy.optimize.minimize.records.Bounds;
+import org.scipy.optimize.minimize.records.Residual;
 import org.scipy.optimize.minimize.sparse.CSRMatrix;
 
 import org.scipy.optimize.minimize.matrix.Matrix;
@@ -196,7 +199,7 @@ public class LinearConstraint implements Constraint, Jacobian {
 		// scalar flag on Bounds applies uniformly to every variable.
 		boolean[] keepFeasible = new boolean[(int) n];
 		if (bounds.keepFeasible()) {
-			java.util.Arrays.fill(keepFeasible, true);
+			Arrays.fill(keepFeasible, true);
 		}
 		return new LinearConstraint(identity, lbArr, ubArr, keepFeasible);
 	}
@@ -262,6 +265,28 @@ public class LinearConstraint implements Constraint, Jacobian {
 								+ "lb=" + lb[i] + ", value=" + v + ", ub=" + ub[i]);
 			}
 		}
+	}
+
+	/**
+	 * Lower and upper residuals at {@code x}: {@code sl = A x - lb} (positive
+	 * iff lower bound satisfied), {@code sb = ub - A x} (positive iff upper
+	 * bound satisfied). Mirrors scipy's
+	 * {@code LinearConstraint.residual(x)}.
+	 *
+	 * @param x current iterate ({@code n x 1})
+	 * @return {@code (sl, sb)} as a {@link Residual}
+	 */
+	public Residual residual(Matrix x) {
+		Matrix ax = A.mtimes(x);
+		int m = (int) ax.getRowCount();
+		double[] sl = new double[m];
+		double[] sb = new double[m];
+		for (int i = 0; i < m; ++i) {
+			double v = ax.getAsDouble(i, 0);
+			sl[i] = v - lb[i];
+			sb[i] = ub[i] - v;
+		}
+		return new Residual(sl, sb);
 	}
 
 	@Override

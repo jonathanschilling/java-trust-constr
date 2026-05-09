@@ -133,6 +133,35 @@ public class Projections {
 					: ProjectionMethod.QR_FACTORIZATION;
 		}
 
+		// Unconstrained shortcut: A is 0 x n -> all of R^n is the nullspace,
+		// the least-squares multiplier is the zero vector in R^0, and the
+		// row-space minimum-norm solution is the zero vector in R^n. Skip the
+		// QR/SVD/augmented-system paths, which would all degenerate on a
+		// zero-row matrix.
+		//
+		// Also short-circuit when A is non-empty but effectively all-zero
+		// (e.g. a constraint with a singular Jacobian at x0, the scenario
+		// from scipy test_issue_18882). The mathematical content is the same
+		// as the zero-row case — A has rank 0, so its nullspace is all of
+		// R^n and the LS / row-space operators degenerate to zero — but the
+		// result lives in R^m rather than R^0 since the constraint count m
+		// doesn't actually change.
+		if (A.getRowCount() == 0) {
+			final long n = A.getColumnCount();
+			LinearOperator nullSpace = x -> Matrix.Factory.copyFromMatrix(x);
+			LinearOperator leastSquares = x -> Matrix.Factory.zeros(0, 1);
+			LinearOperator rowSpace = x -> Matrix.Factory.zeros(n, 1);
+			return new LinearOperator[] {nullSpace, leastSquares, rowSpace};
+		}
+		if (A.normInf() < tolerance) {
+			final long n = A.getColumnCount();
+			final long m = A.getRowCount();
+			LinearOperator nullSpace = x -> Matrix.Factory.copyFromMatrix(x);
+			LinearOperator leastSquares = x -> Matrix.Factory.zeros(m, 1);
+			LinearOperator rowSpace = x -> Matrix.Factory.zeros(n, 1);
+			return new LinearOperator[] {nullSpace, leastSquares, rowSpace};
+		}
+
 		switch (method) {
 		case NORMAL_EQUATION:
 			return normalEquationProjections(A, orthTol, maxRefine, tolerance);

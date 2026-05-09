@@ -44,6 +44,16 @@ public class EqualityConstrainedSQP {
 
 	static final double BOX_FACTOR = 0.5;
 
+	/**
+	 * Like {@link Matrix#norm2()} but safe for zero-row matrices, which arise on
+	 * the unconstrained dispatch path (no equality constraints). UJMP throws
+	 * {@code ArrayIndexOutOfBoundsException} for {@code norm2()} on a 0x1
+	 * matrix; the natural answer is 0.
+	 */
+	private static double safeNorm2(Matrix m) {
+		return (m.getRowCount() == 0 || m.getColumnCount() == 0) ? 0.0 : m.norm2();
+	}
+
 	public static final LinearOperator defaultScaling(long n) {
 		// "No scaling" means S = I_n: the SQP step is applied unscaled
 		// (S.mtimes(d) == d). Mirrors scipy's default_scaling, which returns
@@ -182,7 +192,7 @@ public class EqualityConstrainedSQP {
 
 			// Compute new penalty parameter according to formula (3.52),
 			// reference [2], p.891.
-			double vPred = b.norm2() - linearizedConstr.norm2();
+			double vPred = safeNorm2(b) - safeNorm2(linearizedConstr);
 
 			// Guarantee `vpred` always positive, regardless of roundoff errors.
 			vPred = Math.max(1.0e-16, vPred);
@@ -197,7 +207,7 @@ public class EqualityConstrainedSQP {
 			double predictedReduction = -quadraticModel + penalty*vPred;
 
 			// Compute merit function at current point
-			double meritFunction = f + penalty * b.norm2();
+			double meritFunction = f + penalty * safeNorm2(b);
 
 			// Evaluate function and constraints at trial point
 			Matrix xNext = x.plus(S.mtimes(d));
@@ -206,7 +216,7 @@ public class EqualityConstrainedSQP {
 			Matrix bNext = fc.c();
 
 			// Compute merit function at trial point
-			double meritFunctionNext = fNext + penalty * bNext.norm2();
+			double meritFunctionNext = fNext + penalty * safeNorm2(bNext);
 
 			// Compute actual reduction according to formula (3.54), reference [2], p.892.
 			double actualReduction = meritFunction - meritFunctionNext;
@@ -232,7 +242,7 @@ public class EqualityConstrainedSQP {
 				Matrix bSoc = fcSoc.c();
 
 				// Recompute actual reduction
-				double meritFunctionSoc = fSoc + penalty * bSoc.norm2();
+				double meritFunctionSoc = fSoc + penalty * safeNorm2(bSoc);
 				double actualReductionSoc = meritFunction - meritFunctionSoc;
 
 				// Recompute reduction ratio
@@ -301,6 +311,6 @@ public class EqualityConstrainedSQP {
 			}
 		}
 
-		return new StatefulResult(x, state);
+		return new StatefulResult(x, state, v);
 	}
 }

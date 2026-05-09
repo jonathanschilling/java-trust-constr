@@ -66,5 +66,46 @@ class TestEqIneqRosenbrock {
 
 		Assertions.assertEquals(0.41494, r.x.getAsDouble(0, 0), 1.0e-2);
 		Assertions.assertEquals(0.17011, r.x.getAsDouble(1, 0), 1.0e-2);
+		// KKT at the optimum: g + Jeq^T v + Jineq^T λ = 0. Mixed eq/ineq
+		// exercises both halves of the augmented-system multiplier slice.
+		Assertions.assertNotNull(r.lagrangianGrad);
+		Assertions.assertTrue(r.lagrangianGrad.normInf() < 1.0e-3,
+				"Lagrangian gradient too large: " + r.lagrangianGrad.normInf());
+	}
+
+	@Test
+	void rosenbrockWithIneqOnly() {
+		// scipy::IneqRosenbrock — minimize Rosenbrock s.t. x[0] + 2 x[1] <= 1.
+		// Optimum: ~ (0.5022, 0.2489).
+		Function<Matrix, Double> rosen = x -> {
+			double a = x.getAsDouble(0, 0);
+			double b = x.getAsDouble(1, 0);
+			return 100.0 * (b - a * a) * (b - a * a) + (1.0 - a) * (1.0 - a);
+		};
+		Function<Matrix, Matrix> rosenG = x -> {
+			double a = x.getAsDouble(0, 0);
+			double b = x.getAsDouble(1, 0);
+			return Matrix.Factory.linkToArray(new double[] {
+					-2.0 * (1.0 - a) - 400.0 * a * (b - a * a),
+					200.0 * (b - a * a) });
+		};
+		Function<Matrix, Matrix> rosenH = x -> {
+			double a = x.getAsDouble(0, 0);
+			double b = x.getAsDouble(1, 0);
+			return Matrix.Factory.linkToArray(new double[][] {
+					{ 2.0 - 400.0 * b + 1200.0 * a * a, -400.0 * a },
+					{ -400.0 * a, 200.0 } });
+		};
+
+		LinearConstraint ineq = new LinearConstraint(
+				Matrix.Factory.linkToArray(new double[][] { {1.0, 2.0} }),
+				new double[] {Double.NEGATIVE_INFINITY}, new double[] {1.0});
+
+		Matrix x0 = Matrix.Factory.linkToArray(new double[] {-1.0, -0.5});
+		OptimizeResult r = MinimizeTrustConstr.minimize(rosen, rosenG, rosenH, x0, ineq,
+				2000, 1.0e-8, 1.0e-8);
+
+		Assertions.assertEquals(0.5022, r.x.getAsDouble(0, 0), 1.0e-2);
+		Assertions.assertEquals(0.2489, r.x.getAsDouble(1, 0), 1.0e-2);
 	}
 }

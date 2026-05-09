@@ -121,6 +121,45 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 		this(fun, jac, null, lb, ub, null);
 	}
 
+	/**
+	 * Construct a {@code NonlinearConstraint} without an analytic Jacobian.
+	 * The Jacobian is built lazily by 2-point finite differences on each
+	 * call. Mirrors scipy's behaviour when {@code jac} is omitted.
+	 *
+	 * <p>Only suitable for small-to-medium constraint dimensions: each
+	 * {@code jac(x)} call performs {@code n} evaluations of {@code fun}
+	 * (where {@code n = x.size()}). For tight problems an analytic
+	 * Jacobian remains preferable.
+	 */
+	public NonlinearConstraint(Function<Matrix, Matrix> fun,
+			double[] lb, double[] ub, boolean[] keepFeasible) {
+		this(fun, fdJacobian(fun), null, lb, ub, keepFeasible);
+	}
+
+	public NonlinearConstraint(Function<Matrix, Matrix> fun,
+			double[] lb, double[] ub) {
+		this(fun, fdJacobian(fun), null, lb, ub, null);
+	}
+
+	/**
+	 * Build a 2-point finite-difference Jacobian closure for a vector-valued
+	 * constraint function. Each invocation calls {@code fun(x)} once for the
+	 * baseline plus {@code n} more times for the perturbed columns.
+	 */
+	private static Function<Matrix, Matrix> fdJacobian(Function<Matrix, Matrix> fun) {
+		return x -> {
+			Matrix f0 = fun.apply(x);
+			org.scipy.optimize.minimize.records.FiniteDifferenceOptions options =
+					new org.scipy.optimize.minimize.records.FiniteDifferenceOptions
+							.FiniteDifferenceOptionsFactory()
+					.method(org.scipy.optimize.minimize.enums.FiniteDifferenceMethod.TWO_POINT)
+					.bounds(org.scipy.optimize.minimize.records.FiniteDifferenceBounds
+							.unbounded(x.getRowCount()))
+					.build();
+			return NumDiff.approxDerivative(fun, x, f0, options);
+		};
+	}
+
 	public double[] lb() { return lb.clone(); }
 	public double[] ub() { return ub.clone(); }
 	public boolean[] keepFeasible() { return keepFeasible.clone(); }
@@ -130,6 +169,46 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 
 	public int nEq() { return eqRows.length; }
 	public int nIneq() { return ineqRows.length; }
+
+	/**
+	 * Per-canonical-inequality-row {@code enforceFeasibility} flags derived
+	 * from the user-supplied {@code keep_feasible}. Each canonical ineq row
+	 * inherits the kf flag of the original row it came from
+	 * ({@link #ineqRows}). Length matches {@link #nIneq()}.
+	 */
+	public boolean[] enforceFeasibilityIneq() {
+		boolean[] out = new boolean[ineqRows.length];
+		for (int k = 0; k < ineqRows.length; ++k) {
+			out[k] = keepFeasible[ineqRows[k]];
+		}
+		return out;
+	}
+
+	/**
+	 * Throws {@link IllegalArgumentException} if any row marked
+	 * {@code keepFeasible[i] == true} is violated at the supplied starting
+	 * point. Mirrors scipy's strict-feasibility precondition for
+	 * {@code keep_feasible=True} rows: the algorithm will not enforce
+	 * intermediate-iterate feasibility for these rows if the start is
+	 * already infeasible there.
+	 */
+	public void validateKeepFeasibleAtStart(Matrix x0) {
+		boolean any = false;
+		for (boolean kf : keepFeasible) {
+			if (kf) { any = true; break; }
+		}
+		if (!any) return;
+		Matrix fx = fun.apply(x0);
+		for (int i = 0; i < keepFeasible.length; ++i) {
+			if (!keepFeasible[i]) continue;
+			double v = fx.getAsDouble(i, 0);
+			if (v < lb[i] || v > ub[i]) {
+				throw new IllegalArgumentException(
+						"keep_feasible row " + i + " is violated at x0: "
+								+ "lb=" + lb[i] + ", fun(x0)[" + i + "]=" + v + ", ub=" + ub[i]);
+			}
+		}
+	}
 
 	/**
 	 * Constraint Hessian-of-Lagrangian {@code sum_i v[i] * H_{c_i}(x)},

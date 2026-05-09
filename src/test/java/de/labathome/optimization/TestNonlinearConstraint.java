@@ -55,6 +55,49 @@ class TestNonlinearConstraint {
 	}
 
 	@Test
+	void testFiveRowMixedBounds() {
+		// Mirrors scipy's _trustregion_constr/tests/test_canonical_constraint.py::test_nonlinear_constraint:
+		//   lb = [-10, 3,  -inf, -inf, -5]
+		//   ub = [ 10, 3,   inf,    3, inf]
+		// Row classification:
+		//   row 0: [-10, 10] interval -> 2 ineq rows (upper, lower)
+		//   row 1: [3, 3] equality    -> 1 eq row
+		//   row 2: [-inf, inf]        -> dropped
+		//   row 3: [-inf, 3] upper    -> 1 ineq row
+		//   row 4: [-5, inf] lower    -> 1 ineq row
+		// So nEq = 1, nIneq = 4 — same as scipy's CanonicalConstraint.
+		java.util.function.Function<Matrix, Matrix> fun = x -> {
+			double a = x.getAsDouble(0, 0);
+			return Matrix.Factory.linkToArray(new double[] {
+					a, a, a, a, a});
+		};
+		java.util.function.Function<Matrix, Matrix> jac = x ->
+				Matrix.Factory.linkToArray(new double[][] {
+						{1.0}, {1.0}, {1.0}, {1.0}, {1.0}});
+
+		NonlinearConstraint c = new NonlinearConstraint(fun, jac,
+				new double[] {-10, 3, NEG_INF, NEG_INF, -5},
+				new double[] { 10, 3, POS_INF, 3,      POS_INF});
+		Assertions.assertEquals(1, c.nEq());
+		Assertions.assertEquals(4, c.nIneq());
+
+		// At x0 = (4,), fx = (4, 4, 4, 4, 4).
+		Matrix x0 = Matrix.Factory.linkToArray(new double[] {4.0});
+
+		// constrEq = (fx[1] - lb[1],) = (4 - 3,) = (1,)
+		MinervaAssertions.assertArrayRelAbsEquals(new double[] {1.0},
+				LinAlg.col(c.constrEq(x0)), TOL);
+
+		// constrIneq order (by source-row index):
+		//   row 0 upper:  +1 * (4 - 10) = -6
+		//   row 0 lower:  -1 * (4 - (-10)) = -14
+		//   row 3 upper:  +1 * (4 - 3) = 1
+		//   row 4 lower:  -1 * (4 - (-5)) = -9
+		MinervaAssertions.assertArrayRelAbsEquals(new double[] {-6.0, -14.0, 1.0, -9.0},
+				LinAlg.col(c.constrIneq(x0)), TOL);
+	}
+
+	@Test
 	void testTwoSidedSplitsIntoUpperAndLowerRows() {
 		// fun(x) = x[0]; bound: 0 <= x[0] <= 1
 		java.util.function.Function<Matrix, Matrix> fun = x ->
@@ -70,5 +113,55 @@ class TestNonlinearConstraint {
 		// constrIneq = [+1*(0.5 - 1), -1*(0.5 - 0)] = [-0.5, -0.5]
 		MinervaAssertions.assertArrayRelAbsEquals(new double[] {-0.5, -0.5},
 				LinAlg.col(c.constrIneq(x)), TOL);
+	}
+
+	@Test
+	void testLagrangianContributionPacksMultipliersBackToOriginalRows() {
+		// Mirrors the Hessian assertion in scipy
+		// _trustregion_constr/tests/test_canonical_constraint.py::test_nonlinear_constraint:
+		// the canonical (vEq, vIneq) multipliers must be packed back to the
+		// original m-vector of row multipliers — eq rows get vEq directly,
+		// upper-bound ineq rows get +vIneq, lower-bound ineq rows get -vIneq —
+		// before being passed to the user's hess(x, v).
+		//
+		// Five rows, lb = [-10, 3, -inf, -inf, -5], ub = [10, 3, inf, 3, inf]:
+		//   row 0: interval -> 2 ineq (ub then lb in our row-major order)
+		//   row 1: equality -> 1 eq
+		//   row 2: free (dropped)
+		//   row 3: upper -> 1 ineq
+		//   row 4: lower -> 1 ineq
+		// hess(x, v) gets the row-multiplier-packed v of length m=5.
+		java.util.function.Function<Matrix, Matrix> fun = x -> {
+			double a = x.getAsDouble(0, 0);
+			return Matrix.Factory.linkToArray(new double[] {a, a, a, a, a});
+		};
+		java.util.function.Function<Matrix, Matrix> jac = x ->
+				Matrix.Factory.linkToArray(new double[][] {
+						{1.0}, {1.0}, {1.0}, {1.0}, {1.0}});
+		// Expose only rows 0 and 3 with curvature; others contribute 0.
+		// Total = 2*v[0] + 4*v[3] at the scalar position [0,0].
+		java.util.function.BiFunction<Matrix, Matrix, Matrix> hess = (x, v) -> {
+			double total = 2.0 * v.getAsDouble(0, 0) + 4.0 * v.getAsDouble(3, 0);
+			return Matrix.Factory.linkToArray(new double[][] {{total}});
+		};
+
+		NonlinearConstraint c = new NonlinearConstraint(fun, jac, hess,
+				new double[] {-10, 3, NEG_INF, NEG_INF, -5},
+				new double[] { 10, 3, POS_INF, 3, POS_INF},
+				null);
+
+		Matrix x0 = Matrix.Factory.linkToArray(new double[] {1.0});
+
+		// vEq[0] -> v[1]; ignored by our hess (row 1 has no curvature).
+		// vIneq order: [row0_ub, row0_lb, row3_ub, row4_lb].
+		//   v[0] += +1*vIneq[0] + (-1)*vIneq[1] = 0.7 - 0.2 = 0.5
+		//   v[3] += +1*vIneq[2] = 0.3
+		//   v[4] += (-1)*vIneq[3] = -0.1 (no curvature contribution)
+		// hess total = 2*0.5 + 4*0.3 = 2.2.
+		double[] vEq = {0.5};
+		double[] vIneq = {0.7, 0.2, 0.3, 0.1};
+		Matrix H = c.lagrangianContribution(x0, vEq, vIneq);
+		Assertions.assertNotNull(H);
+		MinervaAssertions.assertRelAbsEquals(2.2, H.getAsDouble(0, 0), TOL);
 	}
 }

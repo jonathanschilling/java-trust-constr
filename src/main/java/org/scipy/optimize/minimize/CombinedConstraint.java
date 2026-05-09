@@ -5,6 +5,7 @@ import java.util.List;
 import org.scipy.optimize.minimize.interfaces.Constraint;
 import org.scipy.optimize.minimize.interfaces.Jacobian;
 import org.ujmp.core.Matrix;
+import org.ujmp.core.SparseMatrix;
 
 /**
  * Concatenation of several {@link LinearConstraint} / {@link NonlinearConstraint}
@@ -58,6 +59,44 @@ public final class CombinedConstraint implements Constraint, Jacobian {
 	public int nEq() { return totalEq; }
 	public int nIneq() { return totalIneq; }
 
+	/**
+	 * Concatenated per-canonical-inequality-row {@code enforceFeasibility}
+	 * flags across all sources, in the same order they appear in
+	 * {@link #constrIneq}. Length matches {@link #nIneq()}.
+	 */
+	public boolean[] enforceFeasibilityIneq() {
+		boolean[] out = new boolean[totalIneq];
+		int row = 0;
+		for (Object s : sources) {
+			boolean[] part;
+			if (s instanceof LinearConstraint) {
+				part = ((LinearConstraint) s).enforceFeasibilityIneq();
+			} else if (s instanceof NonlinearConstraint) {
+				part = ((NonlinearConstraint) s).enforceFeasibilityIneq();
+			} else {
+				continue;
+			}
+			System.arraycopy(part, 0, out, row, part.length);
+			row += part.length;
+		}
+		return out;
+	}
+
+	/**
+	 * Walk all sources and validate that any row marked
+	 * {@code keep_feasible=True} is satisfied at {@code x0}. Throws
+	 * {@link IllegalArgumentException} on the first violation.
+	 */
+	public void validateKeepFeasibleAtStart(Matrix x0) {
+		for (Object s : sources) {
+			if (s instanceof LinearConstraint) {
+				((LinearConstraint) s).validateKeepFeasibleAtStart(x0);
+			} else if (s instanceof NonlinearConstraint) {
+				((NonlinearConstraint) s).validateKeepFeasibleAtStart(x0);
+			}
+		}
+	}
+
 	@Override
 	public Matrix constrEq(Matrix x) {
 		if (totalEq == 0) {
@@ -104,24 +143,63 @@ public final class CombinedConstraint implements Constraint, Jacobian {
 
 	@Override
 	public Matrix jacEq(Matrix x) {
-		if (totalEq == 0) {
+		return concatenateJac(x, /*ineq=*/ false);
+	}
+
+	/**
+	 * Vertically stack the {@code jacEq} or {@code jacIneq} from each source
+	 * into a single {@code totalRows x nVars} Jacobian. Auto-detects sparsity:
+	 * if every contributing source's part is a sparse {@link Matrix}, the
+	 * output is allocated as a {@link SparseMatrix} (which lets
+	 * {@code Projections.projections} route through AUGMENTED_SYSTEM); otherwise
+	 * dense via {@link Matrix.Factory#zeros}.
+	 */
+	private Matrix concatenateJac(Matrix x, boolean ineq) {
+		int totalRows = ineq ? totalIneq : totalEq;
+		if (totalRows == 0) {
 			return Matrix.Factory.zeros(0, nVars);
 		}
-		Matrix out = Matrix.Factory.zeros(totalEq, nVars);
-		int row = 0;
-		for (Object s : sources) {
+		// Pass 1: gather parts and decide sparse-vs-dense.
+		Matrix[] parts = new Matrix[sources.length];
+		boolean allSparse = true;
+		boolean anyContributing = false;
+		for (int i = 0; i < sources.length; ++i) {
+			Object s = sources[i];
+			int srcRows = ineq
+					? ((s instanceof LinearConstraint) ? ((LinearConstraint) s).nIneq()
+							: ((NonlinearConstraint) s).nIneq())
+					: ((s instanceof LinearConstraint) ? ((LinearConstraint) s).nEq()
+							: ((NonlinearConstraint) s).nEq());
+			if (srcRows == 0) continue;
 			Jacobian j = (Jacobian) s;
-			int nEq = (s instanceof LinearConstraint)
-					? ((LinearConstraint) s).nEq()
-					: ((NonlinearConstraint) s).nEq();
-			if (nEq == 0) continue;
-			Matrix part = j.jacEq(x);
-			for (int k = 0; k < nEq; ++k) {
+			Matrix part = ineq ? j.jacIneq(x) : j.jacEq(x);
+			parts[i] = part;
+			anyContributing = true;
+			if (!part.isSparse()) allSparse = false;
+		}
+		// Pass 2: allocate (sparse if all contributors were sparse) and fill.
+		Matrix out = (anyContributing && allSparse)
+				? SparseMatrix.Factory.zeros(totalRows, nVars)
+				: Matrix.Factory.zeros(totalRows, nVars);
+		int row = 0;
+		for (int i = 0; i < sources.length; ++i) {
+			Object s = sources[i];
+			int srcRows = ineq
+					? ((s instanceof LinearConstraint) ? ((LinearConstraint) s).nIneq()
+							: ((NonlinearConstraint) s).nIneq())
+					: ((s instanceof LinearConstraint) ? ((LinearConstraint) s).nEq()
+							: ((NonlinearConstraint) s).nEq());
+			if (srcRows == 0) continue;
+			Matrix part = parts[i];
+			for (int k = 0; k < srcRows; ++k) {
 				for (int c = 0; c < nVars; ++c) {
-					out.setAsDouble(part.getAsDouble(k, c), row + k, c);
+					double v = part.getAsDouble(k, c);
+					if (v != 0.0 || !out.isSparse()) {
+						out.setAsDouble(v, row + k, c);
+					}
 				}
 			}
-			row += nEq;
+			row += srcRows;
 		}
 		return out;
 	}
@@ -169,25 +247,6 @@ public final class CombinedConstraint implements Constraint, Jacobian {
 
 	@Override
 	public Matrix jacIneq(Matrix x) {
-		if (totalIneq == 0) {
-			return Matrix.Factory.zeros(0, nVars);
-		}
-		Matrix out = Matrix.Factory.zeros(totalIneq, nVars);
-		int row = 0;
-		for (Object s : sources) {
-			Jacobian j = (Jacobian) s;
-			int nIneq = (s instanceof LinearConstraint)
-					? ((LinearConstraint) s).nIneq()
-					: ((NonlinearConstraint) s).nIneq();
-			if (nIneq == 0) continue;
-			Matrix part = j.jacIneq(x);
-			for (int k = 0; k < nIneq; ++k) {
-				for (int c = 0; c < nVars; ++c) {
-					out.setAsDouble(part.getAsDouble(k, c), row + k, c);
-				}
-			}
-			row += nIneq;
-		}
-		return out;
+		return concatenateJac(x, /*ineq=*/ true);
 	}
 }

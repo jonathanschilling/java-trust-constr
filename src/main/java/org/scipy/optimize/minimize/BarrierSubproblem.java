@@ -121,8 +121,12 @@ public class BarrierSubproblem {
 		Matrix x = getVariables(z);
 		Matrix s = getSlack(z);
 
-		// Compute function and constraints
-		double f = fun.applyAsDouble(x, null); // TODO: transmit args as well here!
+		// Compute function and constraints. The `args` slot is intentionally
+		// null — BarrierSubproblem doesn't track scipy's `args`; the
+		// orchestrator (MinimizeTrustConstr) bakes them into `fun` via a
+		// closure before reaching this code path, so the second
+		// argument here is unused by the wrapper.
+		double f = fun.applyAsDouble(x, null);
 		Matrix cEq = constr.constrEq(x);
 		Matrix cIneq = constr.constrIneq(x);
 
@@ -179,8 +183,9 @@ public class BarrierSubproblem {
 		Matrix x = getVariables(z);
 		Matrix s = getSlack(z);
 
-		// Compute first derivatives
-		Matrix g = grad.apply(x, null); // TODO: transport args !!!
+		// Compute first derivatives. `args` slot is null for the same
+		// closure-baked reason as in funAndConstr above.
+		Matrix g = grad.apply(x, null);
 		Matrix jEq = jac.jacEq(x);
 		Matrix jIneq = jac.jacIneq(x);
 

@@ -185,7 +185,7 @@ public class BFGS extends FullHessianUpdateStrategy {
 		Object args = null; // compatibility with extra args for user-defined Hessian
 		double wz = w.transpose().mtimes(z).doubleValue();
 		Matrix Mw = this.apply(w, args);
-		double wMw = Mw.mtimes(w).doubleValue();
+		double wMw = w.transpose().mtimes(Mw).doubleValue();
 
 		// Guarantee that wMw > 0 by reinitializing matrix.
         // While this is always true in exact arithmetics,
@@ -207,7 +207,7 @@ public class BFGS extends FullHessianUpdateStrategy {
 
 			// Do common operations for new matrix
 			Mw = this.apply(w, args);
-			wMw = Mw.mtimes(w).doubleValue();
+			wMw = w.transpose().mtimes(Mw).doubleValue();
 		}
 
 		// Check if curvature condition is violated

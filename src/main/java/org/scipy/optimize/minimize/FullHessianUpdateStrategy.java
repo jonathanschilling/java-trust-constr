@@ -101,10 +101,10 @@ public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy
 	 * @param deltaG
 	 */
 	protected double autoScale(Matrix deltaX, Matrix deltaG) {
-		double sNorm2 = deltaX.mtimes(deltaX).doubleValue();
-		double yNorm2 = deltaG.mtimes(deltaG).doubleValue();
+		double sNorm2 = deltaX.transpose().mtimes(deltaX).doubleValue();
+		double yNorm2 = deltaG.transpose().mtimes(deltaG).doubleValue();
 
-		double ys = Math.abs(deltaG.mtimes(deltaX).doubleValue());
+		double ys = Math.abs(deltaG.transpose().mtimes(deltaX).doubleValue());
 
 		if (ys == 0.0 || yNorm2 == 0.0 || sNorm2 == 0.0) {
 			// fallback to no scaling

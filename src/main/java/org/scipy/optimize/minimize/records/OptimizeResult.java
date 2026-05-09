@@ -100,6 +100,30 @@ public class OptimizeResult {
 	public int status;
 
 	/**
+	 * Whether the optimizer reports success.
+	 *
+	 * <p>Derived at result construction:
+	 * <ul>
+	 *   <li>{@link #status} {@code == 1} (gtol satisfied): always {@code true}
+	 *       — gtol-termination requires the constraint violation to also be
+	 *       below {@code gtol}.</li>
+	 *   <li>{@link #status} {@code == 2} (xtol satisfied / trust-radius
+	 *       collapse): {@code true} only if the residual constraint
+	 *       violation is below {@code gtol} — distinguishes "converged at
+	 *       an active boundary" from "stuck on an infeasible problem".</li>
+	 *   <li>{@link #status} {@code == 0} (maxIter exceeded) or
+	 *       {@link #status} {@code == 3} (callback terminated):
+	 *       {@code false}.</li>
+	 * </ul>
+	 *
+	 * <p>Mirrors scipy's {@code OptimizeResult.success} semantics, including
+	 * the behaviour exercised by scipy {@code test_issue_18882} where a
+	 * degenerate constraint causes trust-radius collapse with a non-trivial
+	 * constraint violation — that outcome reports {@code success=false}.
+	 */
+	public boolean success;
+
+	/**
 	 * Reason for CG subproblem termination at the last iteration:
 	 *
 	 * 0 : CG subproblem not evaluated.
@@ -110,4 +134,43 @@ public class OptimizeResult {
 	 */
 	public PCGStoppingCondition cgStopCond;
 
+	/**
+	 * One-line summary suitable for {@code println(result)}: success flag,
+	 * status, method, x, fun, optimality, constraint violation, iteration
+	 * counters. Mirrors what scipy's {@code repr(OptimizeResult)} shows for
+	 * the most-asked-about fields.
+	 */
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder("OptimizeResult{");
+		sb.append("success=").append(success);
+		sb.append(", status=").append(status);
+		sb.append(", method=").append(method);
+		sb.append(", x=").append(formatVector(x));
+		sb.append(", fun=").append(String.format("%.6g", fun));
+		sb.append(", optimality=").append(String.format("%.3g", optimality));
+		sb.append(", constraintViolation=").append(String.format("%.3g", constraintViolation));
+		sb.append(", nIter=").append(nIter);
+		sb.append(", numFunctionEval=").append(numFunctionEval);
+		if (message != null) {
+			sb.append(", message=\"").append(message).append("\"");
+		}
+		sb.append("}");
+		return sb.toString();
+	}
+
+	private static String formatVector(Matrix v) {
+		if (v == null) return "null";
+		long n = v.getRowCount();
+		if (n == 0) return "[]";
+		StringBuilder sb = new StringBuilder("[");
+		long limit = Math.min(n, 6);
+		for (long i = 0; i < limit; ++i) {
+			if (i > 0) sb.append(", ");
+			sb.append(String.format("%.6g", v.getAsDouble(i, 0)));
+		}
+		if (n > limit) sb.append(", ...(").append(n - limit).append(" more)");
+		sb.append("]");
+		return sb.toString();
+	}
 }

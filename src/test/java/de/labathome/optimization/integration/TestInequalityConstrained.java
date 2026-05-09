@@ -99,6 +99,31 @@ class TestInequalityConstrained {
 		Assertions.assertEquals(TrustConstrMethod.TRUST_REGION_INTERIOR_POINT, r.method);
 		Assertions.assertEquals(1.0, r.x.getAsDouble(0, 0), 5.0e-3);
 		Assertions.assertEquals(1.0, r.x.getAsDouble(1, 0), 5.0e-3);
+
+		// Convergence signal — the SQP-loop's Lagrangian gradient norm.
+		Assertions.assertTrue(r.optimality < 1.0e-6,
+				"Expected r.optimality < 1e-6, got " + r.optimality);
+		// Eval counters: must be positive and reasonable.
+		Assertions.assertTrue(r.numFunctionEval > 0 && r.numFunctionEval < 1000,
+				"Unexpected fun-eval count: " + r.numFunctionEval);
+		Assertions.assertTrue(r.numJacobianEval > 0 && r.numJacobianEval < 1000,
+				"Unexpected grad-eval count: " + r.numJacobianEval);
+		Assertions.assertTrue(r.numHessianEval > 0 && r.numHessianEval < 1000,
+				"Unexpected hess-eval count: " + r.numHessianEval);
+		// Lagrangian gradient: g + Jineq^T λ. The bound is inactive (λ ≈ 0),
+		// so this reduces to the ordinary gradient at Rosenbrock's optimum,
+		// which is zero.
+		Assertions.assertNotNull(r.lagrangianGrad);
+		Assertions.assertTrue(r.lagrangianGrad.normInf() < 1.0e-4,
+				"Lagrangian gradient too large: " + r.lagrangianGrad.normInf());
+		// IP-path-only fields: barrierParameter / barrierTolerance should
+		// have decayed below their starting values (0.1 each) by termination.
+		Assertions.assertTrue(r.barrierParameter > 0 && r.barrierParameter < 0.1,
+				"Expected barrierParameter to have decayed below 0.1; got "
+						+ r.barrierParameter);
+		Assertions.assertTrue(r.barrierTolerance > 0 && r.barrierTolerance < 0.1,
+				"Expected barrierTolerance to have decayed below 0.1; got "
+						+ r.barrierTolerance);
 	}
 
 	@Test
@@ -135,6 +160,12 @@ class TestInequalityConstrained {
 		Assertions.assertEquals(TrustConstrMethod.TRUST_REGION_INTERIOR_POINT, r.method);
 		Assertions.assertEquals(2.0, r.x.getAsDouble(0, 0), 1.0e-3);
 		Assertions.assertEquals(4.0, r.x.getAsDouble(1, 0), 1.0e-2);
+		// KKT at the optimum: g + Jineq^T λ = 0. The bound is active (λ ≠ 0)
+		// so this is a sharper test than the inactive case — only correct
+		// multiplier recovery makes the Lagrangian gradient vanish.
+		Assertions.assertNotNull(r.lagrangianGrad);
+		Assertions.assertTrue(r.lagrangianGrad.normInf() < 1.0e-4,
+				"Lagrangian gradient too large at active bound: " + r.lagrangianGrad.normInf());
 	}
 
 	@Test

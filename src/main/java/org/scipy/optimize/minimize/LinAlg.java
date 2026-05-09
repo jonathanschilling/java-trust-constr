@@ -5,11 +5,17 @@ import org.ujmp.core.Matrix;
 import org.ujmp.core.SparseMatrix;
 
 /**
- * linear algebra helper class
+ * Small helpers that bridge between {@code double[]}-typed primitive arrays
+ * and UJMP's {@link Matrix}.
  *
- *  TODO: This class should not exist.
- *  It is a temporary workaround until this project migrates from UJMP to ojAlgo,
- *  because ojAlgo is better interfaced against primitive arrays than UJMP.
+ * <p>Originally introduced as a placeholder for an ojAlgo migration that is
+ * no longer planned (the in-tree {@code sparse} module is the long-term
+ * direction). The class survives because its callers — {@link EqualityConstrainedSQP},
+ * {@link QPSubproblem}, the test suite — still need {@code col()},
+ * {@code norm2()}, {@code dot()} on primitive vectors, and {@code sparse()}
+ * / {@code diag()} / {@code op()} on UJMP matrices. Future cleanup may move
+ * these into {@link org.scipy.optimize.minimize.sparse.UjmpBridge} as the
+ * sparse module retires more of UJMP.
  */
 public class LinAlg {
 

@@ -15,7 +15,7 @@ public final class FiniteDifferenceOptions {
 		private boolean asLinearOperator;
 		private Sparsity sparsity;
 
-		private FiniteDifferenceOptionsFactory() {
+		public FiniteDifferenceOptionsFactory() {
 			method = FiniteDifferenceMethod.THREE_POINT;
 			hasBounds = false;
 		}

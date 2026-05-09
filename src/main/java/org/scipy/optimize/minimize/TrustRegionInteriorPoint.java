@@ -108,6 +108,7 @@ public class TrustRegionInteriorPoint {
 		trustUb.fill(Ret.ORIG, Double.POSITIVE_INFINITY);
 
 		// Solve a sequence of barrier problems
+		Matrix vFinal = null;
 		while(true) {
 
 			// Solve SQP subproblem
@@ -118,6 +119,7 @@ public class TrustRegionInteriorPoint {
 					factorizationMethod, trustLb, trustUb, subProb::getScaling);
 			z = r.x();
 			state = r.state();
+			vFinal = r.v();
 
 			if (subProb.terminate) {
 				break;
@@ -146,6 +148,10 @@ public class TrustRegionInteriorPoint {
 		// Get x and s
 		Matrix x = subProb.getVariables(z);
 
-		return new StatefulResult(x, state);
+		// vFinal is the augmented-system multiplier from the final barrier
+		// subproblem: length nEq + nIneq; first nEq entries are equality
+		// multipliers, remaining nIneq entries are slack-row multipliers
+		// corresponding to the original problem's inequality λ.
+		return new StatefulResult(x, state, vFinal);
 	}
 }

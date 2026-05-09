@@ -16,17 +16,12 @@ import minerva.tests.junit.MinervaAssertions;
  * the Lagrangian Hessian → modified-dogleg → projected-CG → step-acceptance
  * pipeline.
  *
- * <p>Tolerances vary by problem: the convex quadratic converges to machine
- * precision, while Rosenbrock from a cold start tends to collapse the trust
- * radius before reaching machine precision (a stock trust-constr behaviour).
- * For the latter we assert end-to-end functionality at a looser tolerance —
- * tightening it would require additional algorithm tuning that is orthogonal
- * to the orchestrator port itself.
+ * <p>Both problems converge to machine precision; iteration counts match
+ * scipy's reference (3 for the quadratic, 7 for Rosenbrock).
  */
 class TestEqualityConstrainedRosenbrock {
 
 	private static final double TIGHT_TOL = 1.0e-12;
-	private static final double LOOSE_TOL = 5.0e-3;
 
 	private static double rosenbrock(Matrix x) {
 		double a = x.getAsDouble(0, 0);
@@ -70,13 +65,23 @@ class TestEqualityConstrainedRosenbrock {
 		Matrix x0 = Matrix.Factory.linkToArray(new double[] {-1.0, 0.5});
 		OptimizeResult r = MinimizeTrustConstr.minimizeEqualityConstrained(
 				q, qg, qh, x0, eq, 100, 1.0e-10, 1.0e-10);
-		System.err.println("Quadratic: status=" + r.status + " nIter=" + r.nIter
-				+ " x=[" + r.x.getAsDouble(0, 0) + "," + r.x.getAsDouble(1, 0) + "]"
-				+ " fun=" + r.fun + " optimality=" + r.optimality);
 
 		MinervaAssertions.assertArrayRelAbsEquals(new double[] {1.0, 1.0},
 				new double[] {r.x.getAsDouble(0, 0), r.x.getAsDouble(1, 0)}, TIGHT_TOL);
 		MinervaAssertions.assertRelAbsEquals(2.0, r.fun, TIGHT_TOL);
+		// scipy converges in 3 iterations.
+		org.junit.jupiter.api.Assertions.assertEquals(3, r.nIter);
+		// Lagrangian gradient at the optimum should be tiny.
+		org.junit.jupiter.api.Assertions.assertNotNull(r.lagrangianGrad);
+		org.junit.jupiter.api.Assertions.assertTrue(r.lagrangianGrad.normInf() < 1e-10,
+				"Lagrangian gradient too large: " + r.lagrangianGrad.normInf());
+		// Eval counters should be modest and nonzero.
+		org.junit.jupiter.api.Assertions.assertTrue(r.numFunctionEval > 0 && r.numFunctionEval < 50,
+				"Unexpected fun-eval count: " + r.numFunctionEval);
+		org.junit.jupiter.api.Assertions.assertTrue(r.numJacobianEval > 0 && r.numJacobianEval < 50,
+				"Unexpected grad-eval count: " + r.numJacobianEval);
+		org.junit.jupiter.api.Assertions.assertTrue(r.numHessianEval > 0 && r.numHessianEval < 50,
+				"Unexpected hess-eval count: " + r.numHessianEval);
 	}
 
 	@Test
@@ -93,17 +98,14 @@ class TestEqualityConstrainedRosenbrock {
 				TestEqualityConstrainedRosenbrock::rosenbrockHess,
 				x0, eq,
 				1000, 1.0e-10, 1.0e-10);
-		System.err.println("Rosenbrock: status=" + r.status + " nIter=" + r.nIter
-				+ " x=[" + r.x.getAsDouble(0, 0) + "," + r.x.getAsDouble(1, 0) + "]"
-				+ " fun=" + r.fun + " optimality=" + r.optimality);
 
 		MinervaAssertions.assertArrayRelAbsEquals(
 				new double[] {1.0, 1.0},
 				new double[] {r.x.getAsDouble(0, 0), r.x.getAsDouble(1, 0)},
-				LOOSE_TOL);
-		// The objective is small but not exactly 0 — see class Javadoc on the cold-start
-		// trust-radius collapse. We just check it's well below the initial value (3.25).
-		org.junit.jupiter.api.Assertions.assertTrue(r.fun < 1e-2,
-				"Rosenbrock final fun should be tiny but was " + r.fun);
+				TIGHT_TOL);
+		MinervaAssertions.assertRelAbsEquals(0.0, r.fun, TIGHT_TOL);
+		// scipy converges in 7 iterations from this start; we should match.
+		org.junit.jupiter.api.Assertions.assertEquals(7, r.nIter,
+				"Expected scipy-parity iteration count (7) but got " + r.nIter);
 	}
 }

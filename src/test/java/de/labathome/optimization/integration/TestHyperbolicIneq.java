@@ -53,8 +53,17 @@ class TestHyperbolicIneq {
 					{ -1.0 / ((a + 1) * (a + 1)), -1.0 }
 			});
 		};
-		NonlinearConstraint hyper = new NonlinearConstraint(cFun, cJac,
-				new double[] {0.25}, new double[] {Double.POSITIVE_INFINITY});
+		// Hessian of v[0] * c(x) = v[0] * (1/(x[0]+1) - x[1]):
+		//   d²/dx[0]² = v[0] * 2/(x[0]+1)^3, others zero.
+		java.util.function.BiFunction<Matrix, Matrix, Matrix> cHess = (x, v) -> {
+			double a = x.getAsDouble(0, 0);
+			double v0 = v.getAsDouble(0, 0);
+			double h00 = 2.0 * v0 / Math.pow(a + 1.0, 3.0);
+			return Matrix.Factory.linkToArray(new double[][] {
+					{h00, 0.0}, {0.0, 0.0} });
+		};
+		NonlinearConstraint hyper = new NonlinearConstraint(cFun, cJac, cHess,
+				new double[] {0.25}, new double[] {Double.POSITIVE_INFINITY}, null);
 
 		Bounds nonNeg = new Bounds(
 				Matrix.Factory.linkToArray(new double[] {0.0, 0.0}),

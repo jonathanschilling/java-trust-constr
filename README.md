@@ -4,9 +4,9 @@ A Java port of `scipy.optimize.minimize(method='trust-constr')` -- a trust-regio
 constrained nonlinear optimizer that handles linear and nonlinear equality and
 inequality constraints, and bounds.
 
-The reference Python implementation is checked out as a git submodule at
-`scipy/`. Each Java class mirrors its scipy counterpart (e.g.
-`Projections.java` <-> `projections.py`).
+Each Java class mirrors its scipy counterpart (e.g. `Projections.java` <->
+`projections.py`); the upstream reference lives at
+<https://github.com/scipy/scipy/tree/main/scipy/optimize/_trustregion_constr>.
 
 ## Getting it
 
@@ -204,7 +204,6 @@ catalogue of integration tests.
 Maven, Java 17.
 
 ```bash
-git submodule update --init           # populate the scipy reference
 mvn compile
 mvn test
 ```
@@ -213,10 +212,9 @@ The parent POM `de.labathome:de-labathome-parent:1.1.0` is on Maven Central,
 so a fresh `mvn` resolves everything from a public mirror -- no local install
 of the parent is needed.
 
-The `scipy/` submodule is only required by the Python helper that
-regenerates reference values for the unit tests
-(`src/test/python/regenerate_references.py`); it's not needed to build, run
-the test suite, or build the javadoc.
+The Python helper at `src/test/python/regenerate_references.py` produces
+the reference values used by integration-test fixtures; it depends on a
+pip-installed `scipy` (`pip install scipy`), not on the upstream sources.
 
 ## Continuous integration
 

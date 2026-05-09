@@ -16,6 +16,7 @@
 package de.labathome.optimization;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 import de.labathome.trustconstr.BFGS;
@@ -83,18 +84,22 @@ class TestHessianUpdateStrategy {
 	void sr1SkipUpdateLeavesMatrixUnchanged() {
 		// scipy test_SR1_skip_update: same idea for SR1 with min_denominator.
 		// Fresh SR1Factory -- avoids state leak through SR1.FACTORY.
+		// Use y NOT proportional to s -- y = c*s lands on the SR1 degenerate
+		// manifold after autoScale, and the residual y - B*s rounds to exactly
+		// zero on some BLAS implementations (pure-Java F2J, vs JNI native
+		// where FMA leaves a tiny noise term).
 		SR1 hess = new SR1.SR1Factory()
 				.minDenominator(1e50)  // huge denominator threshold -> always skip
 				.build();
 		hess.initialize(2, HessianApproximationType.HESSIAN);
 
 		Matrix s = DenseMatrix.column(0.1, 0.2);
-		Matrix y = DenseMatrix.column(0.05, 0.1);
+		Matrix y = DenseMatrix.column(0.05, 0.15);
 		hess.update(s, y);
 		Matrix B0 = hess.getMatrix();
 
 		Matrix s2 = DenseMatrix.column(0.05, 0.15);
-		Matrix y2 = DenseMatrix.column(0.02, 0.08);
+		Matrix y2 = DenseMatrix.column(0.02, 0.09);
 		hess.update(s2, y2);
 		Matrix B1 = hess.getMatrix();
 
@@ -135,9 +140,11 @@ class TestHessianUpdateStrategy {
 	void sr1ApplyEqualsGetMatrixTimesP() {
 		SR1 hess = SR1.FACTORY.build();
 		hess.initialize(3, HessianApproximationType.HESSIAN);
+		// y not proportional to s -- avoids the SR1 degenerate manifold
+		// where y - B*s rounds to zero post-autoScale.
 		hess.update(
 				DenseMatrix.column(0.1, 0.2, 0.3),
-				DenseMatrix.column(0.05, 0.1, 0.15));
+				DenseMatrix.column(0.05, 0.1, 0.2));
 
 		Matrix p = DenseMatrix.column(1.0, 2.0, 3.0);
 		Matrix viaApply = hess.apply(p, null);
@@ -194,8 +201,9 @@ class TestHessianUpdateStrategy {
 		SR1 invHessMode = SR1.FACTORY.build();
 		invHessMode.initialize(3, HessianApproximationType.INV_HESSIAN);
 
+		// y not proportional to s -- avoids the SR1 degenerate manifold.
 		Matrix s = DenseMatrix.column(0.1, 0.2, 0.3);
-		Matrix y = DenseMatrix.column(0.05, 0.1, 0.15);
+		Matrix y = DenseMatrix.column(0.05, 0.1, 0.2);
 		hessMode.update(s, y);
 		invHessMode.update(s, y);
 
@@ -214,5 +222,103 @@ class TestHessianUpdateStrategy {
 						"H^-1 symmetric");
 			}
 		}
+	}
+
+	/**
+	 * Regression test for the SR1 zero-residual NaN bug.
+	 *
+	 * <p>The SR1 update formula is
+	 * {@code B += (z - B*w)(z - B*w)^T / (w^T (z - B*w))}.
+	 * When the residual {@code r = z - B*w} is exactly zero, the
+	 * relative skip-threshold
+	 * {@code |denom| < min_denominator * ||w|| * ||r||} collapses to
+	 * {@code |denom| < 0} (which is never true), so the skip would not
+	 * fire and the next line would compute {@code 1.0 / denom = 1/0 =
+	 * Infinity} and call BLAS {@code dsyr(B, Infinity, [0, 0])}. The
+	 * defensive {@code if (||r|| == 0) return;} guard in
+	 * {@code SR1.updateImplementation} catches this before the divide.
+	 *
+	 * <p><b>BLAS-implementation sensitivity.</b> Whether this bug
+	 * actually produces NaN on the test rig depends on the BLAS
+	 * underneath {@code dev.ludovic.netlib}:
+	 * <ul>
+	 *   <li><b>JNI native BLAS</b> (system {@code libblas3}): the native
+	 *       {@code dsyr} short-circuits when {@code x = 0} and leaves the
+	 *       matrix unchanged regardless of {@code alpha}. The bug is
+	 *       silently masked -- this test still passes without the guard
+	 *       because the no-op result happens to match the expected
+	 *       no-op semantic.</li>
+	 *   <li><b>F2J pure-Java BLAS</b> ({@code dev.ludovic.netlib.blas.Java11BLAS},
+	 *       used when no system {@code libblas3} is available --
+	 *       e.g. GitHub Actions runners): {@code dsyr} executes the
+	 *       fortran-translated reference loop, computes
+	 *       {@code Infinity * 0 * 0 = NaN}, and stamps the matrix with
+	 *       NaN. <b>This is the path that bites in CI.</b></li>
+	 * </ul>
+	 * To verify locally that the test catches the regression, run with
+	 * {@code -Ddev.ludovic.netlib.blas.nativeLib=NONEXISTENT} to force
+	 * the F2J fallback. With the guard removed, this test then fails
+	 * with {@code B[0,0] = NaN}; with the guard in place it passes.
+	 *
+	 * <p>Originally surfaced as 3 failing CI tests in build run
+	 * <code>github.com/jonathanschilling/java-trust-constr/actions/runs/25607457760</code>.
+	 */
+	@Test
+	void sr1HandlesZeroResidualWithoutNaN() {
+		// Pin B = 0.5 * I via initialScale (no autoScale), so the
+		// firstIteration scaling is deterministic.
+		SR1 hess = new SR1.SR1Factory().initalScale(0.5).build();
+		hess.initialize(2, HessianApproximationType.HESSIAN);
+
+		// y = 0.5 * s exactly. Both 1.0/2.0 and 0.5/1.0 are exact in
+		// IEEE 754 binary64, so B*s = 0.5*s = y exactly -- residual is
+		// bit-for-bit zero, regardless of BLAS implementation.
+		Matrix s = DenseMatrix.column(1.0, 2.0);
+		Matrix y = DenseMatrix.column(0.5, 1.0);
+		hess.update(s, y);
+
+		Matrix B = hess.getMatrix();
+		// Every entry must be finite. Without the SR1 zero-residual
+		// guard, B[i,j] is NaN here.
+		for (int i = 0; i < 2; ++i) {
+			for (int j = 0; j < 2; ++j) {
+				double v = B.getAsDouble(i, j);
+				assertTrue(Double.isFinite(v),
+						"B[" + i + "," + j + "] = " + v + " (must be finite)");
+			}
+		}
+		// SR1 update with zero residual is a no-op; B stays at 0.5 * I.
+		assertEquals(0.5, B.getAsDouble(0, 0), 1.0e-15);
+		assertEquals(0.0, B.getAsDouble(0, 1), 1.0e-15);
+		assertEquals(0.0, B.getAsDouble(1, 0), 1.0e-15);
+		assertEquals(0.5, B.getAsDouble(1, 1), 1.0e-15);
+	}
+
+	/**
+	 * Same regression test for INV_HESSIAN mode. SR1's
+	 * {@code updateImplementation} swaps {@code w}/{@code z} for
+	 * INV_HESSIAN; the same zero-residual hazard applies.
+	 */
+	@Test
+	void sr1HandlesZeroResidualWithoutNaNInvHessian() {
+		SR1 hess = new SR1.SR1Factory().initalScale(0.5).build();
+		hess.initialize(2, HessianApproximationType.INV_HESSIAN);
+
+		// In INV_HESSIAN mode, w = deltaG and z = deltaX. With H = 0.5*I
+		// and z = 0.5*w, the residual z - H*w is again bit-for-bit zero.
+		Matrix s = DenseMatrix.column(0.5, 1.0);   // deltaX
+		Matrix y = DenseMatrix.column(1.0, 2.0);   // deltaG; H*y = 0.5*y = s
+		hess.update(s, y);
+
+		Matrix Hi = hess.getMatrix();
+		for (int i = 0; i < 2; ++i) {
+			for (int j = 0; j < 2; ++j) {
+				double v = Hi.getAsDouble(i, j);
+				assertTrue(Double.isFinite(v),
+						"H[" + i + "," + j + "] = " + v + " (must be finite)");
+			}
+		}
+		assertEquals(0.5, Hi.getAsDouble(0, 0), 1.0e-15);
+		assertEquals(0.5, Hi.getAsDouble(1, 1), 1.0e-15);
 	}
 }

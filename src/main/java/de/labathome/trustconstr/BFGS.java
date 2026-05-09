@@ -29,7 +29,7 @@ import de.labathome.trustconstr.matrix.Matrix;
 public class BFGS extends FullHessianUpdateStrategy {
 
 	/** Builder for {@link BFGS}; configure via {@link BFGS#FACTORY}. */
-	public static class BFGSFactory extends FullHessianUpdateStrategyFactory {
+	public static class BFGSFactory extends FullHessianUpdateStrategyFactory<BFGSFactory> {
 
 		private ExceptionStrategy exceptionStrategy;
 

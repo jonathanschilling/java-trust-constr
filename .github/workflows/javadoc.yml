@@ -27,9 +27,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        # The scipy/ submodule is the upstream Python reference; it's not
-        # needed to build javadoc, so we leave submodules unpopulated to
-        # keep the checkout fast.
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4

@@ -25,8 +25,19 @@ import de.labathome.trustconstr.matrix.Matrix;
  */
 public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy {
 
-	/** Shared base factory for {@link BFGS.BFGSFactory} and {@link SR1.SR1Factory}. */
-	public static class FullHessianUpdateStrategyFactory {
+	/**
+	 * Shared base factory for {@link BFGS.BFGSFactory} and {@link SR1.SR1Factory}.
+	 *
+	 * <p>Generic over the self-type {@code T} so that fluent chains preserve
+	 * the subclass type: a call like
+	 * {@code new BFGS.BFGSFactory().initalScale(0.5).exceptionStrategy(...).build()}
+	 * stays in the {@code BFGSFactory} type all the way through. Without the
+	 * self-type, {@code initalScale} would return {@code FullHessianUpdateStrategyFactory}
+	 * and the subsequent {@code .exceptionStrategy(...).build()} calls would not compile.
+	 *
+	 * @param <T> concrete subclass type, returned by every parent setter
+	 */
+	public static class FullHessianUpdateStrategyFactory<T extends FullHessianUpdateStrategyFactory<T>> {
 
 		/** Whether the initial Hessian scale is auto-derived from the first step. */
 		protected boolean initialScaleAuto;
@@ -41,13 +52,19 @@ public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy
 			hasInitialScale = false;
 		}
 
+		/** @return {@code this} typed as the subclass {@code T} (fluent-self) */
+		@SuppressWarnings("unchecked")
+		protected T self() {
+			return (T) this;
+		}
+
 		/**
 		 * Use the auto-derived initial scale (the default).
 		 *
-		 * @return this factory, for chaining
+		 * @return this factory (typed as {@code T}), for chaining
 		 * @throws RuntimeException if {@link #initalScale(double)} was already called
 		 */
-		public FullHessianUpdateStrategyFactory initialScaleAuto() {
+		public T initialScaleAuto() {
 			if (hasInitialScale) {
 				throw new RuntimeException("You can only specify either initScaleAuto or initScale(double).");
 			} else {
@@ -55,17 +72,17 @@ public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy
 				this.initialScale = Double.NaN;
 				this.hasInitialScale = true;
 			}
-			return this;
+			return self();
 		}
 
 		/**
 		 * Pin the initial Hessian scale to a user-supplied value.
 		 *
 		 * @param initialScale scaling factor for the identity initialisation
-		 * @return this factory, for chaining
+		 * @return this factory (typed as {@code T}), for chaining
 		 * @throws RuntimeException if {@link #initialScaleAuto()} was already called
 		 */
-		public FullHessianUpdateStrategyFactory initalScale(double initialScale) {
+		public T initalScale(double initialScale) {
 			if (hasInitialScale) {
 				throw new RuntimeException("You can only specify either initialScaleAuto or initalScale(double).");
 			} else {
@@ -73,11 +90,11 @@ public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy
 				this.initialScale = initialScale;
 				this.hasInitialScale = true;
 			}
-			return this;
+			return self();
 		}
 
 		// no build() method here, since FullHessianUpdateStrategy is abstract
-	};
+	}
 
 	private final double initialScale;
 	private final boolean initScaleAuto;

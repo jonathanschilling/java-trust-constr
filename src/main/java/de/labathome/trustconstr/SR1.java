@@ -28,7 +28,7 @@ import de.labathome.trustconstr.matrix.Matrix;
 public class SR1 extends FullHessianUpdateStrategy {
 
 	/** Builder for {@link SR1}; configure via {@link SR1#FACTORY}. */
-	public static class SR1Factory extends FullHessianUpdateStrategyFactory {
+	public static class SR1Factory extends FullHessianUpdateStrategyFactory<SR1Factory> {
 
 		private double minDenominator;
 		private boolean hasMinDenominator;
@@ -118,9 +118,18 @@ public class SR1 extends FullHessianUpdateStrategy {
 		Matrix Mw = this.apply(w, args);
 		Matrix zMinusMw = z.minus(Mw);
 		double denominator = w.transpose().mtimes(zMinusMw).doubleValue();
+		double zmwNorm = zMinusMw.norm2();
 
+		// Skip when the residual itself is zero -- the SR1 update is identity
+		// in that case AND the relative threshold below would be 0 (never
+		// firing), so we'd otherwise divide by zero on the next line. This
+		// happens when the auto-scaled B exactly satisfies B*w == z (e.g.
+		// when z is proportional to w).
+		if (zmwNorm == 0.0) {
+			return;
+		}
 		// If the denominator is too small we just skip the update.
-		if (Math.abs(denominator) < minDenominator * w.norm2() * zMinusMw.norm2()) {
+		if (Math.abs(denominator) < minDenominator * w.norm2() * zmwNorm) {
 			return;
 		}
 

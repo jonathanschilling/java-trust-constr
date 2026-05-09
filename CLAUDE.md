@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## HARD RULE: ASCII-only
 
-**Every file in this repo MUST contain only ASCII characters (bytes 0x00-0x7F).** No exceptions, no `--`, no smart quotes, no Unicode arrows / Greek letters / em-dashes / non-breaking spaces -- no matter the file type. This applies to source code, tests, build files (`pom.xml`), documentation (`README.md`, `CLAUDE.md`), Python helpers (`src/test/python/*.py`), config files, and anything else committed to the repo. The `scipy/` submodule is exempt because it is checked out from upstream as-is.
+**Every file in this repo MUST contain only ASCII characters (bytes 0x00-0x7F).** No exceptions, no smart quotes, no Unicode arrows / Greek letters / em-dashes / non-breaking spaces -- no matter the file type. This applies to source code, tests, build files (`pom.xml`), documentation (`README.md`, `CLAUDE.md`), Python helpers (`src/test/python/*.py`), config files, and anything else committed to the repo.
 
 When writing or editing any file, use ASCII substitutions (e.g. `->` for `->`, `--` for `--`, `^2` for superscript-2, `lambda` for the Greek letter, `>=` / `<=` / `!=` / `~=` for the typographic comparison glyphs, `'` and `"` for straight quotes only). The existing source tree was scrubbed once with a deliberate pass; do not regress.
 
@@ -26,9 +26,7 @@ for dirpath, dirs, files in os.walk('.'):
 
 ## Project purpose
 
-Java port of `scipy.optimize.minimize(method='trust-constr')` -- a trust-region constrained optimizer. The reference Python implementation is checked out as a git submodule at `scipy/` (upstream `scipy/scipy`); the relevant sources live in `scipy/scipy/optimize/_trustregion_constr/`. When porting or debugging, compare each Java class against its Python counterpart of the same name (e.g. `Projections.java` <-> `projections.py`, `QPSubproblem.java` <-> `qp_subproblem.py`, `MinimizeTrustConstr.java` <-> `minimize_trustregion_constr.py`).
-
-To populate the submodule on a fresh clone: `git submodule update --init`.
+Java port of `scipy.optimize.minimize(method='trust-constr')` -- a trust-region constrained optimizer. The upstream Python sources live in `scipy.optimize._trustregion_constr` (browse at <https://github.com/scipy/scipy/tree/main/scipy/optimize/_trustregion_constr>). When porting or debugging, compare each Java class against its Python counterpart of the same name (e.g. `Projections.java` <-> `projections.py`, `QPSubproblem.java` <-> `qp_subproblem.py`, `MinimizeTrustConstr.java` <-> `minimize_trustregion_constr.py`). For local source-level cross-reference, clone scipy separately (`git clone --depth=1 https://github.com/scipy/scipy.git`); the repo no longer carries scipy as a submodule, since nothing in the build or tests reads from those paths.
 
 ## Build & test
 

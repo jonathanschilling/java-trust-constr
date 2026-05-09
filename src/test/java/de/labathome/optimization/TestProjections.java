@@ -9,7 +9,8 @@ import org.scipy.optimize.minimize.interfaces.LinearOperator;
 import org.scipy.optimize.minimize.matrix.DenseMatrix;
 import org.scipy.optimize.minimize.matrix.Matrix;
 import org.scipy.optimize.minimize.matrix.SparseMatrix;
-import org.scipy.optimize.minimize.matrix.QRMatrix;
+import org.scipy.optimize.minimize.matrix.DenseMatrix;
+import org.scipy.optimize.minimize.matrix.LinAlg;
 import org.scipy.optimize.minimize.matrix.Matrix;
 
 
@@ -61,8 +62,7 @@ class TestProjections {
 
 				// Test if x is the least square solution
 				x = LS.apply(z);
-				QRMatrix qrA = new QRMatrix(A.transpose());
-				Matrix x2 = qrA.solve(z);
+				Matrix x2 = LinAlg.qr(DenseMatrix.copyFromMatrix(A.transpose())).solve(DenseMatrix.copyFromMatrix(z));
 				RelAbsAssertions.assertArrayRelAbsEquals(x2.toColumnArray(), x.toColumnArray(), tolerance);
 			}
 		}
@@ -187,8 +187,7 @@ class TestProjections {
 
 				// Test if x is the least square solution
 				x = LS.apply(z);
-				QRMatrix qrA = new QRMatrix(A.transpose());
-				Matrix x2 = qrA.solve(z);
+				Matrix x2 = LinAlg.qr(DenseMatrix.copyFromMatrix(A.transpose())).solve(DenseMatrix.copyFromMatrix(z));
 				RelAbsAssertions.assertArrayRelAbsEquals(x2.toColumnArray(), x.toColumnArray(), tolerance);
 			}
 		}

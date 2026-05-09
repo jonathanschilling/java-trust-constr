@@ -18,8 +18,6 @@ import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
 import org.scipy.optimize.minimize.records.Sparsity;
 import org.scipy.optimize.minimize.matrix.Matrix;
 import org.scipy.optimize.minimize.matrix.SparseMatrix;
-import org.scipy.optimize.minimize.matrix.Ret;
-import org.scipy.optimize.minimize.matrix.ValueType;
 
 public class NumDiff {
 
@@ -153,7 +151,7 @@ public class NumDiff {
 			boolean allGrouped = true;
 
 			// Here we store the union of grouped columns.
-			Matrix aCol = A.selectColumns(Ret.LINK, i);
+			Matrix aCol = A.selectColumns(i);
 			for (long[] pos: aCol.allCoordinates()) {
 				union[(int) pos[1]] = aCol.getAsInt(pos);
 			}
@@ -176,7 +174,7 @@ public class NumDiff {
 
 				// If not, add it to the union and assign the group to it.
 				if (!intersect) {
-					Matrix aOtherCol = A.selectColumns(Ret.LINK, j);
+					Matrix aOtherCol = A.selectColumns(j);
 					for (long[] pos: aOtherCol.allCoordinates()) {
 						union[(int) pos[1]] += aOtherCol.getAsInt(pos);
 					}
@@ -224,7 +222,7 @@ public class NumDiff {
 
 			// Here we store the union of grouped columns.
 			Arrays.fill(union, 0);
-			Matrix ithCol = A.subMatrix(Ret.LINK, 0, i, A.getRowCount()-1, i);
+			Matrix ithCol = A.subMatrix(0, i, A.getRowCount()-1, i);
 			for (long[] pos: ithCol.availableCoordinates()) {
 				if (ithCol.getAsDouble(pos) != 0.0) {
 					union[(int) pos[0]] = 1;
@@ -240,7 +238,7 @@ public class NumDiff {
 
 				// Determine if j-th column intersects with the union.
 				boolean intersect = false;
-				Matrix jthCol = A.subMatrix(Ret.LINK, 0, j, A.getRowCount()-1, j);
+				Matrix jthCol = A.subMatrix(0, j, A.getRowCount()-1, j);
 				for (long[] pos: jthCol.availableCoordinates()) {
 					if (jthCol.getAsDouble(pos) != 0.0) {
 						if (union[(int) pos[0]] == 1) {
@@ -299,7 +297,7 @@ public class NumDiff {
 			Arrays.fill(useOneSided, true);
 			break;
 		case TWO_SIDED:
-			h = h.abs(Ret.ORIG);
+			h = h.absInPlace();
 			Arrays.fill(useOneSided, false); // could be omitted...
 			break;
 		default:
@@ -333,22 +331,22 @@ public class NumDiff {
 
 		if (scheme == FiniteDifferenceMethod.ONE_SIDED) {
 			Matrix x = x0.plus(hTotal);
-			Matrix violated = x.lt(Ret.LINK, lb).or(Ret.NEW, x.gt(Ret.LINK, ub));
-			Matrix fitting = hTotal.abs(Ret.LINK).le(Ret.NEW, maxDist);
+			Matrix violated = x.lt(lb).or(x.gt(ub));
+			Matrix fitting = hTotal.abs().le(maxDist);
 			for (long[] pos: hAdjusted.allCoordinates()) {
 				if (violated.getAsBoolean(pos) && fitting.getAsBoolean(pos)) {
 					hAdjusted.setAsDouble(-1.0 * hAdjusted.getAsDouble(pos), pos);
 				}
 			}
 
-			Matrix forward = upperDist.ge(Ret.LINK, lowerDist).and(Ret.NEW, fitting.not(Ret.LINK));
+			Matrix forward = upperDist.ge(lowerDist).and(fitting.not());
 			for (long[] pos: forward.availableCoordinates()) {
 				if (forward.getAsBoolean(pos)) {
 					hAdjusted.setAsDouble(upperDist.getAsDouble(pos) / numSteps, pos);
 				}
 			}
 
-			Matrix backward = upperDist.lt(Ret.LINK, lowerDist).and(Ret.NEW, fitting.not(Ret.LINK));
+			Matrix backward = upperDist.lt(lowerDist).and(fitting.not());
 			for (long[] pos: backward.availableCoordinates()) {
 				if (backward.getAsBoolean(pos)) {
 					hAdjusted.setAsDouble(-lowerDist.getAsDouble(pos) / numSteps, pos);
@@ -356,9 +354,9 @@ public class NumDiff {
 			}
 
 		} else if (scheme == FiniteDifferenceMethod.TWO_SIDED) {
-			Matrix central = lowerDist.ge(Ret.LINK, hTotal).and(Ret.NEW, upperDist.ge(Ret.LINK, hTotal));
+			Matrix central = lowerDist.ge(hTotal).and(upperDist.ge(hTotal));
 
-			Matrix forward = upperDist.ge(Ret.LINK, lowerDist).and(Ret.NEW, central.not(Ret.LINK));
+			Matrix forward = upperDist.ge(lowerDist).and(central.not());
 			for (long[] pos: forward.availableCoordinates()) {
 				if (forward.getAsBoolean(pos)) {
 					hAdjusted.setAsDouble(Math.min(h.getAsDouble(pos), 0.5 * upperDist.getAsDouble(pos) / numSteps), pos);
@@ -366,7 +364,7 @@ public class NumDiff {
 				}
 			}
 
-			Matrix backward = upperDist.lt(Ret.LINK, lowerDist).and(Ret.NEW, central.not(Ret.LINK));
+			Matrix backward = upperDist.lt(lowerDist).and(central.not());
 			for (long[] pos: backward.availableCoordinates()) {
 				if (backward.getAsBoolean(pos)) {
 					hAdjusted.setAsDouble(-1.0 * Math.min(h.getAsDouble(pos), 0.5 * lowerDist.getAsDouble(pos) / numSteps), pos);
@@ -378,7 +376,7 @@ public class NumDiff {
 			for (long[] pos: upperDist.allCoordinates()) {
 				minDist.setAsDouble(Math.min(upperDist.getAsDouble(pos), lowerDist.getAsDouble(pos)) / numSteps, pos);
 			}
-			Matrix adjustedCentral = central.not(Ret.LINK).and(Ret.NEW, hAdjusted.abs(Ret.LINK).le(Ret.LINK, minDist));
+			Matrix adjustedCentral = central.not().and(hAdjusted.abs().le(minDist));
 			for (long[] pos: adjustedCentral.availableCoordinates()) {
 				if (adjustedCentral.getAsBoolean(pos)) {
 					hAdjusted.setAsDouble(minDist.getAsDouble(pos), pos);
@@ -476,31 +474,11 @@ public class NumDiff {
 
 		// this is used instead of np.sign(x0) because we need
 	    // sign_x0 to be 1 when x0 == 0.
-		Matrix x0Sign = x0.ge(Ret.LINK, 0).toIntMatrix().times(2.0).minus(1.0);
+		Matrix x0Sign = x0.ge(0).toIntMatrix().times(2.0).minus(1.0);
 
-		final Class<?> x0Type;
-		switch (x0.getValueType()) {
-		case FLOAT:
-			x0Type = float.class;
-			break;
-		case DOUBLE:
-			x0Type = double.class;
-			break;
-		default:
-			throw new RuntimeException("only support DOUBLE and FLOAT value types");
-		}
-
-		final Class<?> f0Type;
-		switch (f0.getValueType()) {
-		case FLOAT:
-			f0Type = float.class;
-			break;
-		case DOUBLE:
-			f0Type = double.class;
-			break;
-		default:
-			throw new RuntimeException("only support DOUBLE and FLOAT value types");
-		}
+		// This port stores all matrices as double; no need to dispatch on value type.
+		final Class<?> x0Type = double.class;
+		final Class<?> f0Type = double.class;
 
 		double rStep = epsForMethod(x0Type, f0Type, method);
 
@@ -514,7 +492,7 @@ public class NumDiff {
 			// User has requested specific relative steps.
 	        // Don't multiply by max(1, abs(x0) because if x0 < 1 then their
 			// requested step is not used.
-			absStep = relStep.times(x0Sign).times(x0.abs(Ret.LINK));
+			absStep = relStep.times(x0Sign).times(x0.abs());
 
 			// however we don't want an abs_step of 0, which can happen if
 	        // rel_step is 0, or x0 is 0. Instead, substitute a realistic step.
@@ -735,7 +713,7 @@ public class NumDiff {
 			}
 		}
 
-		if (x0.lt(Ret.LINK, options.bounds().lb()).or(Ret.NEW, x0.gt(Ret.LINK, options.bounds().ub())).toIntMatrix().getValueSum() > 0) {
+		if (x0.lt(options.bounds().lb()).or(x0.gt(options.bounds().ub())).toIntMatrix().getValueSum() > 0) {
 			throw new RuntimeException("`x0` violates bound constraints.");
 		}
 
@@ -760,7 +738,7 @@ public class NumDiff {
 				absStep = computeAbsoluteStep(options.relStep(), x0, f0, options.method());
 			} else {
 				// user specifies an absolute step
-				Matrix x0Sign = x0.ge(Ret.LINK, 0).toIntMatrix().times(2.0).minus(1.0);
+				Matrix x0Sign = x0.ge(0).toIntMatrix().times(2.0).minus(1.0);
 				absStep = options.absStep();
 
 				// Cannot have a zero step.
@@ -801,15 +779,8 @@ public class NumDiff {
 	}
 
 	private static Class<?> type(Matrix A) {
-		ValueType vt = A.getValueType();
-		switch (vt) {
-		case DOUBLE:
-			return double.class;
-		case FLOAT:
-			return float.class;
-		default:
-			throw new RuntimeException("ValueTypes other that DOUBLE or FLOAT are not supported");
-		}
+		// This port stores all matrices as double.
+		return double.class;
 	}
 
 	public static LinearOperator linearOperatorDifference(Function<Matrix, Matrix> fun,
@@ -866,7 +837,7 @@ public class NumDiff {
 
 		for (long[] pos: absStep.availableCoordinates()) {
 			int i = (int) pos[0];
-			Matrix hI = hVecs.subMatrix(Ret.LINK, 0, i, n-1, i);
+			Matrix hI = hVecs.subMatrix(0, i, n-1, i);
 			final double dx;
 			final Matrix df;
 			switch (method) {

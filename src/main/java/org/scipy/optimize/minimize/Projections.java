@@ -8,11 +8,12 @@ import org.scipy.optimize.minimize.sparse.CSRMatrix;
 import org.scipy.optimize.minimize.sparse.DenseSolve;
 import org.scipy.optimize.minimize.sparse.SparseAssembly;
 
+import org.scipy.optimize.minimize.matrix.CholResult;
+import org.scipy.optimize.minimize.matrix.DenseMatrix;
+import org.scipy.optimize.minimize.matrix.LinAlg;
 import org.scipy.optimize.minimize.matrix.Matrix;
-import org.scipy.optimize.minimize.matrix.Ret;
-import org.scipy.optimize.minimize.matrix.CholMatrix;
-import org.scipy.optimize.minimize.matrix.QRMatrix;
-import org.scipy.optimize.minimize.matrix.SVDMatrix;
+import org.scipy.optimize.minimize.matrix.QRResult;
+import org.scipy.optimize.minimize.matrix.SVDResult;
 
 public class Projections {
 
@@ -190,13 +191,13 @@ public class Projections {
 	private static LinearOperator[] normalEquationProjections(Matrix A, double orthTol, int maxRefine, double tolerance) {
 
 		// TODO: this can be done more elegantly for sure...
-		final CholMatrix cholAAt = new CholMatrix(A.mtimes(A.transpose()));
+		final CholResult cholAAt = LinAlg.cholesky(DenseMatrix.copyFromMatrix(A.mtimes(A.transpose())));
 
 		/** z = x - A.T inv(A A.T) A x */
 		LinearOperator nullSpace = new LinearOperator() {
 			@Override
 			public Matrix apply(Matrix x) {
-				Matrix v = cholAAt.solve(A.mtimes(x));
+				Matrix v = cholAAt.solve(DenseMatrix.copyFromMatrix(A.mtimes(x)));
 				Matrix z = x.minus(A.transpose().mtimes(v));
 
 				// Iterative refinement to improve roundoff
@@ -208,7 +209,7 @@ public class Projections {
 					}
 
 					// z_next = z - A.T inv(A A.T) A z
-					v = cholAAt.solve(A.mtimes(z));
+					v = cholAAt.solve(DenseMatrix.copyFromMatrix(A.mtimes(z)));
 					z = z.minus(A.transpose().mtimes(v));
 
 					k++;
@@ -221,7 +222,7 @@ public class Projections {
 		LinearOperator leastSquares = new LinearOperator() {
 			@Override
 			public Matrix apply(Matrix x) {
-				return cholAAt.solve(A.mtimes(x));
+				return cholAAt.solve(DenseMatrix.copyFromMatrix(A.mtimes(x)));
 			}
 		};
 
@@ -229,7 +230,7 @@ public class Projections {
 		LinearOperator rowSpace = new LinearOperator() {
 			@Override
 			public Matrix apply(Matrix x) {
-				return A.transpose().mtimes(cholAAt.solve(x));
+				return A.transpose().mtimes(cholAAt.solve(DenseMatrix.copyFromMatrix(x)));
 			}
 		};
 
@@ -373,9 +374,9 @@ public class Projections {
 	private static LinearOperator[] qrFactorizationProjections(Matrix A, double orthTol, int maxRefine, double tolerance) {
 
 		// QR factorization of A^T
-		QRMatrix qr = new QRMatrix(A.transpose());
-		Matrix Q = qr.getQ();
-		Matrix R = qr.getR();
+		QRResult qr = LinAlg.qr(DenseMatrix.copyFromMatrix(A.transpose()));
+		final DenseMatrix Q = qr.Q();
+		final DenseMatrix R = qr.R();
 
 		// check for inf-norm of last row in R factor:
 		// if less than tolerance, use SVD factorization
@@ -396,8 +397,8 @@ public class Projections {
 			public Matrix apply(Matrix x) {
 
 				// v = inv(R) Q.T x
-				Matrix aux1 = Q.transpose().mtimes(x);
-				Matrix v = R.solve(aux1);
+				DenseMatrix aux1 = Q.transpose().mtimes(x);
+				DenseMatrix v = LinAlg.solve(R, aux1);
 
 				Matrix z = x.minus(A.transpose().mtimes(v));
 
@@ -411,7 +412,7 @@ public class Projections {
 
 					//  v = inv(R) Q.T x
 					aux1 = Q.transpose().mtimes(z);
-					v = R.solve(aux1);
+					v = LinAlg.solve(R, aux1);
 
 					// z_next = z - A.T v
 					z = z.minus(A.transpose().mtimes(v));
@@ -428,8 +429,8 @@ public class Projections {
 			public Matrix apply(Matrix x) {
 
 				// z = inv(R) Q.T x
-				Matrix aux1 = Q.transpose().mtimes(x);
-				Matrix z = R.solve(aux1);
+				DenseMatrix aux1 = Q.transpose().mtimes(x);
+				DenseMatrix z = LinAlg.solve(R, aux1);
 
 				return z;
 			}
@@ -441,7 +442,7 @@ public class Projections {
 			public Matrix apply(Matrix x) {
 
 				// z = Q inv(R.T) P.T x
-				Matrix aux2 = R.transpose().solve(x);
+				DenseMatrix aux2 = LinAlg.solve(R.transpose(), DenseMatrix.copyFromMatrix(x));
 				Matrix z = Q.mtimes(aux2);
 
 				return z;
@@ -465,10 +466,20 @@ public class Projections {
 	private static LinearOperator[] svdFactorizationProjections(Matrix A, double orthTol, int maxRefine, double tolerance) {
 
 		// SVD Factorization
-		SVDMatrix svd = new SVDMatrix(A);
-		Matrix U = svd.getU();
-		Matrix Vt = svd.getV().transpose();
-		Matrix invS = svd.getreciprocalS().transpose();
+		SVDResult svd = LinAlg.svd(DenseMatrix.copyFromMatrix(A));
+		final DenseMatrix U = svd.U();
+		final DenseMatrix Vt = svd.Vt();
+		// Build the (m × n) pseudo-inverse-of-S diagonal matrix from reciprocals.
+		// Mirrors UJMP's getreciprocalS().transpose(): n×m diagonal → transposed is m×n.
+		final int mDim = U.rows();
+		final int nDim = Vt.cols();
+		final DenseMatrix invS;
+		{
+			DenseMatrix tmp = DenseMatrix.zeros(mDim, nDim);
+			double[] recipS = svd.reciprocalSingularValues();
+			for (int i = 0; i < recipS.length; ++i) tmp.set(i, i, recipS[i]);
+			invS = tmp;
+		}
 
 		// TODO: Remove dimensions related with very small singular values
 

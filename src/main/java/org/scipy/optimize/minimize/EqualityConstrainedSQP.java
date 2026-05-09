@@ -14,7 +14,6 @@ import org.scipy.optimize.minimize.records.IntersectionResult;
 import org.scipy.optimize.minimize.records.State;
 import org.scipy.optimize.minimize.records.StatefulResult;
 import org.scipy.optimize.minimize.matrix.Matrix;
-import org.scipy.optimize.minimize.matrix.Ret;
 
 /** Byrd-Omojokun Trust-Region SQP method */
 public class EqualityConstrainedSQP {
@@ -104,10 +103,10 @@ public class EqualityConstrainedSQP {
 
 		// Set default lower and upper bounds.
 		if (trustLb == null) {
-			trustLb = Matrix.Factory.zeros(n, 1).fill(Ret.ORIG, Double.NEGATIVE_INFINITY);
+			trustLb = Matrix.Factory.zeros(n, 1).fill(Double.NEGATIVE_INFINITY);
 		}
 		if (trustUb == null) {
-			trustUb = Matrix.Factory.zeros(n, 1).fill(Ret.ORIG, Double.POSITIVE_INFINITY);
+			trustUb = Matrix.Factory.zeros(n, 1).fill(Double.POSITIVE_INFINITY);
 		}
 
 		// Initial values

@@ -14,7 +14,6 @@ import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
 import org.scipy.optimize.minimize.matrix.DenseMatrix;
 import org.scipy.optimize.minimize.matrix.Matrix;
 import org.scipy.optimize.minimize.matrix.SparseMatrix;
-import org.scipy.optimize.minimize.matrix.Ret;
 
 
 class TestNumDiff {
@@ -130,7 +129,7 @@ class TestNumDiff {
 			Matrix absStep = NumDiff.computeAbsoluteStep(null, x0, f0, method);
 			RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, absStep.toColumnArray(), tolerance);
 
-			Matrix signX0 = x0.times(-1).ge(Ret.LINK, 0).toIntMatrix().times(2).minus(1);
+			Matrix signX0 = x0.times(-1).ge(0).toIntMatrix().times(2).minus(1);
 			absStep = NumDiff.computeAbsoluteStep(null, x0.times(-1), f0, method);
 			RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, absStep.times(signX0).toColumnArray(), tolerance);
 		}
@@ -147,7 +146,7 @@ class TestNumDiff {
 		Matrix absStep = NumDiff.computeAbsoluteStep(Matrix.Factory.linkToArray(relSteps), x0, f0, FiniteDifferenceMethod.TWO_POINT);
 		RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, absStep.toColumnArray(), tolerance);
 
-		Matrix signX0 = x0.times(-1).ge(Ret.LINK, 0).toIntMatrix().times(2).minus(1);
+		Matrix signX0 = x0.times(-1).ge(0).toIntMatrix().times(2).minus(1);
 		absStep = NumDiff.computeAbsoluteStep(Matrix.Factory.linkToArray(relSteps), x0.times(-1), f0, FiniteDifferenceMethod.TWO_POINT);
 		RelAbsAssertions.assertArrayRelAbsEquals(correctSteps, absStep.times(signX0).toColumnArray(), tolerance);
 	}

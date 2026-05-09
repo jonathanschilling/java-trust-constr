@@ -13,7 +13,6 @@ import org.scipy.optimize.minimize.records.GradientAndJacobian;
 import org.scipy.optimize.minimize.records.State;
 import org.scipy.optimize.minimize.records.StatefulResult;
 import org.scipy.optimize.minimize.matrix.Matrix;
-import org.scipy.optimize.minimize.matrix.Ret;
 
 /**
  * Trust-region interior point method.
@@ -105,7 +104,7 @@ public class TrustRegionInteriorPoint {
 		Matrix trustLb = Matrix.Factory.vertCat(lbVar, lbIneq);
 
 		Matrix trustUb = Matrix.Factory.zeros(subProb.nVars + subProb.nIneq, 1);
-		trustUb.fill(Ret.ORIG, Double.POSITIVE_INFINITY);
+		trustUb.fill(Double.POSITIVE_INFINITY);
 
 		// Solve a sequence of barrier problems
 		Matrix vFinal = null;

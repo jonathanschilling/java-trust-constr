@@ -59,10 +59,10 @@ public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy
 	protected long n;
 
 	/** Hessian */
-	protected Matrix B;
+	protected DenseMatrix B;
 
 	/** inverse Hessian */
-	protected Matrix H;
+	protected DenseMatrix H;
 
 	protected FullHessianUpdateStrategy(boolean initialScaleAuto, double initialScale) {
 		this.initScaleAuto = initialScaleAuto;
@@ -82,10 +82,10 @@ public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy
 		// Create matrix
 		switch (this.approxType) {
 		case HESSIAN:
-			this.B = Matrix.Factory.eye(n, n);
+			this.B = DenseMatrix.eye((int) n);
 			break;
 		case INV_HESSIAN:
-			this.H = Matrix.Factory.eye(n, n);
+			this.H = DenseMatrix.eye((int) n);
 			break;
 		default:
 			throw new RuntimeException("not implemented");
@@ -183,9 +183,9 @@ public abstract class FullHessianUpdateStrategy implements HessianUpdateStrategy
 	public Matrix getMatrix() {
 		switch (approxType) {
 		case HESSIAN:
-			return DenseMatrix.Factory.copyFromMatrix(B);
+			return B.copy();
 		case INV_HESSIAN:
-			return DenseMatrix.Factory.copyFromMatrix(H);
+			return H.copy();
 		default:
 			throw new RuntimeException("not implemented");
 		}

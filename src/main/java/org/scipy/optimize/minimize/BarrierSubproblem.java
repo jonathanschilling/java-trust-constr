@@ -17,7 +17,6 @@ import org.scipy.optimize.minimize.sparse.SparseAssembly;
 
 import org.scipy.optimize.minimize.matrix.Matrix;
 import org.scipy.optimize.minimize.matrix.SparseMatrix;
-import org.scipy.optimize.minimize.matrix.Ret;
 
 /**
  * Barrier optimization problem:
@@ -92,11 +91,11 @@ public class BarrierSubproblem {
 	}
 
 	public Matrix getSlack(Matrix z) {
-		return z.subMatrix(Ret.NEW, nVars, 0, nVars+nIneq-1, 0);
+		return z.subMatrix(nVars, 0, nVars+nIneq-1, 0);
 	}
 
 	public Matrix getVariables(Matrix z) {
-		return z.subMatrix(Ret.NEW, 0, 0, nVars-1, 0);
+		return z.subMatrix(0, 0, nVars-1, 0);
 	}
 
 	/**
@@ -235,7 +234,7 @@ public class BarrierSubproblem {
 		// Using the primal-dual formulation
         //     S Hs S = diag(s)*diag(v/s)*diag(s)
         // Reference [1] p. 883, formula (3.11)
-		Matrix subV = v.subMatrix(Ret.NEW, nEq, 0, nEq+nIneq-1, 0);
+		Matrix subV = v.subMatrix(nEq, 0, nEq+nIneq-1, 0);
 		Matrix primalDual = subV.times(s);
 
 		// Uses the primal-dual formulation for

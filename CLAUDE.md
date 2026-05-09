@@ -10,7 +10,7 @@ To populate the submodule on a fresh clone: `git submodule update --init`.
 
 ## Build & test
 
-Maven project, Java 11. Inherits from parent POM `de.labathome:de-labathome-parent` (must be installed locally — this is not a public artifact).
+Maven project, Java 17. The child POM overrides the parent's Java 1.8 default via `maven-compiler-plugin` 3.11.0 with `<release>17</release>`, and pins surefire to 3.2.5 so the test forks work on a 17 JRE. Inherits from parent POM `de.labathome:de-labathome-parent` (must be installed locally — this is not a public artifact).
 
 ```
 mvn compile             # build
@@ -19,7 +19,9 @@ mvn -Dtest=TestNumDiff test                            # single test class
 mvn -Dtest=TestNumDiff#testGroupColumns test           # single test method
 ```
 
-Tests use JUnit 5 plus `MinervaAssertions` from an internal `minerva.tests.junit` package — another non-public dependency. If `mvn` fails resolving artifacts, the parent POM and Minerva are not on Maven Central; they need to be available in a local/internal repo.
+If your default JDK is older than 17, set `JAVA_HOME` for the build, e.g. `JAVA_HOME=/usr/lib/jvm/java-17-openjdk mvn test`.
+
+Tests use JUnit 5 plus an in-tree `de.labathome.optimization.RelAbsAssertions` helper (rel/abs comparisons; copied from MinervaAssertions during the migration off `JavaOneLineUtils`). If `mvn` fails resolving artifacts, the parent POM is not on Maven Central; it needs to be available in a local/internal repo.
 
 ## Code layout
 
@@ -32,19 +34,20 @@ Tests use JUnit 5 plus `MinervaAssertions` from an internal `minerva.tests.junit
 
 ## Matrix library and the in-tree sparse module
 
-All linear algebra is now in-tree: the project depends only on **`dev.ludovic.netlib`** (luhenry/netlib, 3.2.0) for BLAS/LAPACK kernels. UJMP, JavaOneLineUtils, and the previous `LinAlg`/`UjmpBridge` adapter classes have all been retired.
+All linear algebra is in-tree: the project depends only on **`dev.ludovic.netlib`** (luhenry/netlib, 3.2.0) for BLAS/LAPACK kernels. UJMP, JavaOneLineUtils, and the row-major `DMatrix`/`MatrixIO`/`Ret` UJMP-compat layer have all been retired.
 
-The matrix abstraction lives at **`org.scipy.optimize.minimize.matrix`**:
+The matrix abstraction lives at **`org.scipy.optimize.minimize.matrix`** (8 files):
 
-- `Matrix` — abstract base with the operations the trust-constr port actually uses (`getAsDouble`/`setAsDouble`, arithmetic, `subMatrix`/`selectColumns`, the boolean-matrix algebra `lt`/`gt`/`le`/`ge`/`eq`/`and`/`or`/`not`, plus `solve(rhs)` via LAPACK `dgesv`). The `Ret` enum (`LINK`/`NEW`/`ORIG`) is preserved for API compatibility — `Ret.ORIG` is honoured for in-place ops where it matters (e.g. `abs(Ret.ORIG)`); the others always return a fresh result.
-- `DMatrix` — concrete dense, backed by `double[][]` row-major. Hot kernel `mtimes(DMatrix)` calls BLAS `dgemm`.
+- `Matrix` — abstract base with shape (`getRowCount`/`getColumnCount`), element access (`getAsDouble`/`setAsDouble`), arithmetic (`mtimes`/`plus`/`minus`/`times`/`divide`/`transpose`/`abs`/`absInPlace`), norms (`norm2`/`normInf`), slicing (`subMatrix`/`selectColumns`), and the boolean-matrix algebra `lt`/`gt`/`le`/`ge`/`eq`/`and`/`or`/`not` used by `NumDiff` for step-direction logic. `Matrix.Factory.*` is a thin compatibility surface that delegates to `DenseMatrix.*`.
+- `DenseMatrix` — concrete dense, backed by **column-major `double[]`** of length `rows × cols`. `data()` exposes the raw buffer for zero-copy LAPACK/BLAS calls. `mtimes(DenseMatrix)` dispatches straight to BLAS `dgemm`. Static factories: `zeros`, `eye`, `column`, `row`, `fromRows`, `fromColumnMajor`, `copyFromMatrix`. Arithmetic methods use covariant returns (`mtimes` returns `DenseMatrix`, etc.) so callers don't need to cast.
 - `SparseMatrix` — concrete sparse, backed by a Dictionary-of-Keys (`HashMap<Long, Double>`). Cheap `setAsDouble` build phase; `toCSR()` materialises to the CSR fast path for compute.
-- `QRMatrix`, `SVDMatrix`, `CholMatrix` — LAPACK-backed factorisations (`dgeqrf`+`dorgqr`, `dgesvd`, `dpotrf`+`dpotrs`) used by `Projections.projections`.
-- `MatrixOps` — small static helpers (`norm2(double[])`, `dot(double[], double[])`, `diag`, `sparse(Matrix)`).
+- `LinAlg` — static façade over LAPACK and the BLAS rank updates: `solve(A,b)` (`dgesv`), `qr(A)` returning `QRResult` (`dgeqrf`+`dorgqr`), `svd(A)` returning `SVDResult` (`dgesvd`), `cholesky(A)` returning `CholResult` (`dpotrf`), `syr(A, α, x)` (`dsyr`, in-place rank-1, mirrors lower from upper), `syr2(A, α, x, y)` (`dsyr2`, in-place rank-2). Every routine takes `DenseMatrix.data()` directly — no row-major↔column-major conversion.
+- `QRResult`, `SVDResult`, `CholResult` — Java records carrying the LAPACK output. `QRResult.solve(rhs)` does least-squares, `CholResult.solve(rhs)` reuses the captured Cholesky factor via `dpotrs`, `SVDResult.rank(tol)` and `reciprocalSingularValues()` cover the pseudo-inverse path.
+- `MatrixOps` — small static helpers on primitive arrays (`norm2(double[])`, `dot(double[], double[])`, `diag(double[])`).
 
 The scipy-`sparse`-style fast path is at **`org.scipy.optimize.minimize.sparse`**:
 
-- `CSRMatrix`, `CSCMatrix` — primitive-array (`int[] indptr/indices`, `double[] data`) sparse storage matching scipy's `csr_array`/`csc_array`.
+- `CSRMatrix`, `CSCMatrix` — primitive-array (`int[] indptr/indices`, `double[] data`) sparse storage matching scipy's `csr_array`/`csc_array`. `CSRMatrix.builder(rows, cols)` is the canonical way to build sparse incrementally — DOK under the hood, compresses to CSR in `build()`.
 - `SparseAssembly` — `vstack`, `hstack`, `blockArray` (the `[[A,B],[C,D]]` shape from `projections.py:99`), and `assembleJacobianWithSlacks` (the optimised KKT-Jacobian build from `tr_interior_point.py:_assemble_sparse_jacobian`).
 - `DenseSolve` — LAPACK `dgetrf`/`dgetrs` wrapper for the KKT solve. Currently materialises the assembled CSR/CSC matrix to dense before factoring; replacing this with a true sparse LU is a single-call-site swap.
 - `SparseLinearOperator` — adapts a CSR/CSC matvec to the existing `interfaces.LinearOperator`.

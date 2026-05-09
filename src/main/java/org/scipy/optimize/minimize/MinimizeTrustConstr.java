@@ -29,6 +29,8 @@ import org.scipy.optimize.minimize.records.PreparedConstraint;
 import org.scipy.optimize.minimize.records.State;
 import org.scipy.optimize.minimize.records.StateIP;
 import org.scipy.optimize.minimize.records.StatefulResult;
+import org.scipy.optimize.minimize.matrix.DenseMatrix;
+import org.scipy.optimize.minimize.matrix.LinAlg;
 import org.scipy.optimize.minimize.matrix.Matrix;
 
 /** Java port of scipy.optimize.minimize(method='trust-constr') */
@@ -303,9 +305,9 @@ public class MinimizeTrustConstr {
 			// AAt may be singular (e.g. degenerate-constraint cases like
 			// scipy test_issue_18882) — fall back to lagrangianGrad = grad.
 			try {
-				Matrix AAt = Jx.mtimes(Jx.transpose());
-				Matrix Ag = Jx.mtimes(r.grad);
-				Matrix v = AAt.solve(Ag).times(-1);
+				DenseMatrix AAt = DenseMatrix.copyFromMatrix(Jx.mtimes(Jx.transpose()));
+				DenseMatrix Ag = DenseMatrix.copyFromMatrix(Jx.mtimes(r.grad));
+				DenseMatrix v = LinAlg.solve(AAt, Ag).times(-1);
 				r.lagrangianGrad = r.grad.plus(Jx.transpose().mtimes(v));
 			} catch (RuntimeException ex) {
 				r.lagrangianGrad = Matrix.Factory.copyFromMatrix(r.grad);
@@ -824,14 +826,12 @@ public class MinimizeTrustConstr {
 		Matrix lagrGrad = Matrix.Factory.copyFromMatrix(r.grad);
 		Matrix vAll = sr.v();
 		if (vAll != null && nEq > 0) {
-			Matrix vEq = vAll.subMatrix(org.scipy.optimize.minimize.matrix.Ret.NEW,
-					0, 0, nEq - 1, 0);
+			Matrix vEq = vAll.subMatrix(0, 0, nEq - 1, 0);
 			Matrix Jeq = jac.jacEq(sr.x());
 			lagrGrad = lagrGrad.plus(Jeq.transpose().mtimes(vEq));
 		}
 		if (vAll != null && nIneq > 0) {
-			Matrix vIneq = vAll.subMatrix(org.scipy.optimize.minimize.matrix.Ret.NEW,
-					nEq, 0, nEq + nIneq - 1, 0);
+			Matrix vIneq = vAll.subMatrix(nEq, 0, nEq + nIneq - 1, 0);
 			Matrix Jineq = jac.jacIneq(sr.x());
 			lagrGrad = lagrGrad.plus(Jineq.transpose().mtimes(vIneq));
 		}

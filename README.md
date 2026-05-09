@@ -34,6 +34,7 @@ Pick the convenience overload that matches what you have:
 import org.scipy.optimize.minimize.MinimizeTrustConstr;
 import org.scipy.optimize.minimize.LinearConstraint;
 import org.scipy.optimize.minimize.records.OptimizeResult;
+import org.scipy.optimize.minimize.matrix.DenseMatrix;
 import org.scipy.optimize.minimize.matrix.Matrix;
 
 // minimize x^2 + y^2  subject to  x + y == 2  ->  optimum at (1, 1)
@@ -42,18 +43,18 @@ java.util.function.Function<Matrix, Double> fun = x ->
         + x.getAsDouble(1, 0) * x.getAsDouble(1, 0);
 
 java.util.function.Function<Matrix, Matrix> grad = x ->
-        Matrix.Factory.linkToArray(new double[] {
+        DenseMatrix.column(
                 2 * x.getAsDouble(0, 0),
-                2 * x.getAsDouble(1, 0)});
+                2 * x.getAsDouble(1, 0));
 
 java.util.function.Function<Matrix, Matrix> hess = x ->
-        Matrix.Factory.linkToArray(new double[][] {{2, 0}, {0, 2}});
+        DenseMatrix.fromRows(new double[][] {{2, 0}, {0, 2}});
 
 LinearConstraint eq = new LinearConstraint(
-        Matrix.Factory.linkToArray(new double[][] {{1.0, 1.0}}),
+        DenseMatrix.fromRows(new double[][] {{1.0, 1.0}}),
         new double[] {2.0}, new double[] {2.0});
 
-Matrix x0 = Matrix.Factory.linkToArray(new double[] {-1.0, 0.5});
+Matrix x0 = DenseMatrix.column(-1.0, 0.5);
 OptimizeResult r = MinimizeTrustConstr.minimize(
         fun, grad, hess, x0, eq, /*maxIter=*/ 200, /*xtol=*/ 1e-10, /*gtol=*/ 1e-10);
 System.out.println(r);
@@ -99,21 +100,21 @@ import org.scipy.optimize.minimize.NonlinearConstraint;
 
 // x^2 - y^2 >= 1 (unit hyperbola), with constraint Hessian-of-Lagrangian.
 java.util.function.Function<Matrix, Matrix> cFun = x ->
-        Matrix.Factory.linkToArray(new double[] {
+        DenseMatrix.column(
                 x.getAsDouble(0, 0) * x.getAsDouble(0, 0)
-                - x.getAsDouble(1, 0) * x.getAsDouble(1, 0)});
+                - x.getAsDouble(1, 0) * x.getAsDouble(1, 0));
 java.util.function.Function<Matrix, Matrix> cJac = x ->
-        Matrix.Factory.linkToArray(new double[][] {
+        DenseMatrix.fromRows(new double[][] {
                 {2 * x.getAsDouble(0, 0), -2 * x.getAsDouble(1, 0)}});
 java.util.function.BiFunction<Matrix, Matrix, Matrix> cHess = (x, v) -> {
     double v0 = v.getAsDouble(0, 0);
-    return Matrix.Factory.linkToArray(new double[][] {{2 * v0, 0}, {0, -2 * v0}});
+    return DenseMatrix.fromRows(new double[][] {{2 * v0, 0}, {0, -2 * v0}});
 };
 NonlinearConstraint c = new NonlinearConstraint(cFun, cJac, cHess,
         new double[] {1.0}, new double[] {Double.POSITIVE_INFINITY}, null);
 
 OptimizeResult r = MinimizeTrustConstr.minimize(fun, grad, hess,
-        Matrix.Factory.linkToArray(new double[] {1.5, 0.0}), c,
+        DenseMatrix.column(1.5, 0.0), c,
         1000, 1e-8, 1e-8);
 ```
 

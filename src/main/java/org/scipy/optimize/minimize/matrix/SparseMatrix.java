@@ -138,7 +138,7 @@ public class SparseMatrix extends Matrix {
 				x[i] = other.getAsDouble(i, 0);
 			}
 			double[] y = toCSR().matvec(x);
-			DMatrix out = new DMatrix(rows, 1);
+			DenseMatrix out = DenseMatrix.zeros(rows, 1);
 			for (int i = 0; i < rows; ++i) {
 				out.set(i, 0, y[i]);
 			}
@@ -146,7 +146,7 @@ public class SparseMatrix extends Matrix {
 		}
 		// Fallback: dense triple loop.
 		int p = (int) other.getColumnCount();
-		DMatrix out = new DMatrix(rows, p);
+		DenseMatrix out = DenseMatrix.zeros(rows, p);
 		for (Map.Entry<Long, Double> e : entries.entrySet()) {
 			long k = e.getKey();
 			int r = (int) (k / cols);
@@ -233,8 +233,8 @@ public class SparseMatrix extends Matrix {
 		return max;
 	}
 
-	private DMatrix densify() {
-		DMatrix d = new DMatrix(rows, cols);
+	private DenseMatrix densify() {
+		DenseMatrix d = DenseMatrix.zeros(rows, cols);
 		for (Map.Entry<Long, Double> e : entries.entrySet()) {
 			long k = e.getKey();
 			d.set((int) (k / cols), (int) (k % cols), e.getValue());

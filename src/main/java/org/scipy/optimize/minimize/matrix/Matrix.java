@@ -1,22 +1,22 @@
 package org.scipy.optimize.minimize.matrix;
 
 /**
- * Minimal matrix abstraction used throughout the trust-constr port.
- * Replaces the previously-vendored {@code org.scipy.optimize.minimize.matrix.Matrix} interface
- * with an in-tree implementation backed only by primitive arrays plus
- * {@code dev.ludovic.netlib} BLAS for hot dense kernels.
- *
- * <p>Two concrete subclasses:
+ * Abstract dense/sparse matrix base. Two concrete subclasses:
  * <ul>
- *   <li>{@link DMatrix} — dense, backed by {@code double[][]} row-major.</li>
- *   <li>{@link SparseMatrix} — sparse, backed by a Dictionary-of-Keys
- *       (DOK) representation that supports cheap {@link #setAsDouble} and
- *       can convert to {@link org.scipy.optimize.minimize.sparse.CSRMatrix}
- *       for compute-heavy paths.</li>
+ *   <li>{@link DenseMatrix} — column-major {@code double[]} buffer; the BLAS
+ *       and LAPACK kernels in {@link LinAlg} take {@link DenseMatrix#data()}
+ *       directly with no copy.</li>
+ *   <li>{@link SparseMatrix} — Dictionary-of-Keys; cheap incremental
+ *       {@link #setAsDouble} plus
+ *       {@link SparseMatrix#toCSR()} to materialise a
+ *       {@link org.scipy.optimize.minimize.sparse.CSRMatrix} for compute.</li>
  * </ul>
  *
- * <p>The API mirrors the slice of UJMP that the trust-constr port used so
- * that the migration was a pure import-swap for most call sites.
+ * <p>The base class exposes the operations both layouts must support
+ * (shape queries, element get/set, arithmetic, norms, slicing, simple
+ * boolean comparisons used by {@link org.scipy.optimize.minimize.NumDiff}).
+ * Specialised paths (BLAS dgemm / dsyr / dsyr2, LU/QR/SVD/Cholesky via
+ * LAPACK) live on {@link DenseMatrix} and {@link LinAlg}.
  */
 public abstract class Matrix {
 
@@ -71,34 +71,12 @@ public abstract class Matrix {
 	}
 
 	/**
-	 * UJMP-compat shim: this port only supports double-valued matrices.
-	 */
-	public ValueType getValueType() {
-		return ValueType.DOUBLE;
-	}
-
-	/**
 	 * Solve {@code this * x = rhs} via LAPACK {@code dgesv} (general LU).
-	 * Rejects non-square {@code this} and shape-incompatible {@code rhs}.
+	 * Routes through {@link LinAlg#solve(DenseMatrix, DenseMatrix)} after
+	 * densifying both operands.
 	 */
 	public Matrix solve(Matrix rhs) {
-		int n = (int) getRowCount();
-		if (getColumnCount() != n) {
-			throw new IllegalArgumentException("solve(): matrix must be square");
-		}
-		if (rhs.getRowCount() != n) {
-			throw new IllegalArgumentException("solve(): RHS row count must match matrix size");
-		}
-		int nrhs = (int) rhs.getColumnCount();
-		double[] aFlat = MatrixIO.toColumnMajor(this);
-		double[] bFlat = MatrixIO.toColumnMajor(rhs);
-		int[] ipiv = new int[n];
-		org.netlib.util.intW info = new org.netlib.util.intW(0);
-		dev.ludovic.netlib.lapack.LAPACK.getInstance().dgesv(n, nrhs, aFlat, n, ipiv, bFlat, n, info);
-		if (info.val != 0) {
-			throw new ArithmeticException("dgesv failed: info=" + info.val);
-		}
-		return MatrixIO.fromColumnMajor(bFlat, n, nrhs);
+		return LinAlg.solve(DenseMatrix.copyFromMatrix(this), DenseMatrix.copyFromMatrix(rhs));
 	}
 
 	public boolean isSparse() {
@@ -153,13 +131,12 @@ public abstract class Matrix {
 
 	/**
 	 * Slice rows {@code [r0..r1]} and columns {@code [c0..c1]} (inclusive).
-	 * Always returns a fresh dense matrix — the {@code Ret} parameter is
-	 * accepted for UJMP-compat and ignored.
+	 * Always returns a fresh dense matrix.
 	 */
-	public Matrix subMatrix(Ret ret, long r0, long c0, long r1, long c1) {
+	public Matrix subMatrix(long r0, long c0, long r1, long c1) {
 		int rows = (int) (r1 - r0 + 1);
 		int cols = (int) (c1 - c0 + 1);
-		DMatrix out = new DMatrix(rows, cols);
+		DenseMatrix out = DenseMatrix.zeros(rows, cols);
 		for (int i = 0; i < rows; ++i) {
 			for (int j = 0; j < cols; ++j) {
 				out.set(i, j, getAsDouble(r0 + i, c0 + j));
@@ -169,63 +146,61 @@ public abstract class Matrix {
 	}
 
 	/** Select a single column. */
-	public Matrix selectColumns(Ret ret, long col) {
+	public Matrix selectColumns(long col) {
 		int rows = (int) getRowCount();
-		DMatrix out = new DMatrix(rows, 1);
+		DenseMatrix out = DenseMatrix.zeros(rows, 1);
 		for (int i = 0; i < rows; ++i) {
 			out.set(i, 0, getAsDouble(i, col));
 		}
 		return out;
 	}
 
-	public Matrix abs(Ret ret) {
-		if (ret == Ret.ORIG) {
-			int rows = (int) getRowCount();
-			int cols = (int) getColumnCount();
-			for (int i = 0; i < rows; ++i) {
-				for (int j = 0; j < cols; ++j) {
-					double v = getAsDouble(i, j);
-					if (v < 0.0) setAsDouble(-v, i, j);
-				}
+	/** In-place absolute value; returns {@code this} after mutation. */
+	public Matrix absInPlace() {
+		int rows = (int) getRowCount();
+		int cols = (int) getColumnCount();
+		for (int i = 0; i < rows; ++i) {
+			for (int j = 0; j < cols; ++j) {
+				double v = getAsDouble(i, j);
+				if (v < 0.0) setAsDouble(-v, i, j);
 			}
-			return this;
 		}
-		return abs();
+		return this;
 	}
 
 	/** Element-wise less-than. Result entries are 1.0 / 0.0. */
-	public Matrix lt(Ret ret, Matrix other) {
+	public Matrix lt(Matrix other) {
 		return elementwiseCompare(other, (a, b) -> a < b);
 	}
-	public Matrix lt(Ret ret, double scalar) {
+	public Matrix lt(double scalar) {
 		return elementwiseCompareScalar(scalar, (a, b) -> a < b);
 	}
-	public Matrix gt(Ret ret, Matrix other) {
+	public Matrix gt(Matrix other) {
 		return elementwiseCompare(other, (a, b) -> a > b);
 	}
-	public Matrix gt(Ret ret, double scalar) {
+	public Matrix gt(double scalar) {
 		return elementwiseCompareScalar(scalar, (a, b) -> a > b);
 	}
-	public Matrix le(Ret ret, Matrix other) {
+	public Matrix le(Matrix other) {
 		return elementwiseCompare(other, (a, b) -> a <= b);
 	}
-	public Matrix le(Ret ret, double scalar) {
+	public Matrix le(double scalar) {
 		return elementwiseCompareScalar(scalar, (a, b) -> a <= b);
 	}
-	public Matrix ge(Ret ret, Matrix other) {
+	public Matrix ge(Matrix other) {
 		return elementwiseCompare(other, (a, b) -> a >= b);
 	}
-	public Matrix ge(Ret ret, double scalar) {
+	public Matrix ge(double scalar) {
 		return elementwiseCompareScalar(scalar, (a, b) -> a >= b);
 	}
-	public Matrix eq(Ret ret, Matrix other) {
+	public Matrix eq(Matrix other) {
 		return elementwiseCompare(other, (a, b) -> a == b);
 	}
 
-	public Matrix not(Ret ret) {
+	public Matrix not() {
 		int rows = (int) getRowCount();
 		int cols = (int) getColumnCount();
-		DMatrix out = new DMatrix(rows, cols);
+		DenseMatrix out = DenseMatrix.zeros(rows, cols);
 		for (int i = 0; i < rows; ++i) {
 			for (int j = 0; j < cols; ++j) {
 				out.set(i, j, getAsDouble(i, j) == 0.0 ? 1.0 : 0.0);
@@ -233,10 +208,10 @@ public abstract class Matrix {
 		}
 		return out;
 	}
-	public Matrix and(Ret ret, Matrix other) {
+	public Matrix and(Matrix other) {
 		return elementwiseCompare(other, (a, b) -> a != 0.0 && b != 0.0);
 	}
-	public Matrix or(Ret ret, Matrix other) {
+	public Matrix or(Matrix other) {
 		return elementwiseCompare(other, (a, b) -> a != 0.0 || b != 0.0);
 	}
 
@@ -244,7 +219,7 @@ public abstract class Matrix {
 	public Matrix toIntMatrix() {
 		int rows = (int) getRowCount();
 		int cols = (int) getColumnCount();
-		DMatrix out = new DMatrix(rows, cols);
+		DenseMatrix out = DenseMatrix.zeros(rows, cols);
 		for (int i = 0; i < rows; ++i) {
 			for (int j = 0; j < cols; ++j) {
 				out.set(i, j, (double) (long) getAsDouble(i, j));
@@ -258,17 +233,14 @@ public abstract class Matrix {
 	 * default LAPACK numerical-zero threshold {@code max(m,n) * ulp(σ_max)}.
 	 */
 	public long rank() {
-		SVDMatrix svd = new SVDMatrix(this);
-		Matrix S = svd.getS();
-		int k = (int) Math.min(getRowCount(), getColumnCount());
+		int m = (int) getRowCount();
+		int n = (int) getColumnCount();
+		int k = Math.min(m, n);
 		if (k == 0) return 0;
-		double sigmaMax = S.getAsDouble(0, 0);
-		double tol = Math.max(getRowCount(), getColumnCount()) * Math.ulp(sigmaMax);
-		long rank = 0;
-		for (int i = 0; i < k; ++i) {
-			if (S.getAsDouble(i, i) > tol) ++rank;
-		}
-		return rank;
+		SVDResult svd = LinAlg.svd(DenseMatrix.copyFromMatrix(this));
+		double sigmaMax = svd.s()[0];
+		double tol = Math.max(m, n) * Math.ulp(sigmaMax);
+		return svd.rank(tol);
 	}
 
 	/**
@@ -304,7 +276,8 @@ public abstract class Matrix {
 		return true;
 	}
 
-	public Matrix fill(Ret ret, double v) {
+	/** In-place fill with {@code v}; returns {@code this} after mutation. */
+	public Matrix fill(double v) {
 		int rows = (int) getRowCount();
 		int cols = (int) getColumnCount();
 		for (int i = 0; i < rows; ++i) {
@@ -370,7 +343,7 @@ public abstract class Matrix {
 	private Matrix elementwiseCompare(Matrix other, DoubleBiPredicate p) {
 		int rows = (int) getRowCount();
 		int cols = (int) getColumnCount();
-		DMatrix out = new DMatrix(rows, cols);
+		DenseMatrix out = DenseMatrix.zeros(rows, cols);
 		for (int i = 0; i < rows; ++i) {
 			for (int j = 0; j < cols; ++j) {
 				out.set(i, j, p.test(getAsDouble(i, j), other.getAsDouble(i, j)) ? 1.0 : 0.0);
@@ -382,7 +355,7 @@ public abstract class Matrix {
 	private Matrix elementwiseCompareScalar(double scalar, DoubleBiPredicate p) {
 		int rows = (int) getRowCount();
 		int cols = (int) getColumnCount();
-		DMatrix out = new DMatrix(rows, cols);
+		DenseMatrix out = DenseMatrix.zeros(rows, cols);
 		for (int i = 0; i < rows; ++i) {
 			for (int j = 0; j < cols; ++j) {
 				out.set(i, j, p.test(getAsDouble(i, j), scalar) ? 1.0 : 0.0);
@@ -402,7 +375,7 @@ public abstract class Matrix {
 	protected Matrix mapAdd(double scalar) {
 		int n = (int) getRowCount();
 		int m = (int) getColumnCount();
-		DMatrix out = new DMatrix(n, m);
+		DenseMatrix out = DenseMatrix.zeros(n, m);
 		for (int i = 0; i < n; ++i) {
 			for (int j = 0; j < m; ++j) {
 				out.set(i, j, getAsDouble(i, j) + scalar);
@@ -412,52 +385,51 @@ public abstract class Matrix {
 	}
 
 	/**
-	 * Static constructors. Mirrors the UJMP {@code Matrix.Factory} surface to
-	 * keep the migration mechanical.
+	 * Static constructors. All paths now produce {@link DenseMatrix} instances
+	 * (column-major {@code double[]}) — kept under {@code Matrix.Factory.*} so
+	 * existing call sites compile unchanged during the staged migration.
 	 */
 	public static final class Factory {
 
 		private Factory() {}
 
-		public static Matrix zeros(long rows, long cols) {
-			return new DMatrix((int) rows, (int) cols);
+		public static DenseMatrix zeros(long rows, long cols) {
+			return DenseMatrix.zeros((int) rows, (int) cols);
 		}
 
-		public static Matrix zeros(long[] size) {
+		public static DenseMatrix zeros(long[] size) {
 			long r = size.length > 0 ? size[0] : 0;
 			long c = size.length > 1 ? size[1] : 1;
 			return zeros(r, c);
 		}
 
-		public static Matrix eye(long rows, long cols) {
-			DMatrix m = new DMatrix((int) rows, (int) cols);
-			int n = (int) Math.min(rows, cols);
-			for (int i = 0; i < n; ++i) {
-				m.set(i, i, 1.0);
-			}
+		public static DenseMatrix eye(long rows, long cols) {
+			int r = (int) rows;
+			int c = (int) cols;
+			DenseMatrix m = DenseMatrix.zeros(r, c);
+			int n = Math.min(r, c);
+			for (int i = 0; i < n; ++i) m.set(i, i, 1.0);
 			return m;
 		}
 
-		public static Matrix ones(long rows, long cols) {
+		public static DenseMatrix ones(long rows, long cols) {
 			return fill(1.0, rows, cols);
 		}
 
-		public static Matrix ones(long[] size) {
+		public static DenseMatrix ones(long[] size) {
 			long r = size.length > 0 ? size[0] : 0;
 			long c = size.length > 1 ? size[1] : 1;
 			return ones(r, c);
 		}
 
-		public static Matrix fill(double v, long rows, long cols) {
-			DMatrix m = new DMatrix((int) rows, (int) cols);
-			for (int i = 0; i < m.rows(); ++i) {
-				java.util.Arrays.fill(m.rowData(i), v);
-			}
+		public static DenseMatrix fill(double v, long rows, long cols) {
+			DenseMatrix m = DenseMatrix.zeros((int) rows, (int) cols);
+			java.util.Arrays.fill(m.data(), v);
 			return m;
 		}
 
-		public static Matrix linkToArray(double[][] arr) {
-			return new DMatrix(arr);
+		public static DenseMatrix linkToArray(double[][] arr) {
+			return DenseMatrix.fromRows(arr);
 		}
 
 		/**
@@ -466,21 +438,13 @@ public abstract class Matrix {
 		 * relied on (e.g. {@code linkToArray(new double[] {a, b})} produces a
 		 * 2×1 vector indexed via {@code getAsDouble(i, 0)}).
 		 */
-		public static Matrix linkToArray(double[] colVec) {
-			DMatrix m = new DMatrix(colVec.length, 1);
-			for (int i = 0; i < colVec.length; ++i) {
-				m.set(i, 0, colVec[i]);
-			}
-			return m;
+		public static DenseMatrix linkToArray(double[] colVec) {
+			return DenseMatrix.column(colVec);
 		}
 
 		/** UJMP-compat alias for {@link #linkToArray(double[][])}. */
-		public static Matrix importFromArray(double[][] arr) {
-			double[][] copy = new double[arr.length][];
-			for (int i = 0; i < arr.length; ++i) {
-				copy[i] = arr[i].clone();
-			}
-			return new DMatrix(copy);
+		public static DenseMatrix importFromArray(double[][] arr) {
+			return DenseMatrix.fromRows(arr);
 		}
 
 		/**
@@ -489,37 +453,33 @@ public abstract class Matrix {
 		 * uses). The trust-constr tests rely on this distinction and follow up
 		 * with {@code .transpose()} when they need a column.
 		 */
-		public static Matrix importFromArray(double[] rowVec) {
-			DMatrix m = new DMatrix(1, rowVec.length);
-			for (int j = 0; j < rowVec.length; ++j) {
-				m.set(0, j, rowVec[j]);
-			}
-			return m;
+		public static DenseMatrix importFromArray(double[] rowVec) {
+			return DenseMatrix.row(rowVec);
 		}
 
 		/** {@code int[][]} input — promoted to double for the test fixtures. */
-		public static Matrix linkToArray(int[][] arr) {
-			double[][] d = new double[arr.length][];
-			for (int i = 0; i < arr.length; ++i) {
-				d[i] = new double[arr[i].length];
-				for (int j = 0; j < arr[i].length; ++j) {
-					d[i][j] = arr[i][j];
+		public static DenseMatrix linkToArray(int[][] arr) {
+			int n = arr.length;
+			int m = n == 0 ? 0 : arr[0].length;
+			DenseMatrix out = DenseMatrix.zeros(n, m);
+			for (int i = 0; i < n; ++i) {
+				if (arr[i].length != m) {
+					throw new IllegalArgumentException("linkToArray(int[][]): row " + i + " has length "
+							+ arr[i].length + ", expected " + m);
 				}
+				for (int j = 0; j < m; ++j) out.set(i, j, arr[i][j]);
 			}
-			return new DMatrix(d);
+			return out;
 		}
 
 		/**
 		 * Random normal matrix with mean 0 and stddev 1. Seedable via
 		 * {@link #setRandSeed(long)} (mirrors UJMP's {@code MathUtil.setSeed}).
 		 */
-		public static Matrix randn(long rows, long cols) {
-			DMatrix m = new DMatrix((int) rows, (int) cols);
-			for (int i = 0; i < m.rows(); ++i) {
-				for (int j = 0; j < m.cols(); ++j) {
-					m.set(i, j, RNG.nextGaussian());
-				}
-			}
+		public static DenseMatrix randn(long rows, long cols) {
+			DenseMatrix m = DenseMatrix.zeros((int) rows, (int) cols);
+			double[] d = m.data();
+			for (int k = 0; k < d.length; ++k) d[k] = RNG.nextGaussian();
 			return m;
 		}
 
@@ -533,8 +493,8 @@ public abstract class Matrix {
 			return m.copy();
 		}
 
-		public static Matrix vertCat(Matrix... parts) {
-			if (parts.length == 0) return zeros(0, 0);
+		public static DenseMatrix vertCat(Matrix... parts) {
+			if (parts.length == 0) return DenseMatrix.zeros(0, 0);
 			int cols = (int) parts[0].getColumnCount();
 			int totalRows = 0;
 			for (Matrix p : parts) {
@@ -543,7 +503,7 @@ public abstract class Matrix {
 				}
 				totalRows += (int) p.getRowCount();
 			}
-			DMatrix out = new DMatrix(totalRows, cols);
+			DenseMatrix out = DenseMatrix.zeros(totalRows, cols);
 			int row = 0;
 			for (Matrix p : parts) {
 				int pn = (int) p.getRowCount();

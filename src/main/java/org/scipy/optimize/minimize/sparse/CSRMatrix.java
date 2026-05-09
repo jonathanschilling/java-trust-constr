@@ -277,4 +277,124 @@ public final class CSRMatrix {
 		}
 		return new CSCMatrix(rows, cols, outIndptr, outIndices, outData);
 	}
+
+	/** Start an incremental DOK-style build. See {@link Builder}. */
+	public static Builder builder(int rows, int cols) {
+		return new Builder(rows, cols);
+	}
+
+	/**
+	 * Incremental builder for {@link CSRMatrix} using a Dictionary-of-Keys
+	 * (DOK) representation under the hood. Cheap {@code O(1)} amortised
+	 * {@link #set(int, int, double)}; {@link #build()} compresses to canonical
+	 * CSR (column indices sorted within each row, no duplicates).
+	 *
+	 * <p>Storing a value of exactly {@code 0.0} via {@code set(i, j, 0.0)}
+	 * removes any previously-stored entry at {@code (i, j)} so the resulting
+	 * CSR contains no explicit zeros.
+	 */
+	public static final class Builder {
+
+		private final int rows;
+		private final int cols;
+		private final java.util.HashMap<Long, Double> entries = new java.util.HashMap<>();
+
+		private Builder(int rows, int cols) {
+			if (rows < 0 || cols < 0) {
+				throw new IllegalArgumentException("rows and cols must be non-negative");
+			}
+			this.rows = rows;
+			this.cols = cols;
+		}
+
+		public int rows() { return rows; }
+		public int cols() { return cols; }
+
+		private long key(int i, int j) {
+			if (i < 0 || i >= rows || j < 0 || j >= cols) {
+				throw new IndexOutOfBoundsException("(" + i + ", " + j + ") not in "
+						+ rows + "x" + cols);
+			}
+			return ((long) i) * cols + j;
+		}
+
+		/**
+		 * Store {@code v} at {@code (i, j)}. Setting to {@code 0.0} removes
+		 * the entry. Repeated calls overwrite (this is set, not add).
+		 */
+		public Builder set(int i, int j, double v) {
+			long k = key(i, j);
+			if (v == 0.0) {
+				entries.remove(k);
+			} else {
+				entries.put(k, v);
+			}
+			return this;
+		}
+
+		/** Read back the value at {@code (i, j)}; defaults to {@code 0.0}. */
+		public double get(int i, int j) {
+			Double v = entries.get(key(i, j));
+			return v == null ? 0.0 : v;
+		}
+
+		public int nnz() { return entries.size(); }
+
+		/** Compress the DOK contents into a canonical CSR representation. */
+		public CSRMatrix build() {
+			int nnz = entries.size();
+			int[] indptr = new int[rows + 1];
+			int[] indices = new int[nnz];
+			double[] data = new double[nnz];
+
+			// Bucket-count entries per row.
+			int[] rowCount = new int[rows];
+			for (Long k : entries.keySet()) {
+				int i = (int) (k / cols);
+				++rowCount[i];
+			}
+			indptr[0] = 0;
+			for (int i = 0; i < rows; ++i) {
+				indptr[i + 1] = indptr[i] + rowCount[i];
+			}
+
+			// Place entries; cursor per row = indptr[i] + offset.
+			int[] cursor = indptr.clone();
+			for (java.util.Map.Entry<Long, Double> e : entries.entrySet()) {
+				long k = e.getKey();
+				int i = (int) (k / cols);
+				int j = (int) (k - (long) i * cols);
+				int dest = cursor[i]++;
+				indices[dest] = j;
+				data[dest] = e.getValue();
+			}
+
+			// Sort each row's slice by column index (canonical CSR).
+			for (int i = 0; i < rows; ++i) {
+				int from = indptr[i];
+				int to = indptr[i + 1];
+				if (to - from > 1) {
+					sortRowSlice(indices, data, from, to);
+				}
+			}
+
+			return new CSRMatrix(rows, cols, indptr, indices, data);
+		}
+
+		private static void sortRowSlice(int[] indices, double[] data, int from, int to) {
+			// Insertion sort (rows are typically short; avoids paired-array boxing).
+			for (int k = from + 1; k < to; ++k) {
+				int idx = indices[k];
+				double val = data[k];
+				int p = k - 1;
+				while (p >= from && indices[p] > idx) {
+					indices[p + 1] = indices[p];
+					data[p + 1] = data[p];
+					--p;
+				}
+				indices[p + 1] = idx;
+				data[p + 1] = val;
+			}
+		}
+	}
 }

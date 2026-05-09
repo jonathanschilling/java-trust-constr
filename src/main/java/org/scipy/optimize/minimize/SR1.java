@@ -1,7 +1,7 @@
 package org.scipy.optimize.minimize;
 
-import dev.ludovic.netlib.blas.BLAS;
-
+import org.scipy.optimize.minimize.matrix.DenseMatrix;
+import org.scipy.optimize.minimize.matrix.LinAlg;
 import org.scipy.optimize.minimize.matrix.Matrix;
 
 /**
@@ -57,8 +57,6 @@ public class SR1 extends FullHessianUpdateStrategy {
 		FACTORY = new SR1Factory();
 	}
 
-	private static final BLAS BLAS_INSTANCE = BLAS.getInstance();
-
 	private final double minDenominator;
 
 	protected SR1(boolean initialScaleAuto, double initialScale, double minDenominator) {
@@ -98,59 +96,28 @@ public class SR1 extends FullHessianUpdateStrategy {
 		}
 
 		// Update matrix via BLAS dsyr: M += (1/denominator) * (z - Mw)(z - Mw)^T.
-		int N = (int) n;
-		double[] zmwArr = colVectorToArray(zMinusMw, N);
+		double[] zmwArr = colVectorToArray(zMinusMw);
 		switch (approxType) {
-		case HESSIAN: {
-			double[] flat = symMatrixToFlat(B, N);
-			BLAS_INSTANCE.dsyr("U", N, 1.0 / denominator, zmwArr, 1, flat, N);
-			mirrorSymmetric(flat, N);
-			B = flatToMatrix(flat, N);
+		case HESSIAN:
+			LinAlg.syr(B, 1.0 / denominator, zmwArr);
 			break;
-		}
-		case INV_HESSIAN: {
-			double[] flat = symMatrixToFlat(H, N);
-			BLAS_INSTANCE.dsyr("U", N, 1.0 / denominator, zmwArr, 1, flat, N);
-			mirrorSymmetric(flat, N);
-			H = flatToMatrix(flat, N);
+		case INV_HESSIAN:
+			LinAlg.syr(H, 1.0 / denominator, zmwArr);
 			break;
-		}
 		default:
 			throw new RuntimeException("not implemented");
 		}
 	}
 
-	private static double[] colVectorToArray(Matrix v, int n) {
+	private static double[] colVectorToArray(Matrix v) {
+		if (v instanceof DenseMatrix d) {
+			return d.toColumnArray();
+		}
+		int n = (int) v.getRowCount();
 		double[] out = new double[n];
 		for (int i = 0; i < n; ++i) {
 			out[i] = v.getAsDouble(i, 0);
 		}
 		return out;
-	}
-
-	private static double[] symMatrixToFlat(Matrix m, int n) {
-		double[] flat = new double[n * n];
-		for (int i = 0; i < n; ++i) {
-			for (int j = 0; j < n; ++j) {
-				flat[i * n + j] = m.getAsDouble(i, j);
-			}
-		}
-		return flat;
-	}
-
-	private static void mirrorSymmetric(double[] flat, int n) {
-		for (int i = 0; i < n; ++i) {
-			for (int j = i + 1; j < n; ++j) {
-				flat[i * n + j] = flat[j * n + i];
-			}
-		}
-	}
-
-	private static Matrix flatToMatrix(double[] flat, int n) {
-		double[][] arr = new double[n][n];
-		for (int i = 0; i < n; ++i) {
-			System.arraycopy(flat, i * n, arr[i], 0, n);
-		}
-		return Matrix.Factory.linkToArray(arr);
 	}
 }

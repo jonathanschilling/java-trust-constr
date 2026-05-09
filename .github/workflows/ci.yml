@@ -3,6 +3,16 @@ name: CI
 # Build and test on every push to master and on every pull request.
 # The parent POM `de.labathome:de-labathome-parent:1.1.0` is on Maven Central,
 # so this resolves with no extra setup.
+#
+# The test job runs under a 2-way BLAS matrix (in parallel):
+#   - `f2j`:    pure-Java fallback (`dev.ludovic.netlib.blas.Java11BLAS`),
+#               forced via `-Ddev.ludovic.netlib.blas.nativeLib=NONEXISTENT`.
+#   - `native`: JNI BLAS over system libopenblas / liblapack3, installed
+#               via apt before the build.
+# Bugs that mask on one BLAS often surface on the other -- e.g. the SR1
+# zero-residual NaN regression caught by `sr1HandlesZeroResidualWithoutNaN`
+# only fires on F2J because native dsyr happens to short-circuit when
+# `x = 0`. Matrix-running both keeps both paths green.
 
 on:
   push:
@@ -13,7 +23,19 @@ on:
 
 jobs:
   build-and-test:
+    name: BLAS=${{ matrix.blas.name }}
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        blas:
+          - name: f2j
+            install: ''
+            argline: '-Ddev.ludovic.netlib.blas.nativeLib=NONEXISTENT -Ddev.ludovic.netlib.lapack.nativeLib=NONEXISTENT'
+          - name: native
+            install: 'sudo apt-get update && sudo apt-get install -y --no-install-recommends libopenblas0 liblapack3'
+            argline: ''
 
     steps:
       - name: Checkout
@@ -26,19 +48,47 @@ jobs:
           java-version: '17'
           cache: maven
 
+      - name: Install native BLAS / LAPACK (matrix=native only)
+        if: matrix.blas.install != ''
+        run: ${{ matrix.blas.install }}
+
       - name: Build and test
-        run: mvn -B -e test
+        run: mvn -B -e test '-DargLine=${{ matrix.blas.argline }}'
+
+      - name: Confirm which BLAS / LAPACK actually loaded
+        # `dev.ludovic.netlib.{blas,lapack}.InstanceBuilder` logs an INFO line
+        # at static-init naming the implementation it picked. surefire captures
+        # this in the per-class XML reports. Grep one to verify the matrix
+        # variant got what we expected (fail loud if it didn't).
+        run: |
+          set -e
+          BLAS=$(grep -h "Using dev.ludovic.netlib.blas" target/surefire-reports/*.xml 2>/dev/null | head -1 || true)
+          LAPACK=$(grep -h "Using dev.ludovic.netlib.lapack" target/surefire-reports/*.xml 2>/dev/null | head -1 || true)
+          echo "Loaded BLAS:   $BLAS"
+          echo "Loaded LAPACK: $LAPACK"
+          case "${{ matrix.blas.name }}" in
+            f2j)
+              echo "$BLAS"   | grep -q "Java"  || { echo "ERROR: expected F2J BLAS but got '$BLAS'";   exit 1; }
+              echo "$LAPACK" | grep -q "F2j"   || { echo "ERROR: expected F2J LAPACK but got '$LAPACK'"; exit 1; }
+              ;;
+            native)
+              echo "$BLAS"   | grep -q "JNI"   || { echo "ERROR: expected JNI BLAS but got '$BLAS'";   exit 1; }
+              echo "$LAPACK" | grep -q "JNI"   || { echo "ERROR: expected JNI LAPACK but got '$LAPACK'"; exit 1; }
+              ;;
+          esac
 
       - name: Build javadoc (lint check)
+        if: matrix.blas.name == 'f2j'   # BLAS-independent; run once
         run: mvn -B -e javadoc:javadoc
 
       - name: Verify ASCII-only invariant
+        if: matrix.blas.name == 'f2j'   # BLAS-independent; run once
         run: |
           python3 -c "
           import os, sys
           violations = []
           for dirpath, dirs, files in os.walk('.'):
-              for skip in ['.git', 'target', 'scipy', 'node_modules']:
+              for skip in ['.git', 'target', 'node_modules']:
                   if skip in dirs:
                       dirs.remove(skip)
               for fn in files:

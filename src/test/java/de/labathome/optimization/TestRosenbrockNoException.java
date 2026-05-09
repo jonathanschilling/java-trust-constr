@@ -4,11 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.BFGS;
-import org.scipy.optimize.minimize.SR1;
-import org.scipy.optimize.minimize.enums.HessianApproximationType;
-import org.scipy.optimize.minimize.matrix.DenseMatrix;
-import org.scipy.optimize.minimize.matrix.Matrix;
+import de.labathome.trustconstr.BFGS;
+import de.labathome.trustconstr.SR1;
+import de.labathome.trustconstr.enums.HessianApproximationType;
+import de.labathome.trustconstr.matrix.DenseMatrix;
+import de.labathome.trustconstr.matrix.Matrix;
 
 /**
  * Java translation of scipy
@@ -98,7 +98,7 @@ class TestRosenbrockNoException {
 	 * assertion.
 	 */
 	private static void runRosenbrockSequence(
-			org.scipy.optimize.minimize.interfaces.HessianUpdateStrategy hess) {
+			de.labathome.trustconstr.interfaces.HessianUpdateStrategy hess) {
 		hess.initialize(N, HessianApproximationType.HESSIAN);
 		double[][] gradList = new double[X_LIST.length][];
 		for (int i = 0; i < X_LIST.length; ++i) {

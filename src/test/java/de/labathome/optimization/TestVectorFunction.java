@@ -7,11 +7,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.IdentityVectorFunction;
-import org.scipy.optimize.minimize.LinearVectorFunction;
-import org.scipy.optimize.minimize.matrix.DenseMatrix;
-import org.scipy.optimize.minimize.matrix.Matrix;
-import org.scipy.optimize.minimize.matrix.SparseMatrix;
+import de.labathome.trustconstr.IdentityVectorFunction;
+import de.labathome.trustconstr.LinearVectorFunction;
+import de.labathome.trustconstr.matrix.DenseMatrix;
+import de.labathome.trustconstr.matrix.Matrix;
+import de.labathome.trustconstr.matrix.SparseMatrix;
 
 /**
  * Java translation of scipy
@@ -20,7 +20,7 @@ import org.scipy.optimize.minimize.matrix.SparseMatrix;
  * and {@code test_IdentityVectorFunction} tests.
  *
  * <p>The {@code TestVectorialFunction} class-level tests for the heavier
- * {@link org.scipy.optimize.minimize.VectorFunction} (FD jac / hess linear
+ * {@link de.labathome.trustconstr.VectorFunction} (FD jac / hess linear
  * operator / sparsity / x storage) are exercised indirectly through the
  * trust-constr integration tests; strict 1:1 ports of the remaining
  * scipy-class tests are deferred.

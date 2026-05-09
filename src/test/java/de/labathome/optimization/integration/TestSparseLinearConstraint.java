@@ -4,12 +4,12 @@ import java.util.function.Function;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.LinearConstraint;
-import org.scipy.optimize.minimize.MinimizeTrustConstr;
-import org.scipy.optimize.minimize.records.OptimizeResult;
-import org.scipy.optimize.minimize.sparse.CSRMatrix;
-import org.scipy.optimize.minimize.matrix.Matrix;
-import org.scipy.optimize.minimize.matrix.SparseMatrix;
+import de.labathome.trustconstr.LinearConstraint;
+import de.labathome.trustconstr.MinimizeTrustConstr;
+import de.labathome.trustconstr.records.OptimizeResult;
+import de.labathome.trustconstr.sparse.CSRMatrix;
+import de.labathome.trustconstr.matrix.Matrix;
+import de.labathome.trustconstr.matrix.SparseMatrix;
 
 /**
  * Tests that {@link LinearConstraint} preserves sparsity end-to-end when the

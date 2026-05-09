@@ -10,12 +10,12 @@ import org.junit.jupiter.api.Named;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.scipy.optimize.minimize.LinearConstraint;
-import org.scipy.optimize.minimize.MinimizeTrustConstr;
-import org.scipy.optimize.minimize.NonlinearConstraint;
-import org.scipy.optimize.minimize.matrix.DenseMatrix;
-import org.scipy.optimize.minimize.matrix.Matrix;
-import org.scipy.optimize.minimize.records.OptimizeResult;
+import de.labathome.trustconstr.LinearConstraint;
+import de.labathome.trustconstr.MinimizeTrustConstr;
+import de.labathome.trustconstr.NonlinearConstraint;
+import de.labathome.trustconstr.matrix.DenseMatrix;
+import de.labathome.trustconstr.matrix.Matrix;
+import de.labathome.trustconstr.records.OptimizeResult;
 
 import de.labathome.optimization.RelAbsAssertions;
 

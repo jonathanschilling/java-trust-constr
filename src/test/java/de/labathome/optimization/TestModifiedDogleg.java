@@ -1,12 +1,12 @@
 package de.labathome.optimization;
 
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.matrix.MatrixOps;
-import org.scipy.optimize.minimize.Projections;
-import org.scipy.optimize.minimize.QPSubproblem;
-import org.scipy.optimize.minimize.interfaces.LinearOperator;
-import org.scipy.optimize.minimize.matrix.Matrix;
-import org.scipy.optimize.minimize.matrix.Matrix;
+import de.labathome.trustconstr.matrix.MatrixOps;
+import de.labathome.trustconstr.Projections;
+import de.labathome.trustconstr.QPSubproblem;
+import de.labathome.trustconstr.interfaces.LinearOperator;
+import de.labathome.trustconstr.matrix.Matrix;
+import de.labathome.trustconstr.matrix.Matrix;
 
 
 class TestModifiedDogleg {

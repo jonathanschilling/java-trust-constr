@@ -2,8 +2,8 @@ package de.labathome.optimization;
 
 import java.util.Optional;
 import java.util.function.ToDoubleBiFunction;
-import org.scipy.optimize.minimize.NonlinearConstraint;
-import org.scipy.optimize.minimize.report.ReportBase;
+import de.labathome.trustconstr.NonlinearConstraint;
+import de.labathome.trustconstr.report.ReportBase;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -14,14 +14,14 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.MinimizeTrustConstr;
-import org.scipy.optimize.minimize.matrix.DenseMatrix;
-import org.scipy.optimize.minimize.matrix.Matrix;
-import org.scipy.optimize.minimize.records.Bounds;
-import org.scipy.optimize.minimize.records.OptimizeResult;
-import org.scipy.optimize.minimize.report.BasicReport;
-import org.scipy.optimize.minimize.report.IPReport;
-import org.scipy.optimize.minimize.report.SQPReport;
+import de.labathome.trustconstr.MinimizeTrustConstr;
+import de.labathome.trustconstr.matrix.DenseMatrix;
+import de.labathome.trustconstr.matrix.Matrix;
+import de.labathome.trustconstr.records.Bounds;
+import de.labathome.trustconstr.records.OptimizeResult;
+import de.labathome.trustconstr.report.BasicReport;
+import de.labathome.trustconstr.report.IPReport;
+import de.labathome.trustconstr.report.SQPReport;
 
 /**
  * Java translation of scipy

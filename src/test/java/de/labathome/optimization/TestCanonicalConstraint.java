@@ -9,11 +9,11 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.CanonicalConstraint;
-import org.scipy.optimize.minimize.LinearConstraint;
-import org.scipy.optimize.minimize.NonlinearConstraint;
-import org.scipy.optimize.minimize.matrix.Matrix;
-import org.scipy.optimize.minimize.records.EqIneqSplit;
+import de.labathome.trustconstr.CanonicalConstraint;
+import de.labathome.trustconstr.LinearConstraint;
+import de.labathome.trustconstr.NonlinearConstraint;
+import de.labathome.trustconstr.matrix.Matrix;
+import de.labathome.trustconstr.records.EqIneqSplit;
 
 /**
  * Java translation of scipy

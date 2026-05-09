@@ -1,16 +1,16 @@
 package de.labathome.optimization;
 
-import org.scipy.optimize.minimize.matrix.SparseMatrix;
+import de.labathome.trustconstr.matrix.SparseMatrix;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.CombinedConstraint;
-import org.scipy.optimize.minimize.LinearConstraint;
-import org.scipy.optimize.minimize.NonlinearConstraint;
-import org.scipy.optimize.minimize.matrix.Matrix;
+import de.labathome.trustconstr.CombinedConstraint;
+import de.labathome.trustconstr.LinearConstraint;
+import de.labathome.trustconstr.NonlinearConstraint;
+import de.labathome.trustconstr.matrix.Matrix;
 
 
 /**

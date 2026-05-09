@@ -10,7 +10,7 @@ The reference Python implementation is checked out as a git submodule at
 
 ## Build
 
-Maven, Java 11.
+Maven, Java 17.
 
 ```bash
 git submodule update --init           # populate the scipy reference
@@ -18,8 +18,64 @@ mvn compile
 mvn test
 ```
 
-The parent POM `de.labathome:de-labathome-parent` is not on Maven Central; it
-needs to be available in a local or internal repository.
+The parent POM `de.labathome:de-labathome-parent:1.1.0` is not yet published to
+Maven Central -- install it locally first by running `mvn install` in the
+parent's checkout.
+
+## Javadoc
+
+Published to GitHub Pages at <https://jonathanschilling.github.io/java-trust-constr/>.
+The `.github/workflows/javadoc.yml` workflow rebuilds and pushes to the
+`gh-pages` branch on every push to `master` and every `v*` release tag.
+
+## Publishing to Maven Central
+
+The legacy OSSRH service (`oss.sonatype.org`) was shut down on 2025-06-30; the
+parent POM was modernised to use the **Central Portal**
+(`central.sonatype.com`) via the official
+`org.sonatype.central:central-publishing-maven-plugin`.
+
+One-time setup:
+
+1. **Create / claim the namespace** at <https://central.sonatype.com>. The
+   `de.labathome` namespace must show up under "View Namespaces" -- if it
+   doesn't (e.g. you signed up after the OSSRH sunset and never published
+   under this namespace), submit it and add the issued `OSSRH-NNNNN`
+   verification key as a `TXT` record on the apex `labathome.de` domain.
+2. **Generate a user token** (Portal -> "Generate User Token"). This produces a
+   `username`/`password` pair shown once; if lost, regenerate.
+3. **Add a `<server>` entry** to `~/.m2/settings.xml`:
+
+   ```xml
+   <server>
+     <id>central</id>
+     <username><!-- token username --></username>
+     <password><!-- token password --></password>
+   </server>
+   ```
+
+4. **GPG**: have a primary signing key with no `usage: S` sub-key (Central
+   only verifies against the primary key; sub-keys silently fail). Push the
+   public key to `keyserver.ubuntu.com`:
+
+   ```bash
+   gpg --keyserver keyserver.ubuntu.com --send-keys <KEYID>
+   ```
+
+   Add `<server id="...">` plus `<gpg.keyname>` to `settings.xml` so the
+   passphrase isn't prompted interactively.
+
+Then publish a release:
+
+```bash
+mvn clean deploy -P release
+```
+
+The `release` profile in the parent POM activates `maven-gpg-plugin` 3.2.7
+and `central-publishing-maven-plugin` 0.10.0, which uploads the validated
+bundle to the Portal. With `<autoPublish>false</autoPublish>` (the default
+in the parent), the bundle waits for a manual "Publish" click in the Portal
+UI; flip to `true` to release as soon as validation passes.
 
 ## Quick start
 
@@ -30,11 +86,11 @@ Pick the convenience overload that matches what you have:
 ### Analytic gradient and Hessian
 
 ```java
-import org.scipy.optimize.minimize.MinimizeTrustConstr;
-import org.scipy.optimize.minimize.LinearConstraint;
-import org.scipy.optimize.minimize.records.OptimizeResult;
-import org.scipy.optimize.minimize.matrix.DenseMatrix;
-import org.scipy.optimize.minimize.matrix.Matrix;
+import de.labathome.trustconstr.MinimizeTrustConstr;
+import de.labathome.trustconstr.LinearConstraint;
+import de.labathome.trustconstr.records.OptimizeResult;
+import de.labathome.trustconstr.matrix.DenseMatrix;
+import de.labathome.trustconstr.matrix.Matrix;
 
 // minimize x^2 + y^2  subject to  x + y == 2  ->  optimum at (1, 1)
 java.util.function.Function<Matrix, Double> fun = x ->
@@ -74,7 +130,7 @@ OptimizeResult r = MinimizeTrustConstr.minimize(fun, grad, x0, eq, 500, 1e-8, 1e
 To pick a specific strategy:
 
 ```java
-import org.scipy.optimize.minimize.SR1;
+import de.labathome.trustconstr.SR1;
 
 OptimizeResult r = MinimizeTrustConstr.minimize(
         fun, grad, SR1.FACTORY.build(), x0, eq, 500, 1e-8, 1e-8);
@@ -95,7 +151,7 @@ Pass a `LinearConstraint`, a `NonlinearConstraint`, or `null` to the typed
 overload. For multiple constraints, pass an `Object[]`:
 
 ```java
-import org.scipy.optimize.minimize.NonlinearConstraint;
+import de.labathome.trustconstr.NonlinearConstraint;
 
 // x^2 - y^2 >= 1 (unit hyperbola), with constraint Hessian-of-Lagrangian.
 java.util.function.Function<Matrix, Matrix> cFun = x ->
@@ -129,7 +185,7 @@ parameters, and `verbose`/`disp` console output -- use
 signature.
 
 ```java
-import org.scipy.optimize.minimize.interfaces.IterationCallback;
+import de.labathome.trustconstr.interfaces.IterationCallback;
 
 IterationCallback log = state -> {
     System.out.printf("iter=%d f=%g opt=%g%n",

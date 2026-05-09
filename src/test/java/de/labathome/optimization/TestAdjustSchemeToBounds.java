@@ -4,11 +4,11 @@ import java.util.Arrays;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.matrix.MatrixOps;
-import org.scipy.optimize.minimize.NumDiff;
-import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
-import org.scipy.optimize.minimize.records.AdjustedDifferencingScheme;
-import org.scipy.optimize.minimize.matrix.Matrix;
+import de.labathome.trustconstr.matrix.MatrixOps;
+import de.labathome.trustconstr.NumDiff;
+import de.labathome.trustconstr.enums.FiniteDifferenceMethod;
+import de.labathome.trustconstr.records.AdjustedDifferencingScheme;
+import de.labathome.trustconstr.matrix.Matrix;
 
 
 class TestAdjustSchemeToBounds {

@@ -2,16 +2,16 @@ package de.labathome.optimization;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.matrix.MatrixOps;
-import org.scipy.optimize.minimize.Projections;
-import org.scipy.optimize.minimize.enums.ProjectionMethod;
-import org.scipy.optimize.minimize.interfaces.LinearOperator;
-import org.scipy.optimize.minimize.matrix.DenseMatrix;
-import org.scipy.optimize.minimize.matrix.Matrix;
-import org.scipy.optimize.minimize.matrix.SparseMatrix;
-import org.scipy.optimize.minimize.matrix.DenseMatrix;
-import org.scipy.optimize.minimize.matrix.LinAlg;
-import org.scipy.optimize.minimize.matrix.Matrix;
+import de.labathome.trustconstr.matrix.MatrixOps;
+import de.labathome.trustconstr.Projections;
+import de.labathome.trustconstr.enums.ProjectionMethod;
+import de.labathome.trustconstr.interfaces.LinearOperator;
+import de.labathome.trustconstr.matrix.DenseMatrix;
+import de.labathome.trustconstr.matrix.Matrix;
+import de.labathome.trustconstr.matrix.SparseMatrix;
+import de.labathome.trustconstr.matrix.DenseMatrix;
+import de.labathome.trustconstr.matrix.LinAlg;
+import de.labathome.trustconstr.matrix.Matrix;
 
 
 class TestProjections {

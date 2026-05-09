@@ -1,8 +1,8 @@
 package de.labathome.optimization;
 
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.QPSubproblem;
-import org.scipy.optimize.minimize.matrix.Matrix;
+import de.labathome.trustconstr.QPSubproblem;
+import de.labathome.trustconstr.matrix.Matrix;
 
 
 class TestEQPDirectFactorization {

@@ -5,10 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.function.Function;
 
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.LagrangianHessian;
-import org.scipy.optimize.minimize.interfaces.LinearOperator;
-import org.scipy.optimize.minimize.matrix.DenseMatrix;
-import org.scipy.optimize.minimize.matrix.Matrix;
+import de.labathome.trustconstr.LagrangianHessian;
+import de.labathome.trustconstr.interfaces.LinearOperator;
+import de.labathome.trustconstr.matrix.DenseMatrix;
+import de.labathome.trustconstr.matrix.Matrix;
 
 /**
  * Unit tests for {@link LagrangianHessian} -- the Java port's counterpart to

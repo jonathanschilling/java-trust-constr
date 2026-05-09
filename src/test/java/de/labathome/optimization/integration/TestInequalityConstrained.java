@@ -4,20 +4,20 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import java.util.function.Function;
 
-import org.scipy.optimize.minimize.LinearConstraint;
-import org.scipy.optimize.minimize.MinimizeTrustConstr;
-import org.scipy.optimize.minimize.NonlinearConstraint;
-import org.scipy.optimize.minimize.enums.TrustConstrMethod;
-import org.scipy.optimize.minimize.records.Bounds;
-import org.scipy.optimize.minimize.records.OptimizeResult;
-import org.scipy.optimize.minimize.matrix.Matrix;
+import de.labathome.trustconstr.LinearConstraint;
+import de.labathome.trustconstr.MinimizeTrustConstr;
+import de.labathome.trustconstr.NonlinearConstraint;
+import de.labathome.trustconstr.enums.TrustConstrMethod;
+import de.labathome.trustconstr.records.Bounds;
+import de.labathome.trustconstr.records.OptimizeResult;
+import de.labathome.trustconstr.matrix.Matrix;
 
 /**
  * End-to-end tests for the inequality-constrained dispatch in
  * {@link MinimizeTrustConstr#minimize}.
  *
  * <p>The dispatch is wired up: a problem with inequality rows correctly routes
- * through {@link org.scipy.optimize.minimize.TrustRegionInteriorPoint} (the
+ * through {@link de.labathome.trustconstr.TrustRegionInteriorPoint} (the
  * barrier-subproblem ladder, sparse Jacobian assembly, augmented-system
  * projections), and the {@link OptimizeResult#method} field reflects that.
  *

@@ -1,7 +1,7 @@
 package de.labathome.optimization.integration;
 
-import org.scipy.optimize.minimize.LinearConstraint;
-import org.scipy.optimize.minimize.interfaces.HessianProduct;
+import de.labathome.trustconstr.LinearConstraint;
+import de.labathome.trustconstr.interfaces.HessianProduct;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -13,13 +13,13 @@ import java.util.function.Function;
 import java.util.function.ToDoubleBiFunction;
 
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.MinimizeTrustConstr;
-import org.scipy.optimize.minimize.NonlinearConstraint;
-import org.scipy.optimize.minimize.interfaces.IterationCallback;
-import org.scipy.optimize.minimize.matrix.DenseMatrix;
-import org.scipy.optimize.minimize.matrix.Matrix;
-import org.scipy.optimize.minimize.records.Bounds;
-import org.scipy.optimize.minimize.records.OptimizeResult;
+import de.labathome.trustconstr.MinimizeTrustConstr;
+import de.labathome.trustconstr.NonlinearConstraint;
+import de.labathome.trustconstr.interfaces.IterationCallback;
+import de.labathome.trustconstr.matrix.DenseMatrix;
+import de.labathome.trustconstr.matrix.Matrix;
+import de.labathome.trustconstr.records.Bounds;
+import de.labathome.trustconstr.records.OptimizeResult;
 
 import de.labathome.optimization.RelAbsAssertions;
 

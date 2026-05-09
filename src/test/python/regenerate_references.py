@@ -9,7 +9,7 @@ Run from the repository root:
 Each function below corresponds to a Java integration test under
 `src/test/java/de/labathome/optimization/integration/`; the printed values are
 copy-pasted into the test as the expected fixture. Re-run when scipy is
-upgraded or a new test case is added — every reference value used by a Java
+upgraded or a new test case is added -- every reference value used by a Java
 test should originate here so it can be reproduced.
 
 Requires: scipy >= 1.10 (any version with `trust-constr` is fine).
@@ -182,7 +182,7 @@ def bounded_rosenbrock():
 
 
 def maratos():
-    """Nocedal & Wright 15.4 — Maratos test problem with constraint Hessian."""
+    """Nocedal & Wright 15.4 -- Maratos test problem with constraint Hessian."""
     fun = lambda x: 2 * (x[0] ** 2 + x[1] ** 2 - 1) - x[0]
     grad = lambda x: np.array([4 * x[0] - 1, 4 * x[1]])
     hess = lambda x: 4 * np.eye(2)
@@ -200,7 +200,7 @@ def maratos():
 
 
 def elec_2():
-    """COPS problem #2 — Thomson problem with 2 electrons on the unit sphere."""
+    """COPS problem #2 -- Thomson problem with 2 electrons on the unit sphere."""
     n = 2
     np.random.seed(0)
     phi = np.random.uniform(0, 2 * np.pi, n)

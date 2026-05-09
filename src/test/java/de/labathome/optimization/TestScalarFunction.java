@@ -8,9 +8,9 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.NonlinearVectorFunction;
-import org.scipy.optimize.minimize.matrix.DenseMatrix;
-import org.scipy.optimize.minimize.matrix.Matrix;
+import de.labathome.trustconstr.NonlinearVectorFunction;
+import de.labathome.trustconstr.matrix.DenseMatrix;
+import de.labathome.trustconstr.matrix.Matrix;
 
 /**
  * Java translation of scipy

@@ -2,6 +2,28 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## HARD RULE: ASCII-only
+
+**Every file in this repo MUST contain only ASCII characters (bytes 0x00-0x7F).** No exceptions, no `--`, no smart quotes, no Unicode arrows / Greek letters / em-dashes / non-breaking spaces -- no matter the file type. This applies to source code, tests, build files (`pom.xml`), documentation (`README.md`, `CLAUDE.md`), Python helpers (`src/test/python/*.py`), config files, and anything else committed to the repo. The `scipy/` submodule is exempt because it is checked out from upstream as-is.
+
+When writing or editing any file, use ASCII substitutions (e.g. `->` for `->`, `--` for `--`, `^2` for superscript-2, `lambda` for the Greek letter, `>=` / `<=` / `!=` / `~=` for the typographic comparison glyphs, `'` and `"` for straight quotes only). The existing source tree was scrubbed once with a deliberate pass; do not regress.
+
+To audit before committing:
+
+```bash
+LC_ALL=C python3 -c "
+import os
+for dirpath, dirs, files in os.walk('.'):
+    for skip in ['.git', 'target', 'scipy', 'node_modules']: dirs[:] = [d for d in dirs if d != skip]
+    for fn in files:
+        path = os.path.join(dirpath, fn)
+        with open(path, 'rb') as f: data = f.read()
+        if any(b > 127 for b in data): print(path)
+"
+```
+
+(GNU `grep -rlP "[\x80-\xff]"` does NOT reliably catch UTF-8 bytes in modern locales -- the Python scan above is the reliable check.)
+
 ## Project purpose
 
 Java port of `scipy.optimize.minimize(method='trust-constr')` -- a trust-region constrained optimizer. The reference Python implementation is checked out as a git submodule at `scipy/` (upstream `scipy/scipy`); the relevant sources live in `scipy/scipy/optimize/_trustregion_constr/`. When porting or debugging, compare each Java class against its Python counterpart of the same name (e.g. `Projections.java` <-> `projections.py`, `QPSubproblem.java` <-> `qp_subproblem.py`, `MinimizeTrustConstr.java` <-> `minimize_trustregion_constr.py`).
@@ -25,7 +47,7 @@ Tests use JUnit 5 plus an in-tree `de.labathome.optimization.RelAbsAssertions` h
 
 ## Code layout
 
-- `src/main/java/org/scipy/optimize/minimize/` -- the port itself. The package name is deliberately `org.scipy.*` to mirror upstream.
+- `src/main/java/de/labathome/trustconstr/` -- the port itself. Originally lived under `org.scipy.optimize.minimize` (mirroring upstream); migrated to `de.labathome.trustconstr` for Maven Central publishing under the owner's verified namespace.
   - Top level: one class per scipy `.py` file (`Projections`, `QPSubproblem`, `EqualityConstrainedSQP`, `TrustRegionInteriorPoint`, `BarrierSubproblem`, `NumDiff`, `ScalarFunction`, `VectorFunction`, `BFGS`, `SR1`, `LinearConstraint`, `NonlinearConstraint`, `MinimizeTrustConstr`).
   - `interfaces/` -- functional interfaces (`LinearOperator`, `Constraint`, `Jacobian`, `HessianProduct`, `HessianUpdateStrategy`, `StoppingCriterion`, ...) that stand in for Python's duck typing.
   - `records/` -- plain data carriers (`State`, `StateIP`, `Bounds`, `OptimizeResult`, `CGInfo`, `PreparedConstraint`, ...). These correspond to scipy's namedtuples / ad-hoc dicts.
@@ -36,7 +58,7 @@ Tests use JUnit 5 plus an in-tree `de.labathome.optimization.RelAbsAssertions` h
 
 All linear algebra is in-tree. The only production dependency is **`dev.ludovic.netlib`** (luhenry/netlib, 3.2.0) for BLAS/LAPACK kernels.
 
-The matrix abstraction lives at **`org.scipy.optimize.minimize.matrix`** (8 files):
+The matrix abstraction lives at **`de.labathome.trustconstr.matrix`** (8 files):
 
 - `Matrix` -- minimal abstract base: shape (`getRowCount`/`getColumnCount`), element access (`getAsDouble`/`setAsDouble`), arithmetic (`mtimes`/`plus`/`minus`/`times`/`divide`/`transpose`/`abs`/`absInPlace`), norms (`norm2`/`normInf`), slicing (`subMatrix`/`selectColumns`), `solve(rhs)` (delegates to `LinAlg.solve`), and `rank()` (delegates to `LinAlg.svd`). `Matrix.Factory.*` is a thin compatibility surface that delegates to `DenseMatrix.*`. ~340 LoC.
 - `DenseMatrix` -- concrete dense, backed by **column-major `double[]`** of length `rows x cols`. `data()` exposes the raw buffer for zero-copy LAPACK/BLAS calls. `mtimes(DenseMatrix)` dispatches straight to BLAS `dgemm`. Static factories: `zeros`, `eye`, `column`, `row`, `fromRows`, `fromColumnMajor`, `copyFromMatrix`. Arithmetic methods use covariant returns (`mtimes` returns `DenseMatrix`, etc.) so callers don't need to cast.
@@ -45,7 +67,7 @@ The matrix abstraction lives at **`org.scipy.optimize.minimize.matrix`** (8 file
 - `QRResult`, `SVDResult`, `CholResult` -- Java records carrying the LAPACK output. `QRResult.solve(rhs)` does least-squares, `CholResult.solve(rhs)` reuses the captured Cholesky factor via `dpotrs`, `SVDResult.rank(tol)` and `reciprocalSingularValues()` cover the pseudo-inverse path.
 - `MatrixOps` -- small static helpers on primitive arrays (`norm2(double[])`, `dot(double[], double[])`, `diag(double[])`).
 
-The scipy-`sparse`-style fast path is at **`org.scipy.optimize.minimize.sparse`**:
+The scipy-`sparse`-style fast path is at **`de.labathome.trustconstr.sparse`**:
 
 - `CSRMatrix`, `CSCMatrix` -- primitive-array (`int[] indptr/indices`, `double[] data`) sparse storage matching scipy's `csr_array`/`csc_array`. `CSRMatrix.builder(rows, cols)` is the canonical way to build sparse incrementally -- DOK under the hood, compresses to CSR in `build()`.
 - `SparseAssembly` -- `vstack`, `hstack`, `blockArray` (the `[[A,B],[C,D]]` shape from `projections.py:99`), and `assembleJacobianWithSlacks` (the optimised KKT-Jacobian build from `tr_interior_point.py:_assemble_sparse_jacobian`).

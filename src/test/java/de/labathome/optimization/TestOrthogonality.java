@@ -1,9 +1,9 @@
 package de.labathome.optimization;
 
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.matrix.MatrixOps;
-import org.scipy.optimize.minimize.Projections;
-import org.scipy.optimize.minimize.matrix.Matrix;
+import de.labathome.trustconstr.matrix.MatrixOps;
+import de.labathome.trustconstr.Projections;
+import de.labathome.trustconstr.matrix.Matrix;
 
 
 class TestOrthogonality {

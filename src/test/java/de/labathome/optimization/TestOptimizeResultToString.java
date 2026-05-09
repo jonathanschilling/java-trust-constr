@@ -2,10 +2,10 @@ package de.labathome.optimization;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.enums.PCGStoppingCondition;
-import org.scipy.optimize.minimize.enums.TrustConstrMethod;
-import org.scipy.optimize.minimize.records.OptimizeResult;
-import org.scipy.optimize.minimize.matrix.Matrix;
+import de.labathome.trustconstr.enums.PCGStoppingCondition;
+import de.labathome.trustconstr.enums.TrustConstrMethod;
+import de.labathome.trustconstr.records.OptimizeResult;
+import de.labathome.trustconstr.matrix.Matrix;
 
 class TestOptimizeResultToString {
 

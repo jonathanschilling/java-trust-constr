@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.sparse.CSRMatrix;
+import de.labathome.trustconstr.sparse.CSRMatrix;
 
 class TestCSRMatrixBuilder {
 

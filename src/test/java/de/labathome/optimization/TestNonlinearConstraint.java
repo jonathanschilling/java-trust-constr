@@ -5,9 +5,9 @@ import java.util.function.Function;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.matrix.MatrixOps;
-import org.scipy.optimize.minimize.NonlinearConstraint;
-import org.scipy.optimize.minimize.matrix.Matrix;
+import de.labathome.trustconstr.matrix.MatrixOps;
+import de.labathome.trustconstr.NonlinearConstraint;
+import de.labathome.trustconstr.matrix.Matrix;
 
 
 class TestNonlinearConstraint {

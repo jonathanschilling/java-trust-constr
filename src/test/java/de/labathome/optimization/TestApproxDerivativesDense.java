@@ -8,10 +8,10 @@ import java.util.function.ToDoubleBiFunction;
 import java.util.function.ToDoubleFunction;
 
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.NumDiff;
-import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
-import org.scipy.optimize.minimize.records.FiniteDifferenceOptions;
-import org.scipy.optimize.minimize.matrix.Matrix;
+import de.labathome.trustconstr.NumDiff;
+import de.labathome.trustconstr.enums.FiniteDifferenceMethod;
+import de.labathome.trustconstr.records.FiniteDifferenceOptions;
+import de.labathome.trustconstr.matrix.Matrix;
 
 
 class TestApproxDerivativesDense {

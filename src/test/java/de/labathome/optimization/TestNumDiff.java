@@ -8,11 +8,11 @@ import java.util.function.Function;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.NumDiff;
-import org.scipy.optimize.minimize.enums.FiniteDifferenceMethod;
-import org.scipy.optimize.minimize.matrix.DenseMatrix;
-import org.scipy.optimize.minimize.matrix.Matrix;
-import org.scipy.optimize.minimize.matrix.SparseMatrix;
+import de.labathome.trustconstr.NumDiff;
+import de.labathome.trustconstr.enums.FiniteDifferenceMethod;
+import de.labathome.trustconstr.matrix.DenseMatrix;
+import de.labathome.trustconstr.matrix.Matrix;
+import de.labathome.trustconstr.matrix.SparseMatrix;
 
 
 class TestNumDiff {

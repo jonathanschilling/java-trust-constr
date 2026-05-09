@@ -5,10 +5,10 @@ import java.util.function.Function;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.MinimizeTrustConstr;
-import org.scipy.optimize.minimize.NonlinearConstraint;
-import org.scipy.optimize.minimize.records.OptimizeResult;
-import org.scipy.optimize.minimize.matrix.Matrix;
+import de.labathome.trustconstr.MinimizeTrustConstr;
+import de.labathome.trustconstr.NonlinearConstraint;
+import de.labathome.trustconstr.records.OptimizeResult;
+import de.labathome.trustconstr.matrix.Matrix;
 
 /**
  * Distribution of electrons on a unit sphere -- COPS problem #2 ("Thomson

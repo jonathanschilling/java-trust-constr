@@ -2,8 +2,8 @@ package de.labathome.optimization.sparse;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.sparse.CSRMatrix;
-import org.scipy.optimize.minimize.sparse.SparseAssembly;
+import de.labathome.trustconstr.sparse.CSRMatrix;
+import de.labathome.trustconstr.sparse.SparseAssembly;
 
 import de.labathome.optimization.RelAbsAssertions;
 

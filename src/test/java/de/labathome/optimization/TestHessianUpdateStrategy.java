@@ -3,12 +3,12 @@ package de.labathome.optimization;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.BFGS;
-import org.scipy.optimize.minimize.SR1;
-import org.scipy.optimize.minimize.enums.ExceptionStrategy;
-import org.scipy.optimize.minimize.enums.HessianApproximationType;
-import org.scipy.optimize.minimize.matrix.DenseMatrix;
-import org.scipy.optimize.minimize.matrix.Matrix;
+import de.labathome.trustconstr.BFGS;
+import de.labathome.trustconstr.SR1;
+import de.labathome.trustconstr.enums.ExceptionStrategy;
+import de.labathome.trustconstr.enums.HessianApproximationType;
+import de.labathome.trustconstr.matrix.DenseMatrix;
+import de.labathome.trustconstr.matrix.Matrix;
 
 /**
  * Java translation of subset of scipy

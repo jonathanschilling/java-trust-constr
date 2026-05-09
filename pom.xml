@@ -6,7 +6,7 @@
 	<parent>
 		<groupId>de.labathome</groupId>
 		<artifactId>de-labathome-parent</artifactId>
-		<version>1.0.4</version>
+		<version>1.1.0</version>
 	</parent>
 
 	<artifactId>java-trust-constr</artifactId>
@@ -14,7 +14,7 @@
 	<packaging>jar</packaging>
 
 	<name>java-trust-constr</name>
-	<description>scipy.optimize.minimize(method='trust-constr') in Java</description>
+	<description>Java port of scipy.optimize.minimize(method='trust-constr') -- a trust-region constrained nonlinear optimizer for linear/nonlinear equality and inequality constraints, plus bounds.</description>
 
 	<url>${jonathanschilling.git.url}${project.name}</url>
 	<scm>
@@ -24,7 +24,7 @@
 	</scm>
 	<issueManagement>
 		<url>${jonathanschilling.git.url}${project.name}/issues</url>
-		<system>GitLab Issues</system>
+		<system>GitHub Issues</system>
 	</issueManagement>
 
 	<dependencies>
@@ -39,30 +39,4 @@
 			<version>3.2.0</version>
 		</dependency>
 	</dependencies>
-
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.11.0</version>
-				<configuration>
-					<release>17</release>
-				</configuration>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-surefire-plugin</artifactId>
-				<version>3.2.5</version>
-			</plugin>
-			<plugin>
-				<groupId>org.codehaus.mojo</groupId>
-				<artifactId>buildnumber-maven-plugin</artifactId>
-				<configuration>
-					<doCheck>false</doCheck>
-					<doUpdate>false</doUpdate>
-				</configuration>
-			</plugin>
-		</plugins>
-	</build>
 </project>

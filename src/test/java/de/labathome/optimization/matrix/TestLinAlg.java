@@ -7,11 +7,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.matrix.CholResult;
-import org.scipy.optimize.minimize.matrix.DenseMatrix;
-import org.scipy.optimize.minimize.matrix.LinAlg;
-import org.scipy.optimize.minimize.matrix.QRResult;
-import org.scipy.optimize.minimize.matrix.SVDResult;
+import de.labathome.trustconstr.matrix.CholResult;
+import de.labathome.trustconstr.matrix.DenseMatrix;
+import de.labathome.trustconstr.matrix.LinAlg;
+import de.labathome.trustconstr.matrix.QRResult;
+import de.labathome.trustconstr.matrix.SVDResult;
 
 class TestLinAlg {
 

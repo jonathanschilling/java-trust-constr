@@ -2,7 +2,7 @@ package de.labathome.optimization.sparse;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.sparse.DenseSolve;
+import de.labathome.trustconstr.sparse.DenseSolve;
 
 import de.labathome.optimization.RelAbsAssertions;
 

@@ -10,10 +10,10 @@ import java.util.function.BiFunction;
 import java.util.function.ToDoubleBiFunction;
 
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.MinimizeTrustConstr;
-import org.scipy.optimize.minimize.matrix.DenseMatrix;
-import org.scipy.optimize.minimize.matrix.Matrix;
-import org.scipy.optimize.minimize.records.OptimizeResult;
+import de.labathome.trustconstr.MinimizeTrustConstr;
+import de.labathome.trustconstr.matrix.DenseMatrix;
+import de.labathome.trustconstr.matrix.Matrix;
+import de.labathome.trustconstr.records.OptimizeResult;
 
 import de.labathome.optimization.RelAbsAssertions;
 

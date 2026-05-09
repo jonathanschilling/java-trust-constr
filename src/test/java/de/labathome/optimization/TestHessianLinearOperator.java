@@ -2,9 +2,9 @@ package de.labathome.optimization;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.scipy.optimize.minimize.HessianLinearOperator;
-import org.scipy.optimize.minimize.interfaces.HessianProduct;
-import org.scipy.optimize.minimize.matrix.Matrix;
+import de.labathome.trustconstr.HessianLinearOperator;
+import de.labathome.trustconstr.interfaces.HessianProduct;
+import de.labathome.trustconstr.matrix.Matrix;
 
 
 class TestHessianLinearOperator {

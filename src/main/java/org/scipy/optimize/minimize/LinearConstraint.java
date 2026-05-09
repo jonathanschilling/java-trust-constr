@@ -122,6 +122,29 @@ public class LinearConstraint implements Constraint, Jacobian {
 		this(a, lb, ub, null);
 	}
 
+	/**
+	 * Build a {@code LinearConstraint} from variable {@link Bounds}, i.e. the
+	 * trivial linear constraint {@code lb <= x <= ub} with {@code A = I}.
+	 *
+	 * Mirrors scipy's promotion of {@code Bounds} to a canonical constraint
+	 * via {@code PreparedConstraint(bounds, ...)}.
+	 *
+	 * @param bounds variable bounds — {@code lb} and {@code ub} are
+	 *               {@code n x 1} column matrices
+	 * @return identity-Jacobian constraint that enforces {@code bounds}
+	 */
+	public static LinearConstraint fromBounds(Bounds bounds) {
+		long n = bounds.lb().getRowCount();
+		Matrix identity = Matrix.Factory.eye(n, n);
+		double[] lbArr = new double[(int) n];
+		double[] ubArr = new double[(int) n];
+		for (int i = 0; i < n; ++i) {
+			lbArr[i] = bounds.lb().getAsDouble(i, 0);
+			ubArr[i] = bounds.ub().getAsDouble(i, 0);
+		}
+		return new LinearConstraint(identity, lbArr, ubArr);
+	}
+
 	public Matrix getA() { return A; }
 	public double[] lb() { return lb.clone(); }
 	public double[] ub() { return ub.clone(); }

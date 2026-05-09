@@ -174,8 +174,8 @@ public class EqualityConstrainedSQP {
 			// Compute update (normal + tangential steps).
 			Matrix d = dn.plus(dt);
 
-			// Compute second order model: 1/2 d H d + c.T d + f
-			double quadraticModel = 0.5 * d.transpose().mtimes(H.apply(d)).doubleValue() + c.transpose().mtimes(c).doubleValue();
+			// Compute second order model: 1/2 d H d + c.T d
+			double quadraticModel = 0.5 * d.transpose().mtimes(H.apply(d)).doubleValue() + c.transpose().mtimes(d).doubleValue();
 
 			// Compute linearized constraint: l = A d + b.
 			Matrix linearizedConstr = A.mtimes(d).plus(b);

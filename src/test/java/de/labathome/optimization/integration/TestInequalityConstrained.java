@@ -1,7 +1,6 @@
 package de.labathome.optimization.integration;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import java.util.function.Function;
 
@@ -9,6 +8,7 @@ import org.scipy.optimize.minimize.LinearConstraint;
 import org.scipy.optimize.minimize.MinimizeTrustConstr;
 import org.scipy.optimize.minimize.NonlinearConstraint;
 import org.scipy.optimize.minimize.enums.TrustConstrMethod;
+import org.scipy.optimize.minimize.records.Bounds;
 import org.scipy.optimize.minimize.records.OptimizeResult;
 import org.ujmp.core.Matrix;
 
@@ -102,11 +102,6 @@ class TestInequalityConstrained {
 	}
 
 	@Test
-	@Disabled("Rosenbrock with x[0]>=2: optimum is (2, 4) but the IP path converges "
-			+ "to ~(2.31, …) with trust-radius collapse before reaching it. Same "
-			+ "stock-trust-constr cold-start fragility as the equality-constrained "
-			+ "Rosenbrock case, exacerbated by an active inequality. Higher-order "
-			+ "barrier-update strategies (scipy's [2] reference) would help.")
 	void rosenbrockUnderActiveBound() {
 		// Rosenbrock with x[0] >= 2.  Constrained optimum: x=(2, 4), f=1.
 		// (At x=2 the parabola y=x^2 is followed; outside, f grows.)
@@ -138,8 +133,38 @@ class TestInequalityConstrained {
 		OptimizeResult r = MinimizeTrustConstr.minimize(rosen, rosenG, rosenH, x0, ineq,
 				1000, 1.0e-8, 1.0e-8);
 		Assertions.assertEquals(TrustConstrMethod.TRUST_REGION_INTERIOR_POINT, r.method);
-		Assertions.assertEquals(2.0, r.x.getAsDouble(0, 0), 5.0e-3);
-		Assertions.assertEquals(4.0, r.x.getAsDouble(1, 0), 5.0e-2);
+		Assertions.assertEquals(2.0, r.x.getAsDouble(0, 0), 1.0e-3);
+		Assertions.assertEquals(4.0, r.x.getAsDouble(1, 0), 1.0e-2);
+	}
+
+	@Test
+	void quadraticUnderVariableBounds() {
+		// minimize (x - 5)^2 + (y - 5)^2  s.t.  0 <= x <= 1, 0 <= y <= 2
+		// Optimum at the upper-right corner: (1, 2), f = 16 + 9 = 25.
+		Function<Matrix, Double> q = x -> {
+			double dx = x.getAsDouble(0, 0) - 5.0;
+			double dy = x.getAsDouble(1, 0) - 5.0;
+			return dx * dx + dy * dy;
+		};
+		Function<Matrix, Matrix> qg = x ->
+				Matrix.Factory.linkToArray(new double[] {
+						2 * (x.getAsDouble(0, 0) - 5.0),
+						2 * (x.getAsDouble(1, 0) - 5.0) });
+		Function<Matrix, Matrix> qh = x ->
+				Matrix.Factory.linkToArray(new double[][] { {2, 0}, {0, 2} });
+
+		Bounds b = new Bounds(
+				Matrix.Factory.linkToArray(new double[] {0.0, 0.0}),
+				Matrix.Factory.linkToArray(new double[] {1.0, 2.0}),
+				false);
+		LinearConstraint asConstraint = LinearConstraint.fromBounds(b);
+
+		Matrix x0 = Matrix.Factory.linkToArray(new double[] {0.5, 1.0});
+		OptimizeResult r = MinimizeTrustConstr.minimize(q, qg, qh, x0, asConstraint,
+				1000, 1.0e-8, 1.0e-8);
+		Assertions.assertEquals(TrustConstrMethod.TRUST_REGION_INTERIOR_POINT, r.method);
+		Assertions.assertEquals(1.0, r.x.getAsDouble(0, 0), 5.0e-3);
+		Assertions.assertEquals(2.0, r.x.getAsDouble(1, 0), 5.0e-3);
 	}
 
 	@Test

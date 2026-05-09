@@ -151,13 +151,23 @@ public class MinimizeTrustConstr {
 			java.util.function.Function<Matrix, Matrix> hess,
 			Matrix x0, C eq,
 			int maxIter, double xtol, double gtol) {
+		if (nIneqOf(eq) != 0) {
+			throw new UnsupportedOperationException(
+					"Inequality constraints not supported by minimizeEqualityConstrained");
+		}
+		return minimizeEqualityConstrainedRaw(fun, grad, hess, x0, eq, nEqOf(eq),
+				maxIter, xtol, gtol);
+	}
+
+	private static OptimizeResult minimizeEqualityConstrainedRaw(
+			java.util.function.Function<Matrix, Double> fun,
+			java.util.function.Function<Matrix, Matrix> grad,
+			java.util.function.Function<Matrix, Matrix> hess,
+			Matrix x0, Object eq, int nEq,
+			int maxIter, double xtol, double gtol) {
 		final int nVars = (int) x0.getRowCount();
-		if (eq != null && eq instanceof LinearConstraint && ((LinearConstraint) eq).nIneq() != 0) {
-			throw new UnsupportedOperationException("Inequality constraints not supported by minimizeEqualityConstrained");
-		}
-		if (eq != null && eq instanceof NonlinearConstraint && ((NonlinearConstraint) eq).nIneq() != 0) {
-			throw new UnsupportedOperationException("Inequality constraints not supported by minimizeEqualityConstrained");
-		}
+		final Constraint eqConstr = (Constraint) eq;
+		final Jacobian eqJac = (Jacobian) eq;
 
 		// Wrap objective in ScalarFunction for the existing fun/grad/hess infrastructure.
 		// Note: ScalarFunction.FACTORY is a shared static singleton that retains state
@@ -175,38 +185,41 @@ public class MinimizeTrustConstr {
 		// Initial values from the objective and (optional) constraint.
 		double f0 = objective.f();
 		Matrix g0 = objective.g();
-		final int nEq = eq == null ? 0 : (eq instanceof LinearConstraint ? ((LinearConstraint) eq).nEq() : ((NonlinearConstraint) eq).nEq());
 		final Matrix c0;
 		final Matrix j0;
 		if (eq == null || nEq == 0) {
 			c0 = Matrix.Factory.zeros(0, 1);
 			j0 = Matrix.Factory.zeros(0, nVars);
 		} else {
-			c0 = eq.constrEq(x0);
-			j0 = eq.jacEq(x0);
+			c0 = eqConstr.constrEq(x0);
+			j0 = eqJac.jacEq(x0);
 		}
 
 		// Build the (fun, c_eq) and (grad, J_eq) closures the SQP expects.
-		final Constraint cFinal = eq;
-		final Jacobian jFinal = eq;
+		final Matrix emptyC = c0;
+		final Matrix emptyJ = j0;
 		IFunctionAndConstraint funAndConstr = x -> {
 			double f = fun.apply(x);
-			Matrix c = (cFinal == null || nEq == 0) ? c0 : cFinal.constrEq(x);
+			Matrix c = (eqConstr == null || nEq == 0) ? emptyC : eqConstr.constrEq(x);
 			return new FunctionAndConstraint(f, c);
 		};
 		IGradientAndJacobian gradAndJac = x -> {
 			Matrix g = grad.apply(x);
-			Matrix J = (jFinal == null || nEq == 0) ? j0 : jFinal.jacEq(x);
+			Matrix J = (eqJac == null || nEq == 0) ? emptyJ : eqJac.jacEq(x);
 			return new GradientAndJacobian(g, J);
 		};
 
-		// Lagrangian Hessian: linear-constraint Hessian is zero, so we just delegate to
-		// the objective Hessian. For nonlinear constraints without an analytic
-		// constraint Hessian this is an approximation — the nonlinear case may want
-		// a quasi-Newton update strategy in a future iteration.
+		// Lagrangian Hessian: H_objective(x) + sum_i v[i] * H_{c_i}(x).
+		// LinearConstraint contributes 0; NonlinearConstraint contributes via its
+		// optional hess(x, v) callable. For pure-equality dispatch, v is the
+		// equality-multiplier vector with no inequality component.
+		final Object eqRef = eq;
 		LagrangeHessian lagrHess = (x, v) -> {
 			Matrix H = hess.apply(x);
-			return p -> H.mtimes(p);
+			Matrix contribution = lagrangianConstraintContribution(eqRef, x,
+					colToArray(v), new double[0]);
+			final Matrix Hfinal = (contribution == null) ? H : H.plus(contribution);
+			return p -> Hfinal.mtimes(p);
 		};
 
 		// Initial state and trivial stopping criterion (gtol / xtol / maxIter).
@@ -302,16 +315,91 @@ public class MinimizeTrustConstr {
 			java.util.function.Function<Matrix, Matrix> hess,
 			Matrix x0, C constraint,
 			int maxIter, double xtol, double gtol) {
-		int nIneq = 0;
-		if (constraint instanceof LinearConstraint) {
-			nIneq = ((LinearConstraint) constraint).nIneq();
-		} else if (constraint instanceof NonlinearConstraint) {
-			nIneq = ((NonlinearConstraint) constraint).nIneq();
-		}
+		int nIneq = nIneqOf(constraint);
 		if (nIneq == 0) {
 			return minimizeEqualityConstrained(fun, grad, hess, x0, constraint, maxIter, xtol, gtol);
 		}
 		return minimizeInequalityConstrained(fun, grad, hess, x0, constraint, maxIter, xtol, gtol);
+	}
+
+	/**
+	 * Multi-constraint entry point: combines the supplied constraints into a
+	 * {@link CombinedConstraint} and dispatches as in {@link #minimize}. Pass
+	 * {@code null} or an empty array for unconstrained problems.
+	 */
+	public static OptimizeResult minimize(
+			java.util.function.Function<Matrix, Double> fun,
+			java.util.function.Function<Matrix, Matrix> grad,
+			java.util.function.Function<Matrix, Matrix> hess,
+			Matrix x0, Object[] constraints,
+			int maxIter, double xtol, double gtol) {
+		int nVars = (int) x0.getRowCount();
+		if (constraints == null || constraints.length == 0) {
+			return minimizeEqualityConstrained(fun, grad, hess, x0, null, maxIter, xtol, gtol);
+		}
+		if (constraints.length == 1) {
+			Object c = constraints[0];
+			if (c instanceof LinearConstraint) {
+				return minimize(fun, grad, hess, x0, (LinearConstraint) c, maxIter, xtol, gtol);
+			}
+			if (c instanceof NonlinearConstraint) {
+				return minimize(fun, grad, hess, x0, (NonlinearConstraint) c, maxIter, xtol, gtol);
+			}
+		}
+		CombinedConstraint combined = new CombinedConstraint(constraints, nVars);
+		if (combined.nIneq() == 0) {
+			return minimizeEqualityConstrainedRaw(fun, grad, hess, x0, combined,
+					combined.nEq(), maxIter, xtol, gtol);
+		}
+		return minimizeInequalityConstrainedRaw(fun, grad, hess, x0, combined,
+				combined.nEq(), combined.nIneq(), maxIter, xtol, gtol);
+	}
+
+	private static int nIneqOf(Object constraint) {
+		if (constraint == null) return 0;
+		if (constraint instanceof LinearConstraint) return ((LinearConstraint) constraint).nIneq();
+		if (constraint instanceof NonlinearConstraint) return ((NonlinearConstraint) constraint).nIneq();
+		if (constraint instanceof CombinedConstraint) return ((CombinedConstraint) constraint).nIneq();
+		throw new IllegalArgumentException("Unsupported constraint type: " + constraint.getClass().getName());
+	}
+
+	/**
+	 * Sum of constraint Hessian-of-Lagrangian contributions across the (possibly
+	 * combined) constraint. {@link LinearConstraint} contributes 0;
+	 * {@link NonlinearConstraint} contributes via its
+	 * {@link NonlinearConstraint#lagrangianContribution} callable when set.
+	 * Returns {@code null} if no constraint contributes a Hessian — the caller
+	 * then uses the objective Hessian alone.
+	 */
+	private static Matrix lagrangianConstraintContribution(Object constraint, Matrix x,
+			double[] vEq, double[] vIneq) {
+		if (constraint == null) return null;
+		if (constraint instanceof LinearConstraint) return null;
+		if (constraint instanceof NonlinearConstraint) {
+			return ((NonlinearConstraint) constraint).lagrangianContribution(x, vEq, vIneq);
+		}
+		if (constraint instanceof CombinedConstraint) {
+			return ((CombinedConstraint) constraint).lagrangianContribution(x, vEq, vIneq);
+		}
+		return null;
+	}
+
+	/** Extract a UJMP column vector ({@code n x 1}) as a {@code double[n]}. */
+	private static double[] colToArray(Matrix v) {
+		long rows = v.getRowCount();
+		double[] out = new double[(int) rows];
+		for (int i = 0; i < rows; ++i) {
+			out[i] = v.getAsDouble(i, 0);
+		}
+		return out;
+	}
+
+	private static int nEqOf(Object constraint) {
+		if (constraint == null) return 0;
+		if (constraint instanceof LinearConstraint) return ((LinearConstraint) constraint).nEq();
+		if (constraint instanceof NonlinearConstraint) return ((NonlinearConstraint) constraint).nEq();
+		if (constraint instanceof CombinedConstraint) return ((CombinedConstraint) constraint).nEq();
+		throw new IllegalArgumentException("Unsupported constraint type: " + constraint.getClass().getName());
 	}
 
 	/**
@@ -328,40 +416,53 @@ public class MinimizeTrustConstr {
 			java.util.function.Function<Matrix, Matrix> hess,
 			Matrix x0, C constraint,
 			int maxIter, double xtol, double gtol) {
+		return minimizeInequalityConstrainedRaw(fun, grad, hess, x0, constraint,
+				nEqOf(constraint), nIneqOf(constraint), maxIter, xtol, gtol);
+	}
+
+	private static OptimizeResult minimizeInequalityConstrainedRaw(
+			java.util.function.Function<Matrix, Double> fun,
+			java.util.function.Function<Matrix, Matrix> grad,
+			java.util.function.Function<Matrix, Matrix> hess,
+			Matrix x0, Object constraint, int nEq, int nIneq,
+			int maxIter, double xtol, double gtol) {
 		final int nVars = (int) x0.getRowCount();
-		final int nIneq;
-		final int nEq;
-		if (constraint instanceof LinearConstraint) {
-			nIneq = ((LinearConstraint) constraint).nIneq();
-			nEq = ((LinearConstraint) constraint).nEq();
-		} else if (constraint instanceof NonlinearConstraint) {
-			nIneq = ((NonlinearConstraint) constraint).nIneq();
-			nEq = ((NonlinearConstraint) constraint).nEq();
-		} else {
-			throw new UnsupportedOperationException("Unsupported constraint type: "
-					+ (constraint == null ? "null" : constraint.getClass().getName()));
-		}
+		final Constraint constr = (Constraint) constraint;
+		final Jacobian jac = (Jacobian) constraint;
 
 		// Wrap fun/grad with a no-op args parameter to match the inner method's BiFunction shape.
 		final ToDoubleBiFunction<Matrix, Object> funBi = (x, args) -> fun.apply(x);
 		final BiFunction<Matrix, Object, Matrix> gradBi = (x, args) -> grad.apply(x);
 
-		// Lagrangian Hessian: linear-constraint rows have zero Hessian, so the Lagrangian
-		// reduces to the objective Hessian. For nonlinear constraints without an analytic
-		// Hessian-of-Lagrangian this is an approximation — see the equality-constrained
-		// path for the same tradeoff.
+		// Lagrangian Hessian: H_objective(x) + sum_i v[i] * H_{c_i}(x). The IP path
+		// passes v with eq multipliers first and ineq second, so we slice
+		// accordingly before delegating to the constraint's Hessian-of-Lagrangian
+		// callable (NonlinearConstraint.lagrangianContribution); LinearConstraint
+		// contributions are 0 by construction.
+		final Object constraintRef = constraint;
+		final int nEqLocal = nEq;
+		final int nIneqLocal = nIneq;
 		LagrangeHessian lagrHess = (x, v) -> {
 			Matrix H = hess.apply(x);
-			return p -> H.mtimes(p);
+			double[] vAll = colToArray(v);
+			double[] vEq = new double[nEqLocal];
+			double[] vIneq = new double[nIneqLocal];
+			System.arraycopy(vAll, 0, vEq, 0, Math.min(nEqLocal, vAll.length));
+			if (vAll.length >= nEqLocal + nIneqLocal) {
+				System.arraycopy(vAll, nEqLocal, vIneq, 0, nIneqLocal);
+			}
+			Matrix contribution = lagrangianConstraintContribution(constraintRef, x, vEq, vIneq);
+			final Matrix Hfinal = (contribution == null) ? H : H.plus(contribution);
+			return p -> Hfinal.mtimes(p);
 		};
 
 		// Initial values
 		double f0 = fun.apply(x0);
 		Matrix g0 = grad.apply(x0);
-		Matrix cIneq0 = constraint.constrIneq(x0);
-		Matrix jIneq0 = constraint.jacIneq(x0);
-		Matrix cEq0 = nEq > 0 ? constraint.constrEq(x0) : Matrix.Factory.zeros(0, 1);
-		Matrix jEq0 = nEq > 0 ? constraint.jacEq(x0) : Matrix.Factory.zeros(0, nVars);
+		Matrix cIneq0 = constr.constrIneq(x0);
+		Matrix jIneq0 = jac.jacIneq(x0);
+		Matrix cEq0 = nEq > 0 ? constr.constrEq(x0) : Matrix.Factory.zeros(0, 1);
+		Matrix jEq0 = nEq > 0 ? jac.jacEq(x0) : Matrix.Factory.zeros(0, nVars);
 
 		// Initial state
 		State state = new State();
@@ -393,7 +494,7 @@ public class MinimizeTrustConstr {
 		StatefulResult sr = TrustRegionInteriorPoint.trustRegionInteriorPoint(
 				funBi, gradBi, lagrHess,
 				nVars, nIneq, nEq,
-				constraint, constraint,
+				constr, jac,
 				x0, f0, g0,
 				cIneq0, jIneq0, cEq0, jEq0,
 				stop,

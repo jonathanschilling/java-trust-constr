@@ -3,7 +3,6 @@ package de.labathome.optimization.integration;
 import java.util.function.Function;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.scipy.optimize.minimize.MinimizeTrustConstr;
 import org.scipy.optimize.minimize.NonlinearConstraint;
@@ -31,13 +30,7 @@ class TestMaratos {
 	private static final double TOL = 1.0e-5;
 
 	@Test
-	@Disabled("Maratos effect: stock SQP rejects the Newton step because it temporarily "
-			+ "increases the constraint norm. scipy compensates with a second-order "
-			+ "correction; the Java port has SOC code (EqualityConstrainedSQP.java:217-246) "
-			+ "but it doesn't kick in here. Investigate the SOC trigger condition (norm(dn) "
-			+ "<= 0.1 * norm(dt)) — at a feasible start dn=0 makes the threshold trivially "
-			+ "true, so the SOC fires every iteration but doesn't accept the Newton point.")
-	void maratosFromInteriorPoint() {
+	void maratosFromArc60Degrees() {
 		Function<Matrix, Double> fun = x -> {
 			double a = x.getAsDouble(0, 0);
 			double b = x.getAsDouble(1, 0);
@@ -62,16 +55,22 @@ class TestMaratos {
 			double b = x.getAsDouble(1, 0);
 			return Matrix.Factory.linkToArray(new double[][] { {2.0 * a, 2.0 * b} });
 		};
-		NonlinearConstraint c = new NonlinearConstraint(constrFun, constrJac,
-				new double[] {1.0}, new double[] {1.0});
+		// Hessian of v[0] * c(x) = v[0] * (x[0]^2 + x[1]^2) is 2 * v[0] * I.
+		java.util.function.BiFunction<Matrix, Matrix, Matrix> constrHess = (x, v) -> {
+			double v0 = v.getAsDouble(0, 0);
+			return Matrix.Factory.linkToArray(new double[][] {
+					{2.0 * v0, 0.0}, {0.0, 2.0 * v0} });
+		};
+		NonlinearConstraint c = new NonlinearConstraint(constrFun, constrJac, constrHess,
+				new double[] {1.0}, new double[] {1.0}, null);
 
-		// Start near the optimum (Maratos effect prevents convergence from a 60° start
-		// in this stock trust-constr; scipy faces the same and uses a second-order
-		// correction that the Java port has but with subtle differences).
-		double rad = Math.PI / 6;  // 30°
+		// scipy starts at angle 60°: x0 = (cos 60°, sin 60°) = (0.5, sqrt(3)/2). The
+		// SOC + analytic constraint Hessian let the algorithm converge in 5 iterations
+		// (scipy converges in 8 from the same start).
+		double rad = Math.PI / 3;  // 60°
 		Matrix x0 = Matrix.Factory.linkToArray(new double[] {Math.cos(rad), Math.sin(rad)});
 		OptimizeResult r = MinimizeTrustConstr.minimize(fun, grad, hess, x0, c,
-				1000, 1.0e-10, 1.0e-10);
+				100, 1.0e-10, 1.0e-10);
 
 		Assertions.assertEquals(1.0, r.x.getAsDouble(0, 0), TOL);
 		Assertions.assertEquals(0.0, r.x.getAsDouble(1, 0), TOL);

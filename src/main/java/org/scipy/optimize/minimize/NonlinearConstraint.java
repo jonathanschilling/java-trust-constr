@@ -1,5 +1,6 @@
 package org.scipy.optimize.minimize;
 
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import org.scipy.optimize.minimize.interfaces.Constraint;
@@ -19,10 +20,13 @@ import org.ujmp.core.Matrix;
  * ({@code scipy/optimize/_constraints.py:22}).
  *
  * <p>{@code fun} is the constraint function {@code R^n -> R^m}, {@code jac}
- * its Jacobian ({@code R^n -> R^{m x n}}). The Hessian-of-Lagrangian callable
- * is left out of this iteration — analytic Hessians for nonlinear constraints
- * are added by passing a {@code BFGS}/{@code SR1} update strategy through the
- * top-level {@code MinimizeTrustConstr.minimizeTrustConstr(...)} call.
+ * its Jacobian ({@code R^n -> R^{m x n}}). The optional {@code hess} callable
+ * is the constraint-Hessian-of-Lagrangian:
+ * {@code hess(x, v) -> sum_i v[i] * H_{c_i}(x)}. When supplied, the
+ * orchestrator uses it to build the full Lagrangian Hessian
+ * {@code H_objective(x) + hess(x, v)}; without it, the orchestrator falls back
+ * to the objective Hessian alone, which can hurt convergence on problems where
+ * constraint curvature matters at the optimum (e.g. Maratos).
  *
  * <p>Eq/ineq classification follows the same rule as {@link LinearConstraint},
  * including the two-sided interval split.
@@ -31,6 +35,7 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 
 	private final Function<Matrix, Matrix> fun;
 	private final Function<Matrix, Matrix> jac;
+	private final BiFunction<Matrix, Matrix, Matrix> hess;
 	private final double[] lb;
 	private final double[] ub;
 	private final boolean[] keepFeasible;
@@ -41,6 +46,7 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 	private final double[] ineqTarget;
 
 	public NonlinearConstraint(Function<Matrix, Matrix> fun, Function<Matrix, Matrix> jac,
+			BiFunction<Matrix, Matrix, Matrix> hess,
 			double[] lb, double[] ub, boolean[] keepFeasible) {
 		if (lb.length != ub.length) {
 			throw new IllegalArgumentException("lb and ub must have the same length");
@@ -53,6 +59,7 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 		}
 		this.fun = fun;
 		this.jac = jac;
+		this.hess = hess;
 		this.lb = lb.clone();
 		this.ub = ub.clone();
 		this.keepFeasible = keepFeasible.clone();
@@ -105,8 +112,13 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 	}
 
 	public NonlinearConstraint(Function<Matrix, Matrix> fun, Function<Matrix, Matrix> jac,
+			double[] lb, double[] ub, boolean[] keepFeasible) {
+		this(fun, jac, null, lb, ub, keepFeasible);
+	}
+
+	public NonlinearConstraint(Function<Matrix, Matrix> fun, Function<Matrix, Matrix> jac,
 			double[] lb, double[] ub) {
-		this(fun, jac, lb, ub, null);
+		this(fun, jac, null, lb, ub, null);
 	}
 
 	public double[] lb() { return lb.clone(); }
@@ -118,6 +130,32 @@ public class NonlinearConstraint implements Constraint, Jacobian {
 
 	public int nEq() { return eqRows.length; }
 	public int nIneq() { return ineqRows.length; }
+
+	/**
+	 * Constraint Hessian-of-Lagrangian {@code sum_i v[i] * H_{c_i}(x)},
+	 * combining equality and inequality multipliers into a single Hessian
+	 * contribution. Returns {@code null} if no Hessian was supplied.
+	 *
+	 * <p>{@code vEq} has length {@link #nEq()} and {@code vIneq} length
+	 * {@link #nIneq()}. The values are mapped back to the original constraint
+	 * rows (with appropriate sign for one-sided inequalities) before invoking
+	 * the user-provided {@code hess(x, v)}.
+	 */
+	public Matrix lagrangianContribution(Matrix x, double[] vEq, double[] vIneq) {
+		if (hess == null) {
+			return null;
+		}
+		int m = lb.length;
+		double[] v = new double[m];
+		for (int e = 0; e < eqRows.length; ++e) {
+			v[eqRows[e]] += vEq[e];
+		}
+		for (int k = 0; k < ineqRows.length; ++k) {
+			v[ineqRows[k]] += ineqSign[k] * vIneq[k];
+		}
+		Matrix vMat = UjmpBridge.arrayToCol(v);
+		return hess.apply(x, vMat);
+	}
 
 	@Override
 	public Matrix constrEq(Matrix x) {

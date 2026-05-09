@@ -52,14 +52,22 @@ UJMP is being incrementally retired in favour of an in-tree sparse module at **`
 
 ## Public entry points
 
-- `MinimizeTrustConstr.minimize(fun, grad, hess, x0, constraint, maxIter, xtol, gtol)` — general entry point. Routes equality-only / unconstrained problems to {@code minimizeEqualityConstrained}, and any problem with inequality rows to a {@code TrustRegionInteriorPoint}-driven path. The result's {@code method} field reports which one was used.
-- `MinimizeTrustConstr.minimizeEqualityConstrained(...)` — direct equality-constrained entry. Dispatches to `EqualityConstrainedSQP.eqSQP`. This is the well-tested path.
+- `MinimizeTrustConstr.minimize(fun, grad, hess, x0, constraint, ...)` — single-constraint entry. Accepts a `LinearConstraint`, `NonlinearConstraint`, or `null`. Routes equality-only / unconstrained problems to `EqualityConstrainedSQP` and any inequality problem to `TrustRegionInteriorPoint`. The result's `method` field reports which path was used.
+- `MinimizeTrustConstr.minimize(fun, grad, hess, x0, Object[] constraints, ...)` — multi-constraint entry. Combines via `CombinedConstraint` (concatenates eq rows then ineq rows across sources) before dispatching.
+- `MinimizeTrustConstr.minimizeEqualityConstrained(...)` — direct equality-constrained entry, used internally and by integration tests.
 - `MinimizeTrustConstr.minimizeTrustConstr(...)` — the full scipy-shaped API. **Body still incomplete past the prepared-constraint step**: canonical-form concatenation, Lagrangian Hessian assembly, and method dispatch are TODO.
+
+## Constraint Hessian-of-Lagrangian
+
+`NonlinearConstraint` accepts an optional `BiFunction<Matrix, Matrix, Matrix> hess(x, v)` — the constraint Hessian-of-Lagrangian
+{@code Σ_i v[i] · H_{c_i}(x)}. When supplied, the orchestrator combines it with the objective Hessian to form the full Lagrangian Hessian {@code H_obj + H_constraint}. `LinearConstraint` rows have zero Hessian (they're linear), so they contribute nothing here. `CombinedConstraint` walks its sources and slices `vEq`/`vIneq` into per-source segments before delegating.
+
+For nonlinear problems where constraint curvature matters at the optimum (e.g. Maratos), supplying `hess` is essential — without it the algorithm uses only the objective Hessian and convergence quality drops. With `hess` supplied, the Java port matches scipy iteration counts on Maratos (5 iterations vs scipy's 8 — the difference is in initial-step heuristics, not algorithmic behaviour).
 
 ## Known gaps (work-in-progress)
 
 - **`MinimizeTrustConstr.minimizeTrustConstr` body** is incomplete past line ~329: canonical-form constraint concatenation, Lagrangian Hessian assembly, method dispatch (`TrustRegionInteriorPoint` vs `EqualityConstrainedSQP`), and the iteration/callback loop are still TODO. Inner methods (`TrustRegionInteriorPoint`, `EqualityConstrainedSQP`, `BarrierSubproblem`) are runnable; the full orchestrator that wires them up is not. The narrower `minimizeEqualityConstrained` covers the equality-constrained subset.
-- **Inequality-constrained convergence**: `MinimizeTrustConstr.minimize` dispatches inequality problems through `TrustRegionInteriorPoint` + `BarrierSubproblem`. Working end-to-end tests cover linear lower-bounds (active and inactive), Rosenbrock with a slack lower-bound, and a nonlinear inequality (interior of unit disk). Two stress tests are {@code @Disabled}: Maratos (the well-known SQP step-rejection issue — SOC code is present but doesn't fire correctly) and Rosenbrock with an active linear bound (cold-start trust-radius collapse). Both are upstream from anything in the orchestrator and need investigation in the SQP / IP step-acceptance logic.
+- **Multi-constraint, mixed eq+ineq, Bounds, nonlinear constraints with analytic Hessian** all working end-to-end. Test cases include the Maratos problem (Nocedal & Wright 15.4 — converges in 5 iterations), `HyperbolicIneq` (N&W 15.1), `EqIneqRosenbrock`, and Rosenbrock with active/inactive linear and nonlinear inequalities.
 - **Scipy test-suite parity**: `test_canonical_constraint.py`, `test_projections.py`, `test_qp_subproblem.py`, `test_nested_minimize.py`, and selected cases from `test_minimize_constrained.py` are not yet translated. New scipy-reference values for Java integration tests live in `src/test/python/regenerate_references.py`.
 
 ## Bug fixes that landed alongside the orchestrator
@@ -72,3 +80,4 @@ A few latent bugs surfaced when wiring `EqualityConstrainedSQP` into a runnable 
 - `ScalarFunction.ScalarFunctionFactory` constructor was private with a single shared `FACTORY` static instance whose state leaked between calls. Constructor is now `public` so callers can build a fresh factory per `minimize` invocation.
 - `BarrierSubproblem.getScaling` placed the slack diagonal entries at offset `0` instead of `nVars`, producing a malformed scaling matrix that prevented `TrustRegionInteriorPoint` from converging. Now correctly populates the lower block.
 - `Projections.projections` rejected `AUGMENTED_SYSTEM` for dense matrices (and `QR_FACTORIZATION` for sparse). Since the augmented-system path now goes through the in-tree CSR module regardless of input type, that gate has been removed.
+- `EqualityConstrainedSQP.eqSQP` had a typo in the trust-region quadratic model: it computed `0.5 d.T H d + c.T c` (gradient norm squared) instead of `0.5 d.T H d + c.T d`. The bad term made the merit-function reduction ratio explode (~-1e14 at the first iteration on Maratos), driving the trust radius to collapse before the algorithm could make progress. Fixing this single character (`mtimes(c)` → `mtimes(d)`) is what unblocked Maratos convergence and active-bound Rosenbrock convergence.
